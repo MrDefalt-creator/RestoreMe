@@ -1,3 +1,7 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Backup.Shared.Contracts.DTOs;
 
-public record HeartBeatRequest();
+public record HeartBeatRequest(
+    [Required] Guid AgentId
+    );
