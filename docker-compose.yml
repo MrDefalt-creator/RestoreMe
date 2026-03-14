@@ -2,9 +2,9 @@ services:
     db:
         image: postgres:latest
         environment:
-            POSTGRES_DB: restorme_db
-            POSTGRES_USER: restorme_user
-            POSTGRES_PASSWORD: restorme_password
+            POSTGRES_DB: restoreme_db
+            POSTGRES_USER: restoreme_user
+            POSTGRES_PASSWORD: restoreme_password
         volumes:
             - db_data:/var/lib/postgresql/18/       
         ports:
