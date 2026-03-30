@@ -34,8 +34,9 @@ public class AgentRepository : IAgentRepository
             .FirstOrDefaultAsync(a => a.Id == agentId);
     }
 
-    public void UpdateAgent(Agent agent)
+    public async Task UpdateAgent(Agent agent)
     {
         _dbContext.Agents.Update(agent);
+        
     }
 }

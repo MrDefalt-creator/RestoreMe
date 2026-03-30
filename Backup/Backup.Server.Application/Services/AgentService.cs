@@ -14,7 +14,7 @@ public class AgentService
     public async Task<Guid> RegisterAgent(string agentName, string hostName, string os, string version)
     {
         var existingAgent = await _agentRepository.GetByMachineNameAsync(hostName);
-        if (existingAgent == null)
+        if (existingAgent != null)
         {
             throw new Exception("Agent already exists");
         }
@@ -22,6 +22,7 @@ public class AgentService
         var agent = new Agent
         {
             Id = Guid.NewGuid(),
+            MachineName = hostName,
             Name = agentName,
             OsType = os,
             Version = version,

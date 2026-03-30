@@ -24,8 +24,9 @@ public class AgentsController : ControllerBase
     }
 
     [HttpPost("heartbeat/{agentId}")]
-    public async Task<IActionResult> Heartbeat([FromRoute] HeartBeatRequest request)
+    public async Task<IActionResult> Heartbeat([FromRoute] Guid agentId)
     {
+        await  _agentService.Heartbeat(agentId);
         return Ok();
     }
     

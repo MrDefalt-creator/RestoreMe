@@ -1,6 +1,7 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Infrastructure.Configuration;
+using Backup.Server.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,8 +18,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-builder.Services.AddScoped<IAgentRepository, IAgentRepository>();
+builder.Services.AddScoped<IAgentRepository, AgentRepository>();
 builder.Services.AddScoped<AgentService>();
+builder.Services.AddScoped<PoliciesService>();
+builder.Services.AddScoped<IPolicyRepository, PolicyRepository>();
 
 var app = builder.Build();
 

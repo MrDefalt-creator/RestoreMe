@@ -8,5 +8,5 @@ public interface IAgentRepository
     Task AddAgent(Agent agent);
     Task SaveChangesAsync();
     Task<Agent?> GetAgentByIdAsync(Guid agentId);
-    void UpdateAgent(Agent agent);
+    Task UpdateAgent(Agent agent);
 }
