@@ -35,17 +35,11 @@ public class PoliciesService
         return policy;
     }
 
-    public async Task<List<BackupPolicy>?> GetAllPolicies(Guid agentId)
+    public async Task<List<BackupPolicy>> GetAllPolicies(Guid agentId)
     {
         var policies = await _policyRepository.GetAllPolicies(agentId);
-
-        if (policies.Count == 0)
-        {
-            return null;
-        }
         
         return policies;
-        
         
     }
 

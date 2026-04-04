@@ -34,7 +34,9 @@ public class PoliciesController : ControllerBase
     [HttpGet("get_policy/{policyId}")]
     public async Task<IActionResult> GetPolicy([FromRoute] Guid policyId)
     {
-        var response = await _policiesService.GetPolicyById(policyId);
+        var policy = await _policiesService.GetPolicyById(policyId);
+        
+        var response = new BackupPolicyDto(policy.Id, policy.Name, policy.SourcePath, policy.IsEnabled, policy.AgentId);
         
         return Ok(response);
     }
