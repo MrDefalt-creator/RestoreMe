@@ -22,6 +22,7 @@ builder.Services.AddScoped<IAgentRepository, AgentRepository>();
 builder.Services.AddScoped<AgentService>();
 builder.Services.AddScoped<PoliciesService>();
 builder.Services.AddScoped<IPolicyRepository, PolicyRepository>();
+builder.Services.AddScoped<IPendingAgentsRepository, PendingAgentsRepository>();
 
 var app = builder.Build();
 

@@ -38,5 +38,6 @@ public class AgentConfiguration : IEntityTypeConfiguration<Agent>
             .WithOne(x => x.Agent)
             .HasForeignKey(x => x.AgentId)
             .OnDelete(DeleteBehavior.Cascade);
+        
     }
 }

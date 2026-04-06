@@ -9,6 +9,8 @@ public class AppDbContext : DbContext
     public DbSet<BackupJob> BackupJobs { get; set; }
     public DbSet<BackupPolicy> BackupPolicies { get; set; }
     public DbSet<BackupArtifact> BackupArtifacts { get; set; }
+    
+    public DbSet<PendingAgent>  PendingAgents { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {

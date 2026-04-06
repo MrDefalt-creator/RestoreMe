@@ -55,4 +55,14 @@ public class AgentApiClient : IAgentApiClient
         
         return polices ?? new List<BackupPolicyDto>();
     }
+
+    public Task<Guid> RegisterRequestAsync(Guid agentId, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<PendingAgentStatusResponse> GetStatusAsync(Guid agentId, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
 }
