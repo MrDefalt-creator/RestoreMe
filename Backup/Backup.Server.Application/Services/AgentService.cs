@@ -66,7 +66,7 @@ public class AgentService
             throw new Exception("Pending agent not found");
         }
 
-        if (pendingAgent.Status == PendingAgentStatus.Aproved && pendingAgent.ApprovedAgentId.HasValue)
+        if (pendingAgent.Status == PendingAgentStatus.Approved && pendingAgent.ApprovedAgentId.HasValue)
         {
             return pendingAgent.ApprovedAgentId.Value;
         }
@@ -74,7 +74,7 @@ public class AgentService
         var existingAgent = await _agentRepository.GetByMachineNameAsync(pendingAgent.MachineName);
         if (existingAgent != null)
         {
-            pendingAgent.Status = PendingAgentStatus.Aproved;
+            pendingAgent.Status = PendingAgentStatus.Approved;
             pendingAgent.ApprovedAgentId = existingAgent.Id;
 
             await _pendingAgentsRepository.UpdateAsync(pendingAgent);
@@ -97,7 +97,7 @@ public class AgentService
         await _agentRepository.AddAgent(agent);
         await _agentRepository.SaveChangesAsync();
 
-        pendingAgent.Status = PendingAgentStatus.Aproved;
+        pendingAgent.Status = PendingAgentStatus.Approved;
         pendingAgent.ApprovedAgentId = agent.Id;
 
         await _pendingAgentsRepository.UpdateAsync(pendingAgent);

@@ -1,6 +1,7 @@
 using Backup.Agent.Worker;
 using Backup.Agent.Worker.Options;
 using Backup.Agent.Worker.Services;
+using Backup.Agent.Worker.State;
 using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -21,6 +22,7 @@ builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>((sp, client) =>
     client.BaseAddress = new Uri(apiOptions.BaseUrl);
 });
 
+builder.Services.AddSingleton<IAgentState, FileAgentStore>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

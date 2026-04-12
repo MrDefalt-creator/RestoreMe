@@ -13,10 +13,34 @@ public class AgentApiClient : IAgentApiClient
         _logger = logger;
         _httpClient = httpClient;
     }
+
+    public async Task<Guid> RegisterPendingAsync(PendingAgentRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "/api/Agents/register-pending",
+            request,
+            cancellationToken
+        );
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"RegisterPending request failed with status code {response.StatusCode}");
+        }
+        
+        var result =  await response.Content.ReadFromJsonAsync<PendingAgentRegisterResponse>(cancellationToken);
+
+        if (result == null)
+        {
+            throw new Exception("RegisterPending request is Empty");
+        }
+
+        return result.PendingId;
+    }
+
     public async Task<bool> SendHeartbeatAsync(Guid agentId, CancellationToken cancellationToken)
     {
         var response = await _httpClient.PostAsync(
-            $"api/agents/heartbeat/{agentId}",
+            $"api/Agents/heartbeat/{agentId}",
             content: null
             ,cancellationToken);
 
@@ -32,11 +56,27 @@ public class AgentApiClient : IAgentApiClient
         }
         return true;
     }
+    
+    public async Task<PendingAgentStatusResponse> GetPendingStatusAsync(Guid pendingId, CancellationToken cancellationToken)
+    {
+        var response = await _httpClient.GetAsync($"api/Agents/status/{pendingId}", cancellationToken);
+        
+        response.EnsureSuccessStatusCode();
+        
+        var result = await response.Content.ReadFromJsonAsync<PendingAgentStatusResponse>(cancellationToken);
+
+        if (result == null)
+        {
+            throw new Exception("GetPending request is Empty");
+        }
+        
+        return result;
+    }
 
     public async Task<IReadOnlyCollection<BackupPolicyDto>> GetPoliciesAsync(Guid agentId, CancellationToken cancellationToken)
     {
         var response = await _httpClient.GetAsync(
-            $"api/policies/get_policies/{agentId}",
+            $"api/Policies/get_policies/{agentId}",
             cancellationToken
         );
 
@@ -54,15 +94,5 @@ public class AgentApiClient : IAgentApiClient
         var polices = await response.Content.ReadFromJsonAsync<List<BackupPolicyDto>>(cancellationToken: cancellationToken);
         
         return polices ?? new List<BackupPolicyDto>();
-    }
-
-    public Task<Guid> RegisterRequestAsync(Guid agentId, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<PendingAgentStatusResponse> GetStatusAsync(Guid agentId, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
     }
 }

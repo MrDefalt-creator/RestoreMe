@@ -36,7 +36,7 @@ public class PoliciesController : ControllerBase
     {
         var policy = await _policiesService.GetPolicyById(policyId);
         
-        var response = new BackupPolicyDto(policy.Id, policy.Name, policy.SourcePath, policy.IsEnabled, policy.AgentId);
+        var response = new BackupPolicyDto(policy.Id, policy.Name, policy.SourcePath, policy.IsEnabled);
         
         return Ok(response);
     }

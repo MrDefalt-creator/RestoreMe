@@ -34,9 +34,9 @@ public class AgentsController : ControllerBase
     }
 
     [HttpPost("approve/{pendingId}")]
-    public async Task<IActionResult> Approve([FromRoute] Guid pendingId, [FromBody] string name)
+    public async Task<IActionResult> Approve([FromRoute] Guid pendingId, [FromBody] ApproveRequest request)
     {
-        var agentId = await _agentService.ApproveAgent(pendingId, name);
+        var agentId = await _agentService.ApproveAgent(pendingId, request.Name);
         return Ok(agentId);
     }
 
@@ -44,7 +44,7 @@ public class AgentsController : ControllerBase
     public async Task<IActionResult> RegisterPending([FromBody] PendingAgentRequest request)
     {
         var pendingId = await _agentService.RegisterPending(request.MachineName, request.OsType, request.OsVersion);
-        return Ok(pendingId);
+        return Ok(new PendingAgentRegisterResponse(pendingId));
     }
     
 }
