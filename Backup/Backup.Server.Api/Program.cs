@@ -18,12 +18,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-builder.Services.AddScoped<IAgentRepository, AgentRepository>();
 builder.Services.AddScoped<AgentService>();
 builder.Services.AddScoped<PoliciesService>();
+builder.Services.AddScoped<BackgroundService>();
+builder.Services.AddScoped<IAgentRepository, AgentRepository>();
 builder.Services.AddScoped<IPolicyRepository, PolicyRepository>();
 builder.Services.AddScoped<IPendingAgentsRepository, PendingAgentsRepository>();
-
+builder.Services.AddScoped<IBackupJobRepository, BackupJobRepository>();
+builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
