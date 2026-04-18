@@ -9,7 +9,7 @@ public interface IBackupApiClient
     Task FinishBackupJobAsync(Guid jobId,CancellationToken cancellationToken);
     Task FailBackupJobAsync(Guid jobId, string errorMessage, CancellationToken cancellationToken);
     Task AddArtifactAsync(Guid jobId, string fileName, string objectKey, long size, string checksum, CancellationToken cancellationToken);
-    
+    Task MarkPolicyExecutedAsync(Guid policyId, CancellationToken cancellationToken);
     Task<UploadTicketResponse> RequestUploadTicketAsync(
         RequestUploadTicketRequest request,
         CancellationToken cancellationToken);

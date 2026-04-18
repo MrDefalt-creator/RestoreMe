@@ -19,7 +19,7 @@ public class PoliciesController : ControllerBase
     [HttpPost("create_policy/{agentId}")]
     public async Task<IActionResult> CreatePolicyForAgent([FromRoute] Guid agentId, [FromBody] CreateBackupPolicyRequest request)
     {
-        var policy = await _policiesService.CreatePolicy(agentId, request.Name, request.SourcePath);
+        var policy = await _policiesService.CreatePolicy(agentId, request.Name, request.SourcePath, request.Interval);
         
         var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
         return Ok(response);
@@ -37,9 +37,16 @@ public class PoliciesController : ControllerBase
     {
         var policy = await _policiesService.GetPolicyById(policyId);
         
-        var response = new BackupPolicyDto(policy.Id, policy.Name, policy.SourcePath, policy.IsEnabled);
+        var response = new BackupPolicyDto(policy.Id, policy.Name, policy.SourcePath, policy.IsEnabled, policy.NextRunAt);
         
         return Ok(response);
+    }
+
+    [HttpPost("mark_policy_executed/{policyId}")]
+    public async Task<IActionResult> MarkPolicyExecuted([FromRoute] Guid policyId)
+    {
+        await _policiesService.MarkPolicyExecuted(policyId);
+        return Ok();
     }
     
     

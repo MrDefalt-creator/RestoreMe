@@ -19,7 +19,7 @@ public class AgentApiClient : IAgentApiClient
     public async Task<Guid> RegisterPendingAsync(PendingAgentRequest request, CancellationToken cancellationToken)
     {
         var response = await _httpClient.PostAsJsonAsync(
-            "/api/Agents/register-pending",
+            "/api/Agents/register_pending",
             request,
             cancellationToken
         );

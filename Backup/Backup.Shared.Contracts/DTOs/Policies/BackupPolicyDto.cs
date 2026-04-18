@@ -6,5 +6,6 @@ public record BackupPolicyDto(
     [Required] Guid Id,
     [Required] string Name,
     [Required] string SourcePath,
-    [Required] bool IsEnabled
+    [Required] bool IsEnabled,
+    [Required] DateTime NexRunAt
     );

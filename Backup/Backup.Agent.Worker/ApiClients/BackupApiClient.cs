@@ -76,7 +76,7 @@ public class BackupApiClient : IBackupApiClient
         _logger.LogInformation("Adding artifact");
 
         var response = await _httpClient.PostAsJsonAsync(
-            $"api/BackupJobs/add-artifact/",
+            $"api/BackupJobs/add_artifact/",
             new AddArtifactBackupJobRequest(jobId, fileName, objectKey, size, checksum),
             cancellationToken
         );
@@ -86,12 +86,26 @@ public class BackupApiClient : IBackupApiClient
         _logger.LogInformation("Artifact added");
     }
 
+    public async Task MarkPolicyExecutedAsync(Guid policyId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Marking policy executed");
+
+        var response = await _httpClient.PostAsync(
+            $"api/BackupJobs/mark_policy_executed/{policyId}",
+            null,
+            cancellationToken);
+        
+        response.EnsureSuccessStatusCode();
+        
+        _logger.LogInformation("Policy executed");
+    }
+
     public async Task<UploadTicketResponse> RequestUploadTicketAsync(
         RequestUploadTicketRequest request,
         CancellationToken cancellationToken)
     {
         var response = await _httpClient.PostAsJsonAsync(
-            "api/BackupJobs/upload-ticket",
+            "api/BackupJobs/upload_ticket",
             request,
             cancellationToken);
 
@@ -107,4 +121,6 @@ public class BackupApiClient : IBackupApiClient
 
         return result;
     }
+    
+    
 }

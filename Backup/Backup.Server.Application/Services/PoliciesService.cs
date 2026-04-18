@@ -11,7 +11,7 @@ public class PoliciesService
         _policyRepository = policyRepository;
     }
 
-    public async Task<BackupPolicy> CreatePolicy(Guid agentId, string name, string sourcePath)
+    public async Task<BackupPolicy> CreatePolicy(Guid agentId, string name, string sourcePath, int interval)
     {
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
 
@@ -25,7 +25,9 @@ public class PoliciesService
             Id = Guid.NewGuid(),
             AgentId = agentId,
             Name = name,
-            SourcePath = sourcePath
+            SourcePath = sourcePath,
+            IntervalSeconds =  interval,
+            NextRunAt = DateTime.UtcNow
         };
         
         await _policyRepository.AddPolicy(policy);
@@ -40,7 +42,6 @@ public class PoliciesService
         var policies = await _policyRepository.GetAllPolicies(agentId);
         
         return policies;
-        
     }
 
     public async Task<BackupPolicy> GetPolicyById(Guid policyId)
@@ -53,5 +54,20 @@ public class PoliciesService
         }
         
         return policy;
+    }
+    
+    public async Task MarkPolicyExecuted(Guid policyId)
+    {
+        var policy = await _policyRepository.GetPolicyById(policyId);
+
+        if (policy == null)
+        {
+            throw new Exception("Policy not found");
+        }
+        
+        policy.LastRunAt = DateTime.UtcNow;
+        policy.NextRunAt = DateTime.UtcNow.AddSeconds(policy.IntervalSeconds);
+        await _policyRepository.UpdatePolicy(policy);
+        await _policyRepository.SaveChangesAsync();
     }
 }

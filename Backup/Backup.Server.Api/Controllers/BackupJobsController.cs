@@ -36,14 +36,14 @@ public class BackupJobsController : ControllerBase
         return Ok();
     }
     
-    [HttpPost("add-artifact")]
+    [HttpPost("add_artifact")]
     public async Task<IActionResult> AddArtifact([FromBody] AddArtifactBackupJobRequest request)
     {
         await _service.AddArtifact(request.JobId, request.FileName, request.ObjectKey, request.Size, request.Сhecksum);
         return Ok();
     }
     
-    [HttpPost("upload-ticket")]
+    [HttpPost("upload_ticket")]
     public async Task<IActionResult> RequestUploadTicket([FromBody] RequestUploadTicketRequest request)
     {
         var response = await _service.RequestUploadTicketAsync(request);

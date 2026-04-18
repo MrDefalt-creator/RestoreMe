@@ -41,7 +41,7 @@ public class AgentsController : ControllerBase
         return Ok(agentId);
     }
 
-    [HttpPost("register-pending")]
+    [HttpPost("register_pending")]
     public async Task<IActionResult> RegisterPending([FromBody] PendingAgentRequest request)
     {
         var pendingId = await _agentService.RegisterPending(request.MachineName, request.OsType, request.OsVersion);

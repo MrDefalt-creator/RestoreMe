@@ -11,18 +11,22 @@ public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
     private readonly IAgentApiClient _apiClient;
+    private readonly IBackupApiClient _backupClient;
     private readonly AgentOptions _agentOptions;
     private readonly IAgentState _agentState;
     private readonly IBackupExecutor _backupExecutor;
 
     public Worker(ILogger<Worker> logger, 
         IAgentApiClient apiClient, 
-        IOptions<AgentOptions> agentOptions, IAgentState agentState, IBackupExecutor backupExecutor)
+        IOptions<AgentOptions> agentOptions, 
+        IAgentState agentState, 
+        IBackupExecutor backupExecutor, IBackupApiClient backupClient)
     {
         _logger = logger;
         _apiClient = apiClient;
         _agentState = agentState;
         _backupExecutor = backupExecutor;
+        _backupClient = backupClient;
         _agentOptions = agentOptions.Value;
     }
 
@@ -151,8 +155,14 @@ public class Worker : BackgroundService
 
                 _logger.LogInformation("Policies synchronized. Count: {PoliciesCount}", policies.Count);
 
-                foreach (var policy in policies)
+                foreach (var policy in policies.Where(x => x.IsEnabled))
                 {
+
+                    if (DateTime.UtcNow < policy.NexRunAt)
+                    {
+                        continue;
+                    }
+                    
                     _logger.LogInformation(
                         "Policy: {PolicyId} | {PolicyName} | {PolicySourcePath}",
                         policy.Id,
@@ -161,6 +171,8 @@ public class Worker : BackgroundService
                     );
                     
                     await _backupExecutor.ExecutePolicyAsync(policy, cancellationToken);
+                    await _backupClient.MarkPolicyExecutedAsync(policy.Id, cancellationToken);
+                    
                 }
 
                 return DateTime.UtcNow.Add(policySyncInterval);
