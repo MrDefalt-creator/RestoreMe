@@ -1,4 +1,4 @@
-namespace Backup.Shared.Contracts.DTOs;
+namespace Backup.Shared.Contracts.DTOs.Policies;
 
 public record CreatePolicyResponse(
     Guid PolicyId,

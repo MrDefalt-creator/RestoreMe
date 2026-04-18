@@ -1,5 +1,6 @@
 using Backup.Server.Application.Services;
 using Backup.Shared.Contracts.DTOs;
+using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backup.Server.Api.Controllers;

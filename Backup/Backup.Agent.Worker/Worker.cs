@@ -1,7 +1,8 @@
+using Backup.Agent.Worker.Interfaces;
 using Backup.Agent.Worker.Options;
-using Backup.Agent.Worker.Services;
 using Backup.Agent.Worker.State;
 using Backup.Shared.Contracts.DTOs;
+using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.Extensions.Options;
 
 namespace Backup.Agent.Worker;
@@ -12,14 +13,16 @@ public class Worker : BackgroundService
     private readonly IAgentApiClient _apiClient;
     private readonly AgentOptions _agentOptions;
     private readonly IAgentState _agentState;
+    private readonly IBackupExecutor _backupExecutor;
 
     public Worker(ILogger<Worker> logger, 
         IAgentApiClient apiClient, 
-        IOptions<AgentOptions> agentOptions, IAgentState agentState)
+        IOptions<AgentOptions> agentOptions, IAgentState agentState, IBackupExecutor backupExecutor)
     {
         _logger = logger;
         _apiClient = apiClient;
         _agentState = agentState;
+        _backupExecutor = backupExecutor;
         _agentOptions = agentOptions.Value;
     }
 
@@ -108,8 +111,7 @@ public class Worker : BackgroundService
         throw new OperationCanceledException("Registration flow was cancelled");
         
     }
-
-
+    
     private static string GetOsType()
     {
         if (OperatingSystem.IsWindows()) return "Windows";
@@ -118,9 +120,7 @@ public class Worker : BackgroundService
         
         return "Unknown";
     }
-
-
-
+    
     private async Task<DateTime> ProcessIterationAsync(
             Guid agentId,
             DateTime nextPolicySyncAtUtc,
@@ -159,6 +159,8 @@ public class Worker : BackgroundService
                         policy.Name,
                         policy.SourcePath
                     );
+                    
+                    await _backupExecutor.ExecutePolicyAsync(policy, cancellationToken);
                 }
 
                 return DateTime.UtcNow.Add(policySyncInterval);

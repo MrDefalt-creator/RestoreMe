@@ -1,6 +1,8 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Domain.Enums;
+using Backup.Shared.Contracts.DTOs;
+using Backup.Shared.Contracts.DTOs.Jobs;
 
 namespace Backup.Server.Application.Services;
 
@@ -10,13 +12,15 @@ public class BackupJobsService
     private readonly IAgentRepository _agentRepository;
     private readonly IBackupJobRepository _backupJobRepository;
     private readonly IBackupArtifactRepository _backupArtifactRepository;
+    private readonly IStorageAccessService  _storageAccessService; 
     
-    public BackupJobsService(IPolicyRepository policyRepository, IAgentRepository agentRepository, IBackupJobRepository backupJobRepository, IBackupArtifactRepository backupArtifactRepository)
+    public BackupJobsService(IPolicyRepository policyRepository, IAgentRepository agentRepository, IBackupJobRepository backupJobRepository, IBackupArtifactRepository backupArtifactRepository, IStorageAccessService storageAccessService)
     {
         _policyRepository = policyRepository;
         _agentRepository = agentRepository;
         _backupJobRepository = backupJobRepository;
         _backupArtifactRepository = backupArtifactRepository;
+        _storageAccessService = storageAccessService;
     }
 
     public async Task<Guid> Start(Guid agentId, Guid policyId)
@@ -60,6 +64,7 @@ public class BackupJobsService
 
         job.Status = BackupJobStatus.Completed;
         job.CompletedAt = DateTime.UtcNow;
+        job.ErrorMessage = null;
 
         await _backupJobRepository.UpdateBackupJob(job);
         await _backupJobRepository.SaveChangesAsync();
@@ -90,7 +95,7 @@ public class BackupJobsService
             throw new ApplicationException($"Job with id {jobId} does not exist");
         }
 
-        var BackupArtifact = new BackupArtifact
+        var backupArtifact = new BackupArtifact
         {
             Id = Guid.NewGuid(),
             FileName = fileName,
@@ -100,8 +105,36 @@ public class BackupJobsService
             JobId = jobId,
         };
         
-        await _backupArtifactRepository.AddArtifact(BackupArtifact);
+        await _backupArtifactRepository.AddArtifact(backupArtifact);
         await _backupArtifactRepository.SaveChanges();
         
     }
+    
+    public async Task<UploadTicketResponse> RequestUploadTicketAsync(RequestUploadTicketRequest request)
+    {
+        var job = await _backupJobRepository.GetBackupJob(request.BackupJobId);
+        if (job == null)
+        {
+            throw new Exception("Backup job not found.");
+        }
+
+        if (job.PolicyId != request.PolicyId)
+        {
+            throw new Exception("Backup job does not belong to policy.");
+        }
+
+        if (job.Status != BackupJobStatus.Running)
+        {
+            throw new Exception("Backup job is not running.");
+        }
+
+        return await _storageAccessService.CreateUploadTicketAsync(
+            request.BackupJobId,
+            request.PolicyId,
+            job.AgentId,
+            request.FileName,
+            request.ContentType,
+            CancellationToken.None);
+    }
+    
 }

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Backup.Shared.Contracts.DTOs;
+namespace Backup.Shared.Contracts.DTOs.Jobs;
 
 public record StartBackupJobRequest(
     [Required] Guid AgentId,

@@ -2,10 +2,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Backup.Server.Domain\Backup.Server.Domain.csproj" />
+    <ProjectReference Include="..\Backup.Shared.Contracts\Backup.Shared.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Dtos\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Minio" Version="7.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

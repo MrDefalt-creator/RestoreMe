@@ -105,6 +105,9 @@ namespace Backup.Server.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -122,6 +125,8 @@ namespace Backup.Server.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
 
                     b.HasIndex("PolicyId");
 
@@ -168,9 +173,6 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.Property<Guid?>("ApprovedAgentId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("Created")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -194,6 +196,9 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApprovedAgentId")
+                        .IsUnique();
+
                     b.HasIndex("MachineName")
                         .IsUnique();
 
@@ -213,11 +218,19 @@ namespace Backup.Server.Infrastructure.Migrations
 
             modelBuilder.Entity("Backup.Server.Domain.Entities.BackupJob", b =>
                 {
+                    b.HasOne("Backup.Server.Domain.Entities.Agent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Backup.Server.Domain.Entities.BackupPolicy", "Policy")
                         .WithMany("Jobs")
                         .HasForeignKey("PolicyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Agent");
 
                     b.Navigation("Policy");
                 });
@@ -233,8 +246,20 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.Navigation("Agent");
                 });
 
+            modelBuilder.Entity("Backup.Server.Domain.Entities.PendingAgent", b =>
+                {
+                    b.HasOne("Backup.Server.Domain.Entities.Agent", "ApprovedAgent")
+                        .WithOne("PendingAgent")
+                        .HasForeignKey("Backup.Server.Domain.Entities.PendingAgent", "ApprovedAgentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ApprovedAgent");
+                });
+
             modelBuilder.Entity("Backup.Server.Domain.Entities.Agent", b =>
                 {
+                    b.Navigation("PendingAgent");
+
                     b.Navigation("Policies");
                 });
 

@@ -18,7 +18,7 @@ public class BackupArtifactConfiguration : IEntityTypeConfiguration<BackupArtifa
 
         builder.Property(x => x.FileName)
             .IsRequired()
-            .HasMaxLength(255);
+            .HasMaxLength(500);
 
         builder.Property(x => x.SizeBytes)
             .IsRequired();

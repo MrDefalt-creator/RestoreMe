@@ -1,6 +1,7 @@
-using Backup.Shared.Contracts.DTOs;
+using Backup.Shared.Contracts.DTOs.Agents;
+using Backup.Shared.Contracts.DTOs.Policies;
 
-namespace Backup.Agent.Worker.Services;
+namespace Backup.Agent.Worker.Interfaces;
 
 public interface IAgentApiClient
 {

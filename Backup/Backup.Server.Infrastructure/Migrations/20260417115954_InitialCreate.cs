@@ -30,24 +30,6 @@ namespace Backup.Server.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "PendingAgents",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    MachineName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    OsType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    Version = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    Created = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    ApprovedAgentId = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PendingAgents", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "BackupPolicies",
                 columns: table => new
                 {
@@ -70,6 +52,29 @@ namespace Backup.Server.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "PendingAgents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    MachineName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    OsType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Version = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ApprovedAgentId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PendingAgents", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PendingAgents_Agents_ApprovedAgentId",
+                        column: x => x.ApprovedAgentId,
+                        principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "BackupJobs",
                 columns: table => new
                 {
@@ -78,11 +83,18 @@ namespace Backup.Server.Infrastructure.Migrations
                     StartedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ErrorMessage = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    AgentId = table.Column<Guid>(type: "uuid", nullable: false),
                     PolicyId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_BackupJobs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BackupJobs_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_BackupJobs_BackupPolicies_PolicyId",
                         column: x => x.PolicyId,
@@ -120,6 +132,11 @@ namespace Backup.Server.Infrastructure.Migrations
                 column: "JobId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_BackupJobs_AgentId",
+                table: "BackupJobs",
+                column: "AgentId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_BackupJobs_PolicyId",
                 table: "BackupJobs",
                 column: "PolicyId");
@@ -128,6 +145,12 @@ namespace Backup.Server.Infrastructure.Migrations
                 name: "IX_BackupPolicies_AgentId",
                 table: "BackupPolicies",
                 column: "AgentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PendingAgents_ApprovedAgentId",
+                table: "PendingAgents",
+                column: "ApprovedAgentId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_PendingAgents_MachineName",

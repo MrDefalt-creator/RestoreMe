@@ -1,8 +1,10 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Infrastructure.Configuration;
+using Backup.Server.Infrastructure.Options;
 using Backup.Server.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,12 +22,27 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<AgentService>();
 builder.Services.AddScoped<PoliciesService>();
-builder.Services.AddScoped<BackgroundService>();
+builder.Services.AddScoped<BackupJobsService>();
+builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddScoped<IAgentRepository, AgentRepository>();
 builder.Services.AddScoped<IPolicyRepository, PolicyRepository>();
 builder.Services.AddScoped<IPendingAgentsRepository, PendingAgentsRepository>();
 builder.Services.AddScoped<IBackupJobRepository, BackupJobRepository>();
 builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>();
+
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var storageOptions = sp.GetRequiredService<
+        Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
+
+    return new MinioClient()
+        .WithEndpoint(storageOptions.Endpoint)
+        .WithCredentials(storageOptions.AccessKey, storageOptions.SecretKey)
+        .WithSSL(storageOptions.UseSsl)
+        .Build();
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

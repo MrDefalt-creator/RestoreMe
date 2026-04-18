@@ -1,5 +1,6 @@
 using Backup.Server.Application.Services;
 using Backup.Shared.Contracts.DTOs;
+using Backup.Shared.Contracts.DTOs.Jobs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backup.Server.Api.Controllers;
@@ -38,6 +39,14 @@ public class BackupJobsController : ControllerBase
     [HttpPost("add-artifact")]
     public async Task<IActionResult> AddArtifact([FromBody] AddArtifactBackupJobRequest request)
     {
+        await _service.AddArtifact(request.JobId, request.FileName, request.ObjectKey, request.Size, request.Сhecksum);
         return Ok();
+    }
+    
+    [HttpPost("upload-ticket")]
+    public async Task<IActionResult> RequestUploadTicket([FromBody] RequestUploadTicketRequest request)
+    {
+        var response = await _service.RequestUploadTicketAsync(request);
+        return Ok(response);
     }
 }

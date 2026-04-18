@@ -1,7 +1,9 @@
 using System.Net.Http.Json;
-using Backup.Shared.Contracts.DTOs;
+using Backup.Agent.Worker.Interfaces;
+using Backup.Shared.Contracts.DTOs.Agents;
+using Backup.Shared.Contracts.DTOs.Policies;
 
-namespace Backup.Agent.Worker.Services;
+namespace Backup.Agent.Worker.ApiClients;
 
 public class AgentApiClient : IAgentApiClient
 {

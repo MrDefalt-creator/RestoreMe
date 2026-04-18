@@ -20,6 +20,16 @@ public class BackupJobConfiguration : IEntityTypeConfiguration<BackupJob>
 
         builder.Property(x => x.ErrorMessage)
             .HasMaxLength(2000);
+        
+        builder.HasOne(x => x.Agent)
+            .WithMany()
+            .HasForeignKey(x => x.AgentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(x => x.Policy)
+            .WithMany()
+            .HasForeignKey(x => x.PolicyId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(x => x.Artifacts)
             .WithOne(x => x.Job)

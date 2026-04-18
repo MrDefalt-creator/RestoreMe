@@ -1,4 +1,6 @@
 using Backup.Agent.Worker;
+using Backup.Agent.Worker.ApiClients;
+using Backup.Agent.Worker.Interfaces;
 using Backup.Agent.Worker.Options;
 using Backup.Agent.Worker.Services;
 using Backup.Agent.Worker.State;
@@ -8,6 +10,8 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddOptions<ApiOptions>().Bind(builder.Configuration.GetSection(ApiOptions.SectionName));
 builder.Services.AddOptions<AgentOptions>().Bind(builder.Configuration.GetSection(AgentOptions.SectionName));
+
+
 builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>((sp, client) =>
 {
     var apiOptions = sp
@@ -22,7 +26,26 @@ builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>((sp, client) =>
     client.BaseAddress = new Uri(apiOptions.BaseUrl);
 });
 
+builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>((sp, client) =>
+    {
+        var apiOptions = sp
+            .GetRequiredService<IOptions<ApiOptions>>()
+            .Value;
+
+        if (string.IsNullOrWhiteSpace(apiOptions.BaseUrl))
+        {
+            throw new InvalidOperationException("Api:BaseUrl is not configured.");
+        }
+
+        client.BaseAddress = new Uri(apiOptions.BaseUrl);
+    }
+);
+
 builder.Services.AddSingleton<IAgentState, FileAgentStore>();
+builder.Services.AddHttpClient<IMinioStorageClient, MinioStorageClient>();
+builder.Services.AddSingleton<IArchiveService, ArchiveService>();
+builder.Services.AddSingleton<IChecksumService, ChecksumService>();
+builder.Services.AddTransient<IBackupExecutor, BackupExecuter>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
