@@ -20,7 +20,7 @@ public class StorageAccessService : IStorageAccessService
         _storageOptions = storageOptions.Value;
     }
 
-    public async Task EnsureBucketExistsAsync(CancellationToken cancellationToken)
+    private async Task EnsureBucketExistsAsync(CancellationToken cancellationToken)
     {
         var exists = await _minioClient.BucketExistsAsync(
             new BucketExistsArgs().WithBucket(_storageOptions.BucketName),

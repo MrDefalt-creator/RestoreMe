@@ -6,10 +6,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Dtos\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Minio" Version="7.0.0" />
   </ItemGroup>
 

@@ -19,13 +19,15 @@ public class PoliciesService
         {
             throw new Exception("Policy already exists");
         }
+        
+        sourcePath = NormalizePath(sourcePath);
 
         policy = new BackupPolicy
         {
             Id = Guid.NewGuid(),
             AgentId = agentId,
             Name = name,
-            SourcePath = sourcePath,
+            SourcePath = sourcePath.Replace("\\", "/").Trim(),
             IntervalSeconds =  interval,
             NextRunAt = DateTime.UtcNow
         };
@@ -69,5 +71,16 @@ public class PoliciesService
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(policy.IntervalSeconds);
         await _policyRepository.UpdatePolicy(policy);
         await _policyRepository.SaveChangesAsync();
+    }
+    
+    private static string NormalizePath(string path)
+    {
+        path = path.Trim();
+        path = path.Replace('\\', '/');
+
+        while (path.Contains("//"))
+            path = path.Replace("//", "/");
+
+        return path;
     }
 }

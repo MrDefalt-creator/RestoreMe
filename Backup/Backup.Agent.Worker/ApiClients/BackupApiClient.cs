@@ -91,7 +91,7 @@ public class BackupApiClient : IBackupApiClient
         _logger.LogInformation("Marking policy executed");
 
         var response = await _httpClient.PostAsync(
-            $"api/BackupJobs/mark_policy_executed/{policyId}",
+            $"api/Policies/mark_policy_executed/{policyId}",
             null,
             cancellationToken);
         

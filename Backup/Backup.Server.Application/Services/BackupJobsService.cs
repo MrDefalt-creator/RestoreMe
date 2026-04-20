@@ -44,6 +44,7 @@ public class BackupJobsService
             Id = Guid.NewGuid(),
             Status = BackupJobStatus.Running,
             PolicyId = policyId,
+            AgentId = agentId,
         };
         
         await _backupJobRepository.AddBackupJob(backupJob);

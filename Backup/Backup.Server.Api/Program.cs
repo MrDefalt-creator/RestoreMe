@@ -23,12 +23,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AgentService>();
 builder.Services.AddScoped<PoliciesService>();
 builder.Services.AddScoped<BackupJobsService>();
+
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddScoped<IAgentRepository, AgentRepository>();
 builder.Services.AddScoped<IPolicyRepository, PolicyRepository>();
 builder.Services.AddScoped<IPendingAgentsRepository, PendingAgentsRepository>();
 builder.Services.AddScoped<IBackupJobRepository, BackupJobRepository>();
 builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>();
+
+builder.Services.AddOptions<StorageOptions>()
+    .Bind(builder.Configuration.GetSection(StorageOptions.SectionName));
 
 
 builder.Services.AddSingleton<IMinioClient>(sp =>
