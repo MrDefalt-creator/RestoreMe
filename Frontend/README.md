@@ -41,7 +41,7 @@ yarn build
 Create `.env` from `.env.example`.
 
 ```env
-VITE_API_BASE_URL=http://localhost:5000
+VITE_API_BASE_URL=https://localhost:7104
 VITE_API_MODE=live
 ```
 
@@ -49,6 +49,8 @@ Modes:
 
 - `live` — use the ASP.NET Core backend
 - `mock` — use local fixtures for demo/offline work
+
+If you use `https://localhost:7104`, make sure the ASP.NET Core development certificate is trusted in the browser, otherwise requests from the frontend will fail as network errors.
 
 ## Project Structure
 

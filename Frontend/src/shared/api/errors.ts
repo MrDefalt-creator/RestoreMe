@@ -15,6 +15,15 @@ export class UnsupportedApiError extends Error {
 
 export function normalizeApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return {
+        message:
+          'Network error. Ensure the API is running and the development certificate for https://localhost:7104 is trusted.',
+        status: null,
+        details: error.message,
+      }
+    }
+
     return {
       message:
         (error.response?.data as { message?: string } | undefined)?.message ??
