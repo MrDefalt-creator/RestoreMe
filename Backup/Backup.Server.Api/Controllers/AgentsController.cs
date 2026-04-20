@@ -1,6 +1,7 @@
 using Backup.Server.Application.Services;
 using Backup.Shared.Contracts.DTOs;
 using Backup.Shared.Contracts.DTOs.Agents;
+using Backup.Server.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backup.Server.Api.Controllers;
@@ -14,6 +15,27 @@ public class AgentsController : ControllerBase
     public AgentsController(AgentService agentService)
     {
         _agentService = agentService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAgents()
+    {
+        var agents = await _agentService.GetAllAgents();
+        return Ok(agents.Select(MapAgent));
+    }
+    
+    [HttpGet("{agentId:guid}")]
+    public async Task<IActionResult> GetAgent([FromRoute] Guid agentId)
+    {
+        var agent = await _agentService.GetAgentById(agentId);
+        return Ok(MapAgent(agent));
+    }
+    
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPendingAgents()
+    {
+        var pendingAgents = await _agentService.GetPendingAgents();
+        return Ok(pendingAgents.Select(MapPendingAgent));
     }
     
 
@@ -47,5 +69,29 @@ public class AgentsController : ControllerBase
         var pendingId = await _agentService.RegisterPending(request.MachineName, request.OsType, request.OsVersion);
         return Ok(new PendingAgentRegisterResponse(pendingId));
     }
-    
+
+    private static AgentListItemDto MapAgent(Agent agent)
+    {
+        return new AgentListItemDto(
+            agent.Id,
+            agent.Name,
+            agent.MachineName,
+            agent.OsType,
+            agent.Version,
+            agent.Status.ToString().ToLowerInvariant(),
+            agent.CreatedAt,
+            agent.LastSeenAt);
+    }
+
+    private static PendingAgentListItemDto MapPendingAgent(PendingAgent pendingAgent)
+    {
+        return new PendingAgentListItemDto(
+            pendingAgent.Id,
+            pendingAgent.MachineName,
+            pendingAgent.OsType,
+            pendingAgent.Version,
+            pendingAgent.Status.ToString().ToLowerInvariant(),
+            pendingAgent.CreatedAt,
+            pendingAgent.ApprovedAgentId);
+    }
 }

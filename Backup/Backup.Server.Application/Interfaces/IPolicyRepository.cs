@@ -4,6 +4,7 @@ namespace Backup.Server.Application.Interfaces;
 
 public interface IPolicyRepository
 {
+    public Task<List<BackupPolicy>> GetAllPoliciesAsync();
     public Task<BackupPolicy?> GetPolicyByName(Guid agentId, string name);
     
     public Task<List<BackupPolicy>> GetAllPolicies(Guid agentId);

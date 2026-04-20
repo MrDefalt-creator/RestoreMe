@@ -1,5 +1,6 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Domain.Enums;
 using Backup.Server.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,14 @@ public class PendingAgentsRepository : IPendingAgentsRepository
     public PendingAgentsRepository(AppDbContext dbContext)
     {
         _dbContext = dbContext;
+    }
+    
+    public async Task<List<PendingAgent>> GetPendingAgentsAsync()
+    {
+        return await _dbContext.PendingAgents
+            .Where(x => x.Status == PendingAgentStatus.Pending)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
     }
 
     public async Task<PendingAgent?> GetByIdAsync(Guid id)

@@ -22,6 +22,32 @@ public class BackupJobsService
         _backupArtifactRepository = backupArtifactRepository;
         _storageAccessService = storageAccessService;
     }
+    
+    public async Task<List<BackupJob>> GetAllJobs()
+    {
+        return await _backupJobRepository.GetAllBackupJobsAsync();
+    }
+    
+    public async Task<BackupJob> GetJobById(Guid jobId)
+    {
+        var job = await _backupJobRepository.GetBackupJob(jobId);
+        if (job == null)
+        {
+            throw new ApplicationException($"Job with id {jobId} does not exist");
+        }
+
+        return job;
+    }
+    
+    public async Task<List<BackupJob>> GetJobsByAgentId(Guid agentId)
+    {
+        return await _backupJobRepository.GetBackupJobsByAgentIdAsync(agentId);
+    }
+    
+    public async Task<List<BackupJob>> GetJobsByPolicyId(Guid policyId)
+    {
+        return await _backupJobRepository.GetBackupJobsByPolicyIdAsync(policyId);
+    }
 
     public async Task<Guid> Start(Guid agentId, Guid policyId)
     {

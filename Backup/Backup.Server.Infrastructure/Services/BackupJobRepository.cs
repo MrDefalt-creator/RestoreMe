@@ -12,6 +12,29 @@ public class BackupJobRepository : IBackupJobRepository
     {
         _dbContext = dbContext;
     }
+
+    public async Task<List<BackupJob>> GetAllBackupJobsAsync()
+    {
+        return await _dbContext.BackupJobs
+            .OrderByDescending(x => x.StartedAt)
+            .ToListAsync();
+    }
+    
+    public async Task<List<BackupJob>> GetBackupJobsByAgentIdAsync(Guid agentId)
+    {
+        return await _dbContext.BackupJobs
+            .Where(x => x.AgentId == agentId)
+            .OrderByDescending(x => x.StartedAt)
+            .ToListAsync();
+    }
+    
+    public async Task<List<BackupJob>> GetBackupJobsByPolicyIdAsync(Guid policyId)
+    {
+        return await _dbContext.BackupJobs
+            .Where(x => x.PolicyId == policyId)
+            .OrderByDescending(x => x.StartedAt)
+            .ToListAsync();
+    }
     
     public async Task AddBackupJob(BackupJob job)
     {

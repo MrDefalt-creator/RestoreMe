@@ -56,6 +56,27 @@ public class AgentService
         
         return agent;
     }
+    
+    public async Task<List<Agent>> GetAllAgents()
+    {
+        return await _agentRepository.GetAllAgentsAsync();
+    }
+    
+    public async Task<Agent> GetAgentById(Guid agentId)
+    {
+        var agent = await _agentRepository.GetAgentByIdAsync(agentId);
+        if (agent == null)
+        {
+            throw new Exception("Agent not found");
+        }
+
+        return agent;
+    }
+    
+    public async Task<List<PendingAgent>> GetPendingAgents()
+    {
+        return await _pendingAgentsRepository.GetPendingAgentsAsync();
+    }
 
     public async Task<Guid> ApproveAgent(Guid pendingId, string name)
     {

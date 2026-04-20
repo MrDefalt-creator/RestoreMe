@@ -13,6 +13,13 @@ public class PolicyRepository : IPolicyRepository
     {
         _dbContext = dbContext;
     }
+    
+    public async Task<List<BackupPolicy>> GetAllPoliciesAsync()
+    {
+        return await _dbContext.BackupPolicies
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
 
     public async Task<BackupPolicy?> GetPolicyByName(Guid agentId, string name)
     {

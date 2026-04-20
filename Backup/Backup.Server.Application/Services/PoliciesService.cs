@@ -45,6 +45,11 @@ public class PoliciesService
         
         return policies;
     }
+    
+    public async Task<List<BackupPolicy>> GetAllPolicies()
+    {
+        return await _policyRepository.GetAllPoliciesAsync();
+    }
 
     public async Task<BackupPolicy> GetPolicyById(Guid policyId)
     {
@@ -55,6 +60,45 @@ public class PoliciesService
             throw new Exception("Policy not found");
         }
         
+        return policy;
+    }
+    
+    public async Task<BackupPolicy> UpdatePolicy(Guid policyId, Guid agentId, string name, string sourcePath, int intervalSeconds, bool isEnabled)
+    {
+        var policy = await _policyRepository.GetPolicyById(policyId);
+        if (policy == null)
+        {
+            throw new Exception("Policy not found");
+        }
+        
+        sourcePath = NormalizePath(sourcePath);
+        
+        policy.AgentId = agentId;
+        policy.Name = name.Trim();
+        policy.SourcePath = sourcePath.Replace("\\", "/").Trim();
+        policy.IntervalSeconds = intervalSeconds;
+        policy.IsEnabled = isEnabled;
+        policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
+        
+        await _policyRepository.UpdatePolicy(policy);
+        await _policyRepository.SaveChangesAsync();
+
+        return policy;
+    }
+    
+    public async Task<BackupPolicy> TogglePolicy(Guid policyId)
+    {
+        var policy = await _policyRepository.GetPolicyById(policyId);
+        if (policy == null)
+        {
+            throw new Exception("Policy not found");
+        }
+        
+        policy.IsEnabled = !policy.IsEnabled;
+        
+        await _policyRepository.UpdatePolicy(policy);
+        await _policyRepository.SaveChangesAsync();
+
         return policy;
     }
     

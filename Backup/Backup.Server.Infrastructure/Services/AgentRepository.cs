@@ -12,6 +12,14 @@ public class AgentRepository : IAgentRepository
     {
         _dbContext = dbContext;
     }
+    
+    public async Task<List<Agent>> GetAllAgentsAsync()
+    {
+        return await _dbContext.Agents
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync();
+    }
+    
     public async Task<Agent?> GetByMachineNameAsync(string machineName)
     {
         return await _dbContext.Agents
@@ -37,6 +45,5 @@ public class AgentRepository : IAgentRepository
     public async Task UpdateAgent(Agent agent)
     {
         _dbContext.Agents.Update(agent);
-        
     }
 }
