@@ -37,7 +37,7 @@ export const useUiStore = create<UiStore>()(
       setJobFilter: (jobFilter) => set({ jobFilter }),
     }),
     {
-      name: 'restorme-ui-store',
+      name: 'restoreme-ui-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         sidebarState: state.sidebarState,

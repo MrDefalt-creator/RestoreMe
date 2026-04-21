@@ -56,7 +56,7 @@ export function AppShell() {
                   )}
                 >
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-200/85">
-                    RestorMe
+                    RestoreMe
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-tight">
                     Backup Console
@@ -163,7 +163,7 @@ export function AppShell() {
                 Diploma prototype
               </p>
               <p className="mt-1 text-sm text-ink-800">
-                Architecture-first admin panel for RestorMe backup operations.
+                Architecture-first admin panel for RestoreMe backup operations.
               </p>
             </div>
             <Badge tone="accent">Vite + React + Zustand + Query</Badge>
