@@ -29,12 +29,24 @@ export function AppShell() {
             sidebarState === 'expanded' ? 'w-[286px]' : 'w-[88px]',
           )}
         >
-          <div className="flex h-full flex-col gap-8 p-4">
-            <div className="space-y-5">
+          <div
+            className={cn(
+              'flex h-full flex-col gap-8 p-4',
+              sidebarState === 'expanded' ? '' : 'items-center',
+            )}
+          >
+            <div
+              className={cn(
+                'space-y-5',
+                sidebarState === 'expanded' ? '' : 'flex w-full flex-col items-center',
+              )}
+            >
               <div
                 className={cn(
-                  'flex items-center gap-3',
-                  sidebarState === 'expanded' ? 'justify-between' : 'justify-center',
+                  'flex items-center',
+                  sidebarState === 'expanded'
+                    ? 'justify-between gap-3'
+                    : 'w-full justify-center gap-0',
                 )}
               >
                 <div
@@ -65,7 +77,12 @@ export function AppShell() {
               ) : null}
             </div>
 
-            <nav className="flex flex-1 flex-col gap-2">
+            <nav
+              className={cn(
+                'flex flex-1 flex-col gap-2',
+                sidebarState === 'expanded' ? '' : 'items-center',
+              )}
+            >
               {navigation.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   key={to}
@@ -76,8 +93,8 @@ export function AppShell() {
                       'group flex items-center rounded-2xl text-sm transition duration-200',
                       sidebarState === 'expanded'
                         ? 'gap-3 px-3 py-2.5'
-                        : 'justify-center px-0 py-2',
-                      isActive
+                        : 'h-16 w-16 justify-center px-0 py-0',
+                      sidebarState === 'expanded' && isActive
                         ? 'bg-sky-400/7 text-white ring-1 ring-inset ring-sky-200/14'
                         : 'text-sky-100/72 hover:bg-white/7 hover:text-white',
                     )
@@ -90,7 +107,12 @@ export function AppShell() {
                           'flex shrink-0 items-center justify-center rounded-xl transition-all duration-200',
                           sidebarState === 'expanded' ? 'h-10 w-10' : 'h-12 w-12',
                           isActive
-                            ? 'bg-linear-to-br from-sky-300/24 to-cyan-200/10 text-sky-50 ring-1 ring-inset ring-sky-200/18 shadow-[0_10px_24px_rgba(7,16,24,0.16)]'
+                            ? cn(
+                                'text-sky-50 ring-1 ring-inset ring-sky-200/18',
+                                sidebarState === 'expanded'
+                                  ? 'bg-linear-to-br from-sky-300/24 to-cyan-200/10 shadow-[0_10px_24px_rgba(7,16,24,0.16)]'
+                                  : 'bg-linear-to-br from-sky-300/20 to-cyan-200/10 shadow-[0_0_0_1px_rgba(125,211,252,0.18),0_8px_18px_rgba(7,16,24,0.16)]',
+                              )
                             : 'bg-white/6 text-sky-100/80 group-hover:bg-white/10 group-hover:text-white',
                         )}
                       >
@@ -115,12 +137,11 @@ export function AppShell() {
               ))}
             </nav>
 
-            {sidebarState === 'expanded' ? (
+            {env.apiMode === 'mock' ? (
+              sidebarState === 'expanded' ? (
               <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                 <div className="flex items-center gap-3">
-                  <Badge tone={env.apiMode === 'mock' ? 'warning' : 'accent'}>
-                    {env.apiMode === 'mock' ? 'Mock data mode' : 'Live API mode'}
-                  </Badge>
+                  <Badge tone="warning">Mock data mode</Badge>
                 </div>
                 <p className="mt-3 text-sm text-sky-100/76">
                   The prototype starts in mock mode until admin endpoints are completed.
@@ -128,14 +149,10 @@ export function AppShell() {
               </div>
             ) : (
               <div className="flex justify-center">
-                <span
-                  className={cn(
-                    'h-2.5 w-2.5 rounded-full',
-                    env.apiMode === 'mock' ? 'bg-amber-400' : 'bg-sky-400',
-                  )}
-                />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
               </div>
-            )}
+            )
+            ) : null}
           </div>
         </aside>
 

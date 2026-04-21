@@ -11,4 +11,8 @@ public interface IStorageAccessService
         string fileName,
         string contentType,
         CancellationToken cancellationToken);
+
+    Task<Stream> OpenDownloadStreamAsync(
+        string objectKey,
+        CancellationToken cancellationToken);
 }

@@ -32,6 +32,7 @@ export async function getDashboardSummary() {
   return {
     totalAgents: agents.length,
     onlineAgents: agents.filter((agent) => agent.status === 'online').length,
+    staleAgents: agents.filter((agent) => agent.status === 'stale').length,
     offlineAgents: agents.filter((agent) => agent.status === 'offline').length,
     pendingAgents: pendingAgents.length,
     activePolicies: policies.filter((policy) => policy.isEnabled).length,

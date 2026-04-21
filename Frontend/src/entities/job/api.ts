@@ -12,7 +12,7 @@ export async function getJobs(status?: BackupJobStatus | 'all') {
   return status && status !== 'all'
     ? response.data.filter((job) => job.status === status)
     : response.data
-}
+} 
 
 export async function getJobById(jobId: string) {
   if (env.apiMode === 'mock') {

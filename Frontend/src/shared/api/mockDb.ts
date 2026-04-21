@@ -6,6 +6,7 @@ import type { BackupPolicy, UpsertPolicyInput } from '@/entities/policy/model/ty
 type DashboardSummary = {
   totalAgents: number
   onlineAgents: number
+  staleAgents: number
   offlineAgents: number
   pendingAgents: number
   activePolicies: number
@@ -31,7 +32,7 @@ const db: {
       version: '0.9.2',
       status: 'online',
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 21).toISOString(),
-      lastSeenAt: new Date(now - 1000 * 60 * 2).toISOString(),
+      lastSeenAt: new Date(now - 1000 * 45).toISOString(),
     },
     {
       id: '6ad8bf35-8d35-4f8f-9cc4-092eafcb2b02',
@@ -49,9 +50,9 @@ const db: {
       machineName: 'QA-MINI-03',
       osType: 'macOS Sonoma',
       version: '0.9.3',
-      status: 'online',
+      status: 'stale',
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 12).toISOString(),
-      lastSeenAt: new Date(now - 1000 * 40).toISOString(),
+      lastSeenAt: new Date(now - 1000 * 60 * 2 - 1000 * 15).toISOString(),
     },
     {
       id: 'dd1248b0-fb4c-4881-90cf-0ad31a61d404',
@@ -246,6 +247,7 @@ export async function getDashboardSummary() {
   const summary: DashboardSummary = {
     totalAgents: db.agents.length,
     onlineAgents: db.agents.filter((agent) => agent.status === 'online').length,
+    staleAgents: db.agents.filter((agent) => agent.status === 'stale').length,
     offlineAgents: db.agents.filter((agent) => agent.status === 'offline').length,
     pendingAgents: db.pendingAgents.length,
     activePolicies: db.policies.filter((policy) => policy.isEnabled).length,

@@ -8,10 +8,32 @@ using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                  ?? [
+                      "http://localhost:5173",
+                      "http://127.0.0.1:5173",
+                      "https://localhost:5173",
+                      "https://127.0.0.1:5173",
+                      "http://localhost:4173",
+                      "http://127.0.0.1:4173",
+                      "https://localhost:4173",
+                      "https://127.0.0.1:4173"
+                  ];
+
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendClient", policy =>
+    {
+        policy
+            .WithOrigins(corsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -60,6 +82,7 @@ if (app.Environment.IsDevelopment())
 
 
 app.UseHttpsRedirection();
+app.UseCors("FrontendClient");
 app.MapControllers();
 
 app.Run();

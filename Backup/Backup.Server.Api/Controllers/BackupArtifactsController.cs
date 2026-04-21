@@ -30,6 +30,13 @@ public class BackupArtifactsController : ControllerBase
         return Ok(artifacts.Select(MapArtifact));
     }
 
+    [HttpGet("{artifactId:guid}/download")]
+    public async Task<IActionResult> DownloadArtifact([FromRoute] Guid artifactId, CancellationToken cancellationToken)
+    {
+        var artifact = await _backupArtifactsService.DownloadArtifact(artifactId, cancellationToken);
+        return File(artifact.Content, artifact.ContentType, artifact.FileName);
+    }
+
     private static BackupArtifactDto MapArtifact(BackupArtifact artifact)
     {
         return new BackupArtifactDto(

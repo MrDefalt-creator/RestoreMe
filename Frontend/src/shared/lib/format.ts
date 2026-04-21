@@ -32,3 +32,20 @@ export function formatBytes(value: number) {
 
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`
 }
+
+export function formatDurationSeconds(totalSeconds: number) {
+  const remaining = Math.max(0, Math.floor(totalSeconds))
+  const days = Math.floor(remaining / 86_400)
+  const hours = Math.floor((remaining % 86_400) / 3_600)
+  const minutes = Math.floor((remaining % 3_600) / 60)
+  const seconds = remaining % 60
+
+  const parts = [
+    days ? `${days}d` : null,
+    hours ? `${hours}h` : null,
+    minutes ? `${minutes}m` : null,
+    seconds ? `${seconds}s` : null,
+  ].filter(Boolean)
+
+  return parts.length ? parts.join(' ') : '0s'
+}

@@ -29,6 +29,12 @@ public class BackupArtifactRepository : IBackupArtifactRepository
             .ToListAsync();
     }
 
+    public async Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId)
+    {
+        return await _dbContext.BackupArtifacts
+            .FirstOrDefaultAsync(x => x.Id == artifactId);
+    }
+
     public async Task AddArtifact(BackupArtifact artifact)
     {
         await _dbContext.BackupArtifacts.AddAsync(artifact);

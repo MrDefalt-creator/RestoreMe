@@ -1,17 +1,17 @@
 using Backup.Server.Application.Services;
+using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs;
 using Backup.Shared.Contracts.DTOs.Agents;
-using Backup.Server.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backup.Server.Api.Controllers;
-
 
 [ApiController]
 [Route("api/[controller]")]
 public class AgentsController : ControllerBase
 {
     private readonly AgentService _agentService;
+
     public AgentsController(AgentService agentService)
     {
         _agentService = agentService;
@@ -23,26 +23,25 @@ public class AgentsController : ControllerBase
         var agents = await _agentService.GetAllAgents();
         return Ok(agents.Select(MapAgent));
     }
-    
-    [HttpGet("{agentId:guid}")]
+
+    [HttpGet("agent/{agentId:guid}")]
     public async Task<IActionResult> GetAgent([FromRoute] Guid agentId)
     {
         var agent = await _agentService.GetAgentById(agentId);
         return Ok(MapAgent(agent));
     }
-    
+
     [HttpGet("pending")]
     public async Task<IActionResult> GetPendingAgents()
     {
         var pendingAgents = await _agentService.GetPendingAgents();
         return Ok(pendingAgents.Select(MapPendingAgent));
     }
-    
 
     [HttpPost("heartbeat/{agentId}")]
     public async Task<IActionResult> Heartbeat([FromRoute] Guid agentId)
     {
-        await  _agentService.Heartbeat(agentId);
+        await _agentService.Heartbeat(agentId);
         return Ok();
     }
 
@@ -70,7 +69,7 @@ public class AgentsController : ControllerBase
         return Ok(new PendingAgentRegisterResponse(pendingId));
     }
 
-    private static AgentListItemDto MapAgent(Agent agent)
+    private AgentListItemDto MapAgent(Agent agent)
     {
         return new AgentListItemDto(
             agent.Id,
@@ -78,7 +77,7 @@ public class AgentsController : ControllerBase
             agent.MachineName,
             agent.OsType,
             agent.Version,
-            agent.Status.ToString().ToLowerInvariant(),
+            _agentService.GetConnectivityStatus(agent),
             agent.CreatedAt,
             agent.LastSeenAt);
     }

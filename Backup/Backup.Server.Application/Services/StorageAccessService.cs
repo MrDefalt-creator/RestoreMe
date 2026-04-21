@@ -61,4 +61,24 @@ public class StorageAccessService : IStorageAccessService
             uploadUrl,
             expiresAtUtc);
     }
+
+    public async Task<Stream> OpenDownloadStreamAsync(
+        string objectKey,
+        CancellationToken cancellationToken)
+    {
+        var stream = new MemoryStream();
+
+        await _minioClient.GetObjectAsync(
+            new GetObjectArgs()
+                .WithBucket(_storageOptions.BucketName)
+                .WithObject(objectKey)
+                .WithCallbackStream(sourceStream =>
+                {
+                    sourceStream.CopyTo(stream);
+                }),
+            cancellationToken);
+
+        stream.Position = 0;
+        return stream;
+    }
 }

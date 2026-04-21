@@ -43,7 +43,7 @@ export function DashboardPage() {
       {summary ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard icon={Server} title="Registered agents" value={summary.totalAgents} detail={`${summary.onlineAgents} online / ${summary.offlineAgents} offline`} />
+            <MetricCard icon={Server} title="Registered agents" value={summary.totalAgents} detail={`${summary.onlineAgents} online / ${summary.staleAgents} stale / ${summary.offlineAgents} offline`} />
             <MetricCard icon={Clock3} title="Pending approvals" value={summary.pendingAgents} detail="Registration requests waiting for review" />
             <MetricCard icon={CheckCircle2} title="Active policies" value={summary.activePolicies} detail="Enabled schedules across all machines" />
             <MetricCard icon={AlertTriangle} title="Recent failures" value={summary.recentErrors.length} detail="Latest failed jobs surfaced for quick triage" />

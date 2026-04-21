@@ -13,6 +13,7 @@ import { Card } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
+import type { AgentStatus } from '@/entities/agent/model/types'
 
 export function AgentsPage() {
   const [search, setSearch] = useState('')
@@ -107,7 +108,7 @@ export function AgentsPage() {
                       <td className="px-4 py-3 text-ink-800">{agent.osType}</td>
                       <td className="px-4 py-3 text-ink-800">{agent.version}</td>
                       <td className="px-4 py-3">
-                        <Badge tone={agent.status === 'online' ? 'success' : 'neutral'}>
+                        <Badge tone={getAgentStatusTone(agent.status)}>
                           {agent.status}
                         </Badge>
                       </td>
@@ -193,4 +194,15 @@ function MetaCard({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-sm font-medium text-ink-950">{value}</p>
     </div>
   )
+}
+
+function getAgentStatusTone(status: AgentStatus) {
+  switch (status) {
+    case 'online':
+      return 'success'
+    case 'stale':
+      return 'warning'
+    default:
+      return 'neutral'
+  }
 }

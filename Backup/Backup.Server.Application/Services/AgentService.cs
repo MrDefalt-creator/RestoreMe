@@ -6,6 +6,9 @@ namespace Backup.Server.Application.Services;
 
 public class AgentService
 {
+    private static readonly TimeSpan OnlineThreshold = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(3);
+
     private readonly IAgentRepository _agentRepository;
     private readonly IPendingAgentsRepository _pendingAgentsRepository;
     public AgentService(IAgentRepository agentRepository, IPendingAgentsRepository pendingAgentsRepository)
@@ -142,5 +145,27 @@ public class AgentService
         
         await _agentRepository.UpdateAgent(agent);
         await _agentRepository.SaveChangesAsync();
+    }
+
+    public string GetConnectivityStatus(Agent agent, DateTime? utcNow = null)
+    {
+        if (!agent.LastSeenAt.HasValue)
+        {
+            return "offline";
+        }
+
+        var elapsed = (utcNow ?? DateTime.UtcNow) - agent.LastSeenAt.Value;
+
+        if (elapsed < OnlineThreshold)
+        {
+            return "online";
+        }
+
+        if (elapsed < StaleThreshold)
+        {
+            return "stale";
+        }
+
+        return "offline";
     }
 }

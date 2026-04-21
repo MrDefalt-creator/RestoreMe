@@ -8,7 +8,7 @@ import { PolicyFormDialog } from '@/features/policy-form/PolicyFormDialog'
 import { getAgents } from '@/entities/agent/api'
 import { getPolicies, togglePolicy } from '@/entities/policy/api'
 import type { BackupPolicy } from '@/entities/policy/model/types'
-import { formatDateTime } from '@/shared/lib/format'
+import { formatDateTime, formatDurationSeconds } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -119,7 +119,7 @@ export function PoliciesPage() {
                     <td className="px-4 py-3 font-medium text-ink-950">{policy.name}</td>
                     <td className="px-4 py-3 text-ink-800">{agentNameMap.get(policy.agentId) ?? 'Unknown agent'}</td>
                     <td className="px-4 py-3 text-ink-800">{policy.sourcePath}</td>
-                    <td className="px-4 py-3 text-ink-800">{policy.intervalSeconds}s</td>
+                    <td className="px-4 py-3 text-ink-800">{formatDurationSeconds(policy.intervalSeconds)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDateTime(policy.nextRunAt)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDateTime(policy.lastRunAt)}</td>
                     <td className="px-4 py-3">
