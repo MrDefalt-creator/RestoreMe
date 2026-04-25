@@ -14,15 +14,26 @@ public class FileAgentStore : IAgentState
         _fileName = Path.Combine(stateDir, "agent-state.json");
     }
 
-    public async Task<Guid?> TryGetAgentIdAsync(CancellationToken cancellationToken)
+    private async Task<AgentState?> LoadStateAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(_fileName))
         {
             return null;
         }
-        
+
         await using var stream = File.OpenRead(_fileName);
-        var state = await JsonSerializer.DeserializeAsync<AgentState>(stream, cancellationToken: cancellationToken);
+        return await JsonSerializer.DeserializeAsync<AgentState>(stream, cancellationToken: cancellationToken);
+    }
+
+    private async Task SaveStateAsync(AgentState state, CancellationToken cancellationToken)
+    {
+        await using var stream = File.Create(_fileName);
+        await JsonSerializer.SerializeAsync(stream, state, cancellationToken: cancellationToken);
+    }
+
+    public async Task<Guid?> TryGetAgentIdAsync(CancellationToken cancellationToken)
+    {
+        var state = await LoadStateAsync(cancellationToken);
 
         if (state == null || state.AgentId == Guid.Empty)
         {
@@ -32,14 +43,31 @@ public class FileAgentStore : IAgentState
         return state.AgentId;
     }
 
+    public async Task<string?> TryGetServerAddressAsync(CancellationToken cancellationToken)
+    {
+        var state = await LoadStateAsync(cancellationToken);
+
+        if (state == null || string.IsNullOrWhiteSpace(state.ServerAddress))
+        {
+            return null;
+        }
+
+        return state.ServerAddress;
+    }
+
     public async Task SaveAgentIdAsync(Guid agentId, CancellationToken cancellationToken)
     {
-        var state = new AgentState
-        {
-            AgentId = agentId,
-        };
-        
-        await using var stream = File.Create(_fileName);
-        await JsonSerializer.SerializeAsync(stream, state, cancellationToken: cancellationToken);
+        var state = await LoadStateAsync(cancellationToken) ?? new AgentState();
+        state.AgentId = agentId;
+
+        await SaveStateAsync(state, cancellationToken);
+    }
+
+    public async Task SaveServerAddressAsync(string serverAddress, CancellationToken cancellationToken)
+    {
+        var state = await LoadStateAsync(cancellationToken) ?? new AgentState();
+        state.ServerAddress = serverAddress;
+
+        await SaveStateAsync(state, cancellationToken);
     }
 }

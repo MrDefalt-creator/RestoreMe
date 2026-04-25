@@ -14,19 +14,23 @@ public class Worker : BackgroundService
     private readonly IBackupApiClient _backupClient;
     private readonly AgentOptions _agentOptions;
     private readonly IAgentState _agentState;
+    private readonly IApiEndpointResolver _apiEndpointResolver;
     private readonly IBackupExecutor _backupExecutor;
 
     public Worker(ILogger<Worker> logger, 
         IAgentApiClient apiClient, 
         IOptions<AgentOptions> agentOptions, 
         IAgentState agentState, 
-        IBackupExecutor backupExecutor, IBackupApiClient backupClient)
+        IBackupExecutor backupExecutor,
+        IBackupApiClient backupClient,
+        IApiEndpointResolver apiEndpointResolver)
     {
         _logger = logger;
         _apiClient = apiClient;
         _agentState = agentState;
         _backupExecutor = backupExecutor;
         _backupClient = backupClient;
+        _apiEndpointResolver = apiEndpointResolver;
         _agentOptions = agentOptions.Value;
     }
 
@@ -45,6 +49,14 @@ public class Worker : BackgroundService
             return;
         }
         
+        var resolvedApiEndpoint = await _apiEndpointResolver.ResolveAsync(stoppingToken);
+        await _agentState.SaveServerAddressAsync(resolvedApiEndpoint.BaseUrl, stoppingToken);
+
+        _logger.LogInformation(
+            "Server address resolved from {Source}. BaseUrl: {BaseUrl}",
+            resolvedApiEndpoint.Source,
+            resolvedApiEndpoint.BaseUrl);
+
         var agentId = await ResolveAgentId(stoppingToken);
         
         _logger.LogInformation(

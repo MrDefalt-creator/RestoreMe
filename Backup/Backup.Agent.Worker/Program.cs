@@ -11,37 +11,24 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddOptions<ApiOptions>().Bind(builder.Configuration.GetSection(ApiOptions.SectionName));
 builder.Services.AddOptions<AgentOptions>().Bind(builder.Configuration.GetSection(AgentOptions.SectionName));
 
+builder.Services.AddSingleton<IAgentState, FileAgentStore>();
+builder.Services.AddSingleton<IApiEndpointResolver, ApiEndpointResolver>();
 
 builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>((sp, client) =>
 {
-    var apiOptions = sp
-        .GetRequiredService<IOptions<ApiOptions>>()
-        .Value;
-
-    if (string.IsNullOrWhiteSpace(apiOptions.BaseUrl))
-    {
-        throw new InvalidOperationException("Api:BaseUrl is not configured.");
-    }
-
-    client.BaseAddress = new Uri(apiOptions.BaseUrl);
+    var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
+    var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
+    client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
 });
 
 builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>((sp, client) =>
     {
-        var apiOptions = sp
-            .GetRequiredService<IOptions<ApiOptions>>()
-            .Value;
-
-        if (string.IsNullOrWhiteSpace(apiOptions.BaseUrl))
-        {
-            throw new InvalidOperationException("Api:BaseUrl is not configured.");
-        }
-
-        client.BaseAddress = new Uri(apiOptions.BaseUrl);
+        var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
+        var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
+        client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
     }
 );
 
-builder.Services.AddSingleton<IAgentState, FileAgentStore>();
 builder.Services.AddHttpClient<IMinioStorageClient, MinioStorageClient>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();
 builder.Services.AddSingleton<IChecksumService, ChecksumService>();

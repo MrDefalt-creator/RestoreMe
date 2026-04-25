@@ -19,6 +19,7 @@ RUN dotnet build "./Backup.Server.Api.csproj" -c $BUILD_CONFIGURATION -o /app/bu
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
+RUN dotnet ef database update --project Backup.Server.Infrastructure --startup-project Backup.Server.Api
 RUN dotnet publish "./Backup.Server.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
