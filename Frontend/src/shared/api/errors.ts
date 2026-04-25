@@ -27,6 +27,7 @@ export function normalizeApiError(error: unknown): ApiError {
     return {
       message:
         (error.response?.data as { message?: string } | undefined)?.message ??
+        (typeof error.response?.data === 'string' ? error.response.data : undefined) ??
         error.message,
       status: error.response?.status ?? null,
       details: error.response?.data,

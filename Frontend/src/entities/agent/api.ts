@@ -31,7 +31,7 @@ export async function getAgentById(agentId: string) {
     return getAgentMock(agentId)
   }
 
-  const response = await http.get<Agent>(`/api/agents/${agentId}`)
+  const response = await http.get<Agent>(`/api/agents/agent/${agentId}`)
   return response.data
 }
 

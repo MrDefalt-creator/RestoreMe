@@ -13,21 +13,22 @@ public class PoliciesService
 
     public async Task<BackupPolicy> CreatePolicy(Guid agentId, string name, string sourcePath, int interval)
     {
+        name = name.Trim();
+        sourcePath = NormalizePath(sourcePath);
+
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
 
         if (policy != null)
         {
-            throw new Exception("Policy already exists");
+            throw new InvalidOperationException("Policy with the same name already exists for this agent.");
         }
-        
-        sourcePath = NormalizePath(sourcePath);
 
         policy = new BackupPolicy
         {
             Id = Guid.NewGuid(),
             AgentId = agentId,
             Name = name,
-            SourcePath = sourcePath.Replace("\\", "/").Trim(),
+            SourcePath = sourcePath,
             IntervalSeconds =  interval,
             NextRunAt = DateTime.UtcNow
         };
@@ -57,7 +58,7 @@ public class PoliciesService
 
         if (policy == null)
         {
-            throw new Exception("Policy not found");
+            throw new KeyNotFoundException("Policy not found");
         }
         
         return policy;
@@ -68,7 +69,7 @@ public class PoliciesService
         var policy = await _policyRepository.GetPolicyById(policyId);
         if (policy == null)
         {
-            throw new Exception("Policy not found");
+            throw new KeyNotFoundException("Policy not found");
         }
         
         sourcePath = NormalizePath(sourcePath);
@@ -91,7 +92,7 @@ public class PoliciesService
         var policy = await _policyRepository.GetPolicyById(policyId);
         if (policy == null)
         {
-            throw new Exception("Policy not found");
+            throw new KeyNotFoundException("Policy not found");
         }
         
         policy.IsEnabled = !policy.IsEnabled;
@@ -108,7 +109,7 @@ public class PoliciesService
 
         if (policy == null)
         {
-            throw new Exception("Policy not found");
+            throw new KeyNotFoundException("Policy not found");
         }
         
         policy.LastRunAt = DateTime.UtcNow;

@@ -18,15 +18,15 @@ public sealed class ApiEndpointResolver : IApiEndpointResolver
 
     public async Task<ResolvedApiEndpoint> ResolveAsync(CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(_apiOptions.BaseUrl))
-        {
-            return new ResolvedApiEndpoint(Normalize(_apiOptions.BaseUrl), "configuration");
-        }
-
         var storedServerAddress = await _agentState.TryGetServerAddressAsync(cancellationToken);
         if (!string.IsNullOrWhiteSpace(storedServerAddress))
         {
             return new ResolvedApiEndpoint(Normalize(storedServerAddress), "local state");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_apiOptions.BaseUrl))
+        {
+            return new ResolvedApiEndpoint(Normalize(_apiOptions.BaseUrl), "configuration");
         }
 
         throw new InvalidOperationException(

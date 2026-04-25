@@ -1,6 +1,8 @@
-# RestorMe Frontend Prototype
+# RestoreMe Frontend
 
-Admin panel prototype for the `RestorMe / Backup` diploma project.
+Frontend admin panel for the RestoreMe backup system.
+
+It is built as a Vite + React + TypeScript application and communicates with the ASP.NET Core backend in `live` mode or with local fixtures in `mock` mode.
 
 ## Stack
 
@@ -15,42 +17,72 @@ Admin panel prototype for the `RestorMe / Backup` diploma project.
 - React Hook Form
 - Zod
 - Tailwind CSS
+- Sonner for toasts
+- Lucide React for icons
+
+## Project Goals
+
+The frontend provides an operator-facing admin panel for:
+- agent overview
+- pending agent approval
+- backup policy management
+- job monitoring
+- artifact inspection and download
 
 ## Install
 
-```bash
+```powershell
+cd D:\projects\RestorMe\Frontend
 yarn
 ```
 
-## Run
+## Run in Development
 
-```bash
+```powershell
+cd D:\projects\RestorMe\Frontend
 yarn dev
 ```
 
-## Checks
+By default Vite starts on:
+- `http://localhost:5173`
 
-```bash
+## Build and Checks
+
+```powershell
+cd D:\projects\RestorMe\Frontend
 yarn typecheck
 yarn lint
 yarn build
+yarn preview
 ```
 
 ## Environment
 
 Create `.env` from `.env.example`.
 
+Current example:
 ```env
-VITE_API_BASE_URL=https://localhost:7104
+VITE_API_BASE_URL=http://localhost:8080
 VITE_API_MODE=live
 ```
 
-Modes:
+### Modes
+- `live` — use the ASP.NET Core backend
+- `mock` — use local in-memory fixtures for offline/demo work
 
-- `live` â€” use the ASP.NET Core backend
-- `mock` â€” use local fixtures for demo/offline work
+### Notes
+- in local manual development the recommended backend URL is `http://localhost:8080`
+- in Docker Compose the frontend build also points to `http://localhost:8080` by default
+- if you rebuild or redeploy the frontend while a browser tab stays open, Vite chunk hashes can change and the old tab may need one reload
 
-If you use `https://localhost:7104`, make sure the ASP.NET Core development certificate is trusted in the browser, otherwise requests from the frontend will fail as network errors.
+## Main Scripts
+
+Defined in [package.json](D:\projects\RestorMe\Frontend\package.json):
+- `yarn dev` — run Vite dev server
+- `yarn build` — run TypeScript build and production bundle
+- `yarn lint` — run ESLint
+- `yarn typecheck` — run TypeScript without emitting files
+- `yarn preview` — preview the production bundle locally
 
 ## Project Structure
 
@@ -86,55 +118,72 @@ src/
 
 ## Implemented UI
 
-- App shell with sidebar, header and responsive layout
-- Dashboard with aggregated summary, recent jobs and failures
-- Agents list with search and side detail panel
-- Pending agents page with approve dialog
-- Policies page with search, filtering, create/edit and toggle
-- Jobs page with filters and detail panel
-- Artifacts page with search and table
+- responsive app shell with sidebar and header
+- dashboard with summary cards, recent jobs and failure visibility
+- agents list with search and detail area
+- pending agents page with approval dialog
+- policies page with search, filtering, create, edit and toggle
+- jobs page with history table
+- artifacts page with search, list and download action
+- polling in live mode so data refreshes without manual browser reload
+
+## API Behavior
+
+The frontend uses:
+- Axios for HTTP
+- TanStack Query for server state and polling
+- Zustand for UI/shared client state
+
+In `live` mode the main pages refetch automatically on an interval, so backend changes appear without pressing `F5`.
 
 ## Backend Endpoints Used
 
 ### Agents
-
 - `GET /api/agents`
-- `GET /api/agents/{id}`
+- `GET /api/agents/agent/{id}`
 - `GET /api/agents/pending`
 - `POST /api/agents/approve/{pendingId}`
 - `GET /api/agents/status/{pendingId}`
-- `POST /api/agents/register_pending`
-- `POST /api/agents/heartbeat/{agentId}`
 
 ### Policies
-
 - `GET /api/policies`
 - `GET /api/policies/{id}`
 - `GET /api/policies/agent/{agentId}`
 - `POST /api/policies/create_policy/{agentId}`
 - `PUT /api/policies/{id}`
 - `PATCH /api/policies/{id}/toggle`
-- `POST /api/policies/mark_policy_executed/{policyId}`
 
 ### Jobs
-
 - `GET /api/backupjobs`
 - `GET /api/backupjobs/{id}`
 - `GET /api/backupjobs/agent/{agentId}`
 - `GET /api/backupjobs/policy/{policyId}`
-- `POST /api/backupjobs/start`
-- `POST /api/backupjobs/complete/{jobId}`
-- `POST /api/backupjobs/failed`
-- `POST /api/backupjobs/add_artifact`
-- `POST /api/backupjobs/upload_ticket`
 
 ### Artifacts
-
 - `GET /api/backupartifacts`
 - `GET /api/backupartifacts/job/{jobId}`
+- `GET /api/backupartifacts/{artifactId}/download`
 
-## Notes
+## Typical Local Workflow
 
-- Dashboard live mode is currently aggregated on the client via `agents`, `pending agents`, `policies` and `jobs` endpoints.
-- A dedicated `GET /api/dashboard/summary` endpoint would still be a good next step to reduce client requests.
-- The frontend can now run against the updated backend in `live` mode without relying on mock data for the main admin pages.
+1. Start backend.
+2. Start frontend with `yarn dev`.
+3. Open `http://localhost:5173`.
+4. Approve a pending agent in `Pending`.
+5. Create or edit a policy in `Policies`.
+6. Observe jobs in `Jobs`.
+7. Download uploaded artifacts in `Artifacts`.
+
+## Notes for Docker Compose
+
+In Docker Compose the frontend is built into a static production bundle and served by Apache.
+
+Important:
+- frontend API URL is injected during image build from `API_PORT`
+- SPA routes like `/jobs` or `/policies` are handled by the container rewrite rules
+- after a fresh frontend rebuild, an old browser tab may still reference outdated chunk names and need one manual reload
+
+## Related Documentation
+
+- [Root README](D:\projects\RestorMe\README.md)
+- [Docker Compose README](D:\projects\RestorMe\docker-compose\README.md)

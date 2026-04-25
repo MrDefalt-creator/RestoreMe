@@ -34,6 +34,13 @@ public class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        builder.HasIndex(x => x.MachineName)
+            .IsUnique();
+
+        builder.HasIndex(x => x.CreatedAt);
+
+        builder.HasIndex(x => x.LastSeenAt);
+
         builder.HasMany(x => x.Policies)
             .WithOne(x => x.Agent)
             .HasForeignKey(x => x.AgentId)

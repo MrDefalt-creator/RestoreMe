@@ -50,7 +50,12 @@ public class Worker : BackgroundService
         }
         
         var resolvedApiEndpoint = await _apiEndpointResolver.ResolveAsync(stoppingToken);
-        await _agentState.SaveServerAddressAsync(resolvedApiEndpoint.BaseUrl, stoppingToken);
+        var storedServerAddress = await _agentState.TryGetServerAddressAsync(stoppingToken);
+
+        if (string.IsNullOrWhiteSpace(storedServerAddress))
+        {
+            await _agentState.SaveServerAddressAsync(resolvedApiEndpoint.BaseUrl, stoppingToken);
+        }
 
         _logger.LogInformation(
             "Server address resolved from {Source}. BaseUrl: {BaseUrl}",

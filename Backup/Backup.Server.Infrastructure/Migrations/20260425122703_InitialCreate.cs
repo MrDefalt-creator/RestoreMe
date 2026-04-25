@@ -130,24 +130,77 @@ namespace Backup.Server.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Agents_CreatedAt",
+                table: "Agents",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Agents_LastSeenAt",
+                table: "Agents",
+                column: "LastSeenAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Agents_MachineName",
+                table: "Agents",
+                column: "MachineName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupArtifacts_CreatedAt",
+                table: "BackupArtifacts",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_BackupArtifacts_JobId",
                 table: "BackupArtifacts",
                 column: "JobId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_BackupJobs_AgentId",
-                table: "BackupJobs",
-                column: "AgentId");
+                name: "IX_BackupArtifacts_ObjectKey",
+                table: "BackupArtifacts",
+                column: "ObjectKey",
+                unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_BackupJobs_PolicyId",
+                name: "IX_BackupJobs_AgentId_StartedAt",
                 table: "BackupJobs",
-                column: "PolicyId");
+                columns: new[] { "AgentId", "StartedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupJobs_PolicyId_StartedAt",
+                table: "BackupJobs",
+                columns: new[] { "PolicyId", "StartedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupJobs_StartedAt",
+                table: "BackupJobs",
+                column: "StartedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupJobs_Status",
+                table: "BackupJobs",
+                column: "Status");
 
             migrationBuilder.CreateIndex(
                 name: "IX_BackupPolicies_AgentId",
                 table: "BackupPolicies",
                 column: "AgentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupPolicies_AgentId_IsEnabled_NextRunAt",
+                table: "BackupPolicies",
+                columns: new[] { "AgentId", "IsEnabled", "NextRunAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupPolicies_AgentId_Name",
+                table: "BackupPolicies",
+                columns: new[] { "AgentId", "Name" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BackupPolicies_CreatedAt",
+                table: "BackupPolicies",
+                column: "CreatedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PendingAgents_ApprovedAgentId",
@@ -160,6 +213,11 @@ namespace Backup.Server.Infrastructure.Migrations
                 table: "PendingAgents",
                 column: "MachineName",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PendingAgents_Status_CreatedAt",
+                table: "PendingAgents",
+                columns: new[] { "Status", "CreatedAt" });
         }
 
         /// <inheritdoc />

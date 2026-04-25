@@ -75,7 +75,8 @@ public class BackupJobsController : ControllerBase
     [HttpPost("upload_ticket")]
     public async Task<IActionResult> RequestUploadTicket([FromBody] RequestUploadTicketRequest request)
     {
-        var response = await _service.RequestUploadTicketAsync(request);
+        var publicServerBaseUrl = $"{Request.Scheme}://{Request.Host}";
+        var response = await _service.RequestUploadTicketAsync(request, publicServerBaseUrl);
         return Ok(response);
     }
 

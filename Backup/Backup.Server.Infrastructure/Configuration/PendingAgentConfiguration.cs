@@ -35,6 +35,8 @@ public class PendingAgentConfiguration : IEntityTypeConfiguration<PendingAgent>
 
         builder.HasIndex(x => x.MachineName)
             .IsUnique();
+
+        builder.HasIndex(x => new { x.Status, x.CreatedAt });
         
         builder.HasIndex(x => x.ApprovedAgentId)
             .IsUnique();

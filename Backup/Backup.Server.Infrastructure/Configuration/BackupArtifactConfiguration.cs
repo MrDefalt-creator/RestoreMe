@@ -29,5 +29,12 @@ public class BackupArtifactConfiguration : IEntityTypeConfiguration<BackupArtifa
 
         builder.Property(x => x.CreatedAt)
             .IsRequired();
+
+        builder.HasIndex(x => x.JobId);
+
+        builder.HasIndex(x => x.CreatedAt);
+
+        builder.HasIndex(x => x.ObjectKey)
+            .IsUnique();
     }
 }

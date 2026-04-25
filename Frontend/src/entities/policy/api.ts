@@ -10,7 +10,8 @@ import {
 import type { BackupPolicy, UpsertPolicyInput } from '@/entities/policy/model/types'
 
 type CreatePolicyResponse = {
-  id: string
+  id?: string
+  policyId?: string
   name: string
   agentId: string
 }
@@ -47,7 +48,13 @@ export async function createPolicy(input: UpsertPolicyInput) {
     },
   )
 
-  return getPolicyById(response.data.id)
+  const createdPolicyId = response.data.policyId ?? response.data.id
+
+  if (!createdPolicyId) {
+    throw new Error('Policy was created, but the API did not return its identifier.')
+  }
+
+  return getPolicyById(createdPolicyId)
 }
 
 export async function updatePolicy(policyId: string, input: UpsertPolicyInput) {

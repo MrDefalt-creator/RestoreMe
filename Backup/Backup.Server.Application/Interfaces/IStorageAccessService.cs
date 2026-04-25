@@ -10,6 +10,7 @@ public interface IStorageAccessService
         Guid agentId,
         string fileName,
         string contentType,
+        string? publicServerBaseUrl,
         CancellationToken cancellationToken);
 
     Task<Stream> OpenDownloadStreamAsync(

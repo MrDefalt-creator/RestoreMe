@@ -41,10 +41,17 @@ public class PoliciesController : ControllerBase
     [HttpPost("create_policy/{agentId}")]
     public async Task<IActionResult> CreatePolicyForAgent([FromRoute] Guid agentId, [FromBody] CreateBackupPolicyRequest request)
     {
-        var policy = await _policiesService.CreatePolicy(agentId, request.Name, request.SourcePath, request.Interval);
-        
-        var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
-        return Ok(response);
+        try
+        {
+            var policy = await _policiesService.CreatePolicy(agentId, request.Name, request.SourcePath, request.Interval);
+
+            var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpGet("get_policies/{agentId}")]

@@ -5,6 +5,7 @@ public class StorageOptions
     public const string SectionName = "Storage";
 
     public string Endpoint { get; set; } = null!;
+    public string? PublicEndpoint { get; set; }
     public string AccessKey { get; set; } = null!;
     public string SecretKey { get; set; } = null!;
     public string BucketName { get; set; } = null!;

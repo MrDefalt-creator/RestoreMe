@@ -137,7 +137,9 @@ public class BackupJobsService
         
     }
     
-    public async Task<UploadTicketResponse> RequestUploadTicketAsync(RequestUploadTicketRequest request)
+    public async Task<UploadTicketResponse> RequestUploadTicketAsync(
+        RequestUploadTicketRequest request,
+        string? publicServerBaseUrl = null)
     {
         var job = await _backupJobRepository.GetBackupJob(request.BackupJobId);
         if (job == null)
@@ -161,6 +163,7 @@ public class BackupJobsService
             job.AgentId,
             request.FileName,
             request.ContentType,
+            publicServerBaseUrl,
             CancellationToken.None);
     }
     

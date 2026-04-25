@@ -141,10 +141,10 @@ export function AppShell() {
               sidebarState === 'expanded' ? (
               <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                 <div className="flex items-center gap-3">
-                  <Badge tone="warning">Mock data mode</Badge>
+                  <Badge tone="warning">Local data mode</Badge>
                 </div>
                 <p className="mt-3 text-sm text-sky-100/76">
-                  The prototype starts in mock mode until admin endpoints are completed.
+                  Showing local sample data until the live API connection is available.
                 </p>
               </div>
             ) : (
@@ -159,10 +159,7 @@ export function AppShell() {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between gap-4 border-b border-surface-200/80 bg-[rgba(255,255,255,0.78)] px-5 py-4 md:px-8">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-accent-600">
-                Diploma prototype
-              </p>
-              <p className="mt-1 text-sm text-ink-800">
+              <p className="text-sm text-ink-800">
                 Architecture-first admin panel for RestoreMe backup operations.
               </p>
             </div>

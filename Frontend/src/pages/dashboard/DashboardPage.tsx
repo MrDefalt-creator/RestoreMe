@@ -36,7 +36,7 @@ export function DashboardPage() {
     <div className="space-y-8">
       <SectionHeading
         eyebrow="Operations overview"
-        title="Backup control room"
+        title="Backup operations"
         description="Use the dashboard to monitor machine health, pending approvals and the latest backup activity before diving into entity-specific workflows."
       />
 
@@ -56,7 +56,7 @@ export function DashboardPage() {
                   <h2 className="text-xl font-semibold text-ink-950">Recent backup jobs</h2>
                   <p className="text-sm text-ink-800">Latest execution attempts across agents and policies.</p>
                 </div>
-                <Badge tone="accent">Live surface</Badge>
+                <Badge tone="accent">Recent activity</Badge>
               </div>
               <div className="space-y-3">
                 {summary.recentJobs.map((job) => (
@@ -78,8 +78,8 @@ export function DashboardPage() {
 
             <Card className="space-y-4">
               <div>
-                <h2 className="text-xl font-semibold text-ink-950">Failure radar</h2>
-                <p className="text-sm text-ink-800">The most recent errors stay visible here so the operator does not need to scan the full history first.</p>
+                <h2 className="text-xl font-semibold text-ink-950">Recent failures</h2>
+                <p className="text-sm text-ink-800">Latest backup errors remain visible here for quick review.</p>
               </div>
               {summary.recentErrors.length ? (
                 <div className="space-y-3">
@@ -100,7 +100,7 @@ export function DashboardPage() {
           </div>
         </>
       ) : (
-        <EmptyState title="Loading dashboard" description="Summary metrics will appear as soon as the first data source responds." />
+        <EmptyState title="Loading overview" description="Summary metrics will appear as soon as the first data source responds." />
       )}
     </div>
   )
@@ -120,7 +120,7 @@ function MetricCard({ icon: Icon, title, value, detail }: MetricCardProps) {
         <div className="rounded-2xl bg-sky-50 p-3 text-accent-600">
           <Icon className="h-5 w-5" />
         </div>
-        <Badge tone="neutral">Snapshot</Badge>
+        <Badge tone="neutral">Overview</Badge>
       </div>
       <div>
         <p className="text-sm text-ink-800">{title}</p>

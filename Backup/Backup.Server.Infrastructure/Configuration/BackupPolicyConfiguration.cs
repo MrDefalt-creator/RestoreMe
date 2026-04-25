@@ -26,6 +26,15 @@ public class BackupPolicyConfiguration : IEntityTypeConfiguration<BackupPolicy>
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        builder.HasIndex(x => new { x.AgentId, x.Name })
+            .IsUnique();
+
+        builder.HasIndex(x => x.AgentId);
+
+        builder.HasIndex(x => x.CreatedAt);
+
+        builder.HasIndex(x => new { x.AgentId, x.IsEnabled, x.NextRunAt });
+
         builder.HasMany(x => x.Jobs)
             .WithOne(x => x.Policy)
             .HasForeignKey(x => x.PolicyId)

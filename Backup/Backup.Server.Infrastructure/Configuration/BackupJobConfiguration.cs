@@ -20,6 +20,14 @@ public class BackupJobConfiguration : IEntityTypeConfiguration<BackupJob>
 
         builder.Property(x => x.ErrorMessage)
             .HasMaxLength(2000);
+
+        builder.HasIndex(x => x.StartedAt);
+
+        builder.HasIndex(x => new { x.AgentId, x.StartedAt });
+
+        builder.HasIndex(x => new { x.PolicyId, x.StartedAt });
+
+        builder.HasIndex(x => x.Status);
         
         builder.HasOne(x => x.Agent)
             .WithMany()

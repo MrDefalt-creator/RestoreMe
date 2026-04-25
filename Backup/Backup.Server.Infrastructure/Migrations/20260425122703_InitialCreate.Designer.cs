@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Backup.Server.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260420112942_InitialCreate")]
+    [Migration("20260425122703_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -62,6 +62,13 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("LastSeenAt");
+
+                    b.HasIndex("MachineName")
+                        .IsUnique();
+
                     b.ToTable("Agents", (string)null);
                 });
 
@@ -97,7 +104,12 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("JobId");
+
+                    b.HasIndex("ObjectKey")
+                        .IsUnique();
 
                     b.ToTable("BackupArtifacts", (string)null);
                 });
@@ -129,9 +141,13 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AgentId");
+                    b.HasIndex("StartedAt");
 
-                    b.HasIndex("PolicyId");
+                    b.HasIndex("Status");
+
+                    b.HasIndex("AgentId", "StartedAt");
+
+                    b.HasIndex("PolicyId", "StartedAt");
 
                     b.ToTable("BackupJobs", (string)null);
                 });
@@ -174,6 +190,13 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.HasIndex("AgentId");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("AgentId", "Name")
+                        .IsUnique();
+
+                    b.HasIndex("AgentId", "IsEnabled", "NextRunAt");
+
                     b.ToTable("BackupPolicies", (string)null);
                 });
 
@@ -213,6 +236,8 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.HasIndex("MachineName")
                         .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("PendingAgents", (string)null);
                 });
