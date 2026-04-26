@@ -1,0 +1,96 @@
+using Backup.Server.Application.Services;
+using Backup.Server.Domain.Entities;
+using Backup.Shared.Contracts.DTOs;
+using Backup.Shared.Contracts.DTOs.Agents;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Backup.Server.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AgentsController : ControllerBase
+{
+    private readonly AgentService _agentService;
+
+    public AgentsController(AgentService agentService)
+    {
+        _agentService = agentService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAgents()
+    {
+        var agents = await _agentService.GetAllAgents();
+        return Ok(agents.Select(MapAgent));
+    }
+
+    [HttpGet("agent/{agentId:guid}")]
+    public async Task<IActionResult> GetAgent([FromRoute] Guid agentId)
+    {
+        var agent = await _agentService.GetAgentById(agentId);
+        return Ok(MapAgent(agent));
+    }
+
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPendingAgents()
+    {
+        var pendingAgents = await _agentService.GetPendingAgents();
+        return Ok(pendingAgents.Select(MapPendingAgent));
+    }
+
+    [HttpPost("heartbeat/{agentId}")]
+    public async Task<IActionResult> Heartbeat([FromRoute] Guid agentId)
+    {
+        await _agentService.Heartbeat(agentId);
+        return Ok();
+    }
+
+    [HttpGet("status/{pendingId}")]
+    public async Task<IActionResult> Status([FromRoute] Guid pendingId)
+    {
+        var pendingAgent = await _agentService.GetStatus(pendingId);
+
+        return Ok(new PendingAgentStatusResponse(
+            Convert.ToInt32(pendingAgent.Status),
+            pendingAgent.ApprovedAgentId));
+    }
+
+    [HttpPost("approve/{pendingId}")]
+    public async Task<IActionResult> Approve([FromRoute] Guid pendingId, [FromBody] ApproveRequest request)
+    {
+        var agentId = await _agentService.ApproveAgent(pendingId, request.Name);
+        return Ok(agentId);
+    }
+
+    [HttpPost("register_pending")]
+    public async Task<IActionResult> RegisterPending([FromBody] PendingAgentRequest request)
+    {
+        var pendingId = await _agentService.RegisterPending(request.MachineName, request.OsType, request.OsVersion);
+        return Ok(new PendingAgentRegisterResponse(pendingId));
+    }
+
+    private AgentListItemDto MapAgent(Agent agent)
+    {
+        return new AgentListItemDto(
+            agent.Id,
+            agent.Name,
+            agent.MachineName,
+            agent.OsType,
+            agent.Version,
+            _agentService.GetConnectivityStatus(agent),
+            agent.CreatedAt,
+            agent.LastSeenAt);
+    }
+
+    private static PendingAgentListItemDto MapPendingAgent(PendingAgent pendingAgent)
+    {
+        return new PendingAgentListItemDto(
+            pendingAgent.Id,
+            pendingAgent.MachineName,
+            pendingAgent.OsType,
+            pendingAgent.Version,
+            pendingAgent.Status.ToString().ToLowerInvariant(),
+            pendingAgent.CreatedAt,
+            pendingAgent.ApprovedAgentId);
+    }
+}

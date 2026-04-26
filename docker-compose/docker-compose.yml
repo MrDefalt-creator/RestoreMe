@@ -1,0 +1,100 @@
+services:
+  db:
+    image: postgres:18.3
+    container_name: restoreme-postgres
+    environment:
+      POSTGRES_DB: restoreme_db
+      POSTGRES_USER: restoreme_user
+      # Password is read from a mounted secret file, not from plain env.
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Persist PostgreSQL data between container restarts.
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U restoreme_user -d restoreme_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    secrets:
+      - postgres-password
+
+  minio:
+    image: minio/minio:latest
+    container_name: restoreme-minio
+    # MinIO API stays on 9000, admin console is exposed on 9001.
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio-access-key
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio-secret-key
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      # Persist object storage data between restarts.
+      - minio_data:/data
+    secrets:
+      - minio-access-key
+      - minio-secret-key
+
+  backend:
+    build:
+      context: ../Backup
+      dockerfile: Backup.Server.Api/Dockerfile
+    container_name: restoreme-backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      # Backend reads the full PostgreSQL connection string from a secret file.
+      ConnectionStrings__DefaultConnection_FILE: /run/secrets/postgres-connection
+      # Internal MinIO address used by the backend inside the Docker network.
+      Storage__Endpoint: minio:9000
+      # External storage address returned to agents in upload URLs.
+      # Change this if agents must reach storage through another host, IP or proxy.
+      Storage__PublicEndpoint: http://localhost:${MINIO_PORT:-9000}
+      Storage__AccessKey_FILE: /run/secrets/minio-access-key
+      Storage__SecretKey_FILE: /run/secrets/minio-secret-key
+      Storage__BucketName: backups
+      Storage__UseSsl: "false"
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      # API waits for PostgreSQL health check and MinIO startup.
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    secrets:
+      - postgres-connection
+      - minio-access-key
+      - minio-secret-key
+
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        # These values are baked into the static Vite build at image build time.
+        VITE_API_BASE_URL: http://localhost:${API_PORT:-8080}
+        VITE_API_MODE: ${VITE_API_MODE:-live}
+    container_name: restoreme-frontend
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+volumes:
+  db_data:
+  minio_data:
+
+secrets:
+  postgres-password:
+    file: ./secrets/postgres-password.txt
+  postgres-connection:
+    file: ./secrets/postgres-connection.txt
+  minio-access-key:
+    file: ./secrets/minio-access-key.txt
+  minio-secret-key:
+    file: ./secrets/minio-secret-key.txt
