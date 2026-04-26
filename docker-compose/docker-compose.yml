@@ -5,10 +5,12 @@ services:
     environment:
       POSTGRES_DB: restoreme_db
       POSTGRES_USER: restoreme_user
+      # Password is read from a mounted secret file, not from plain env.
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
+      # Persist PostgreSQL data between container restarts.
       - db_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U restoreme_user -d restoreme_db"]
@@ -21,6 +23,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: restoreme-minio
+    # MinIO API stays on 9000, admin console is exposed on 9001.
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER_FILE: /run/secrets/minio-access-key
@@ -29,6 +32,7 @@ services:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
+      # Persist object storage data between restarts.
       - minio_data:/data
     secrets:
       - minio-access-key
@@ -42,8 +46,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      # Backend reads the full PostgreSQL connection string from a secret file.
       ConnectionStrings__DefaultConnection_FILE: /run/secrets/postgres-connection
+      # Internal MinIO address used by the backend inside the Docker network.
       Storage__Endpoint: minio:9000
+      # External storage address returned to agents in upload URLs.
+      # Change this if agents must reach storage through another host, IP or proxy.
       Storage__PublicEndpoint: http://localhost:${MINIO_PORT:-9000}
       Storage__AccessKey_FILE: /run/secrets/minio-access-key
       Storage__SecretKey_FILE: /run/secrets/minio-secret-key
@@ -52,6 +60,7 @@ services:
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
+      # API waits for PostgreSQL health check and MinIO startup.
       db:
         condition: service_healthy
       minio:
@@ -66,6 +75,7 @@ services:
       context: ../Frontend
       dockerfile: Dockerfile
       args:
+        # These values are baked into the static Vite build at image build time.
         VITE_API_BASE_URL: http://localhost:${API_PORT:-8080}
         VITE_API_MODE: ${VITE_API_MODE:-live}
     container_name: restoreme-frontend
