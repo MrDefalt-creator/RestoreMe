@@ -16,6 +16,9 @@ public class BackupPolicyConfiguration : IEntityTypeConfiguration<BackupPolicy>
             .IsRequired()
             .HasMaxLength(150);
 
+        builder.Property(x => x.Type)
+            .IsRequired();
+
         builder.Property(x => x.SourcePath)
             .IsRequired()
             .HasMaxLength(500);
@@ -32,6 +35,8 @@ public class BackupPolicyConfiguration : IEntityTypeConfiguration<BackupPolicy>
         builder.HasIndex(x => x.AgentId);
 
         builder.HasIndex(x => x.CreatedAt);
+        
+        builder.HasIndex(x => x.Type);
 
         builder.HasIndex(x => new { x.AgentId, x.IsEnabled, x.NextRunAt });
 

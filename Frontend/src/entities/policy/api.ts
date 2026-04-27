@@ -7,7 +7,25 @@ import {
   togglePolicy as togglePolicyMock,
   updatePolicy as updatePolicyMock,
 } from '@/shared/api/mockDb'
-import type { BackupPolicy, UpsertPolicyInput } from '@/entities/policy/model/types'
+import type {
+  BackupPolicy,
+  BackupPolicyDatabaseSettings,
+  UpsertPolicyInput,
+} from '@/entities/policy/model/types'
+
+type ApiDatabaseSettings = {
+  engine: string
+  authMode: string
+  host: string | null
+  port: number | null
+  databaseName: string
+  username: string | null
+  password: string | null
+}
+
+type ApiPolicy = Omit<BackupPolicy, 'databaseSettings'> & {
+  databaseSettings: ApiDatabaseSettings | null
+}
 
 type CreatePolicyResponse = {
   id?: string
@@ -16,13 +34,55 @@ type CreatePolicyResponse = {
   agentId: string
 }
 
+function normalizeDatabaseSettings(
+  settings: ApiDatabaseSettings | null,
+): BackupPolicyDatabaseSettings | null {
+  if (!settings) {
+    return null
+  }
+
+  return {
+    engine: settings.engine === 'mysql' ? 'mysql' : 'postgres',
+    authMode: settings.authMode === 'credentials' ? 'credentials' : 'integrated',
+    host: settings.host,
+    port: settings.port,
+    databaseName: settings.databaseName,
+    username: settings.username,
+    password: settings.password,
+  }
+}
+
+function normalizePolicy(policy: ApiPolicy): BackupPolicy {
+  return {
+    ...policy,
+    type: policy.type === 'mysql' ? 'mysql' : policy.type === 'postgres' ? 'postgres' : 'filesystem',
+    databaseSettings: normalizeDatabaseSettings(policy.databaseSettings),
+  }
+}
+
+function toApiDatabaseSettings(settings: UpsertPolicyInput['databaseSettings']) {
+  if (!settings) {
+    return null
+  }
+
+  return {
+    engine: settings.engine,
+    authMode: settings.authMode,
+    host: settings.host,
+    port: settings.port,
+    databaseName: settings.databaseName,
+    username: settings.username,
+    password: settings.password,
+  }
+}
+
 export async function getPolicies() {
   if (env.apiMode === 'mock') {
     return listPoliciesMock()
   }
 
-  const response = await http.get<BackupPolicy[]>('/api/policies')
-  return response.data
+  const response = await http.get<ApiPolicy[]>('/api/policies')
+  return response.data.map(normalizePolicy)
 }
 
 export async function getPolicyById(policyId: string) {
@@ -30,8 +90,8 @@ export async function getPolicyById(policyId: string) {
     return getPolicyMock(policyId)
   }
 
-  const response = await http.get<BackupPolicy>(`/api/policies/${policyId}`)
-  return response.data
+  const response = await http.get<ApiPolicy>(`/api/policies/${policyId}`)
+  return normalizePolicy(response.data)
 }
 
 export async function createPolicy(input: UpsertPolicyInput) {
@@ -42,9 +102,11 @@ export async function createPolicy(input: UpsertPolicyInput) {
   const response = await http.post<CreatePolicyResponse>(
     `/api/policies/create_policy/${input.agentId}`,
     {
+      type: input.type,
       name: input.name,
-      sourcePath: input.sourcePath,
+      sourcePath: input.sourcePath || null,
       interval: input.intervalSeconds,
+      databaseSettings: toApiDatabaseSettings(input.databaseSettings),
     },
   )
 
@@ -62,15 +124,17 @@ export async function updatePolicy(policyId: string, input: UpsertPolicyInput) {
     return updatePolicyMock(policyId, input)
   }
 
-  const response = await http.put<BackupPolicy>(`/api/policies/${policyId}`, {
+  const response = await http.put<ApiPolicy>(`/api/policies/${policyId}`, {
     agentId: input.agentId,
+    type: input.type,
     name: input.name,
-    sourcePath: input.sourcePath,
-    interval: input.intervalSeconds,
+    sourcePath: input.sourcePath || null,
+    intervalSeconds: input.intervalSeconds,
     isEnabled: input.isEnabled,
+    databaseSettings: toApiDatabaseSettings(input.databaseSettings),
   })
 
-  return response.data
+  return normalizePolicy(response.data)
 }
 
 export async function togglePolicy(policyId: string) {
@@ -78,8 +142,8 @@ export async function togglePolicy(policyId: string) {
     return togglePolicyMock(policyId)
   }
 
-  const response = await http.patch<BackupPolicy>(
+  const response = await http.patch<ApiPolicy>(
     `/api/policies/${policyId}/toggle`,
   )
-  return response.data
+  return normalizePolicy(response.data)
 }

@@ -1,9 +1,9 @@
 # RestoreMe
 
 RestoreMe is a backup management system consisting of three main parts:
-- `Backup.Server.Api` — ASP.NET Core backend API
-- `Backup.Agent.Worker` — worker agent that registers, synchronizes policies, sends heartbeat and executes backups
-- `Frontend` — React admin panel for operators
+- `Backup.Server.Api` â€” ASP.NET Core backend API
+- `Backup.Agent.Worker` â€” worker agent that registers, synchronizes policies, sends heartbeat and executes backups
+- `Frontend` â€” React admin panel for operators
 
 The system uses:
 - PostgreSQL for relational data
@@ -49,6 +49,7 @@ RestorMe/
 - resolves backend URL from local state first, then from config
 - sends heartbeat and periodically synchronizes policies
 - packs source directories into archives and uploads them to object storage
+- can execute logical database dump policies for PostgreSQL and MySQL
 
 ### Frontend
 - app shell with sidebar and responsive layout
@@ -118,15 +119,15 @@ The centralized Docker entry point is:
 - [docker-compose/docker-compose.yml](D:\projects\RestorMe\docker-compose\docker-compose.yml)
 
 The folder contains:
-- `docker-compose.yml` — full stack startup
-- `.env` — non-secret ports and frontend build mode
-- `secrets/` — local secret files mounted into containers
+- `docker-compose.yml` â€” full stack startup
+- `.env` â€” non-secret ports and frontend build mode
+- `secrets/` â€” local secret files mounted into containers
 
 ### Current Compose Services
-- `db` — PostgreSQL 18
-- `minio` — object storage
-- `backend` — ASP.NET Core API
-- `frontend` — built Vite app served through Apache
+- `db` â€” PostgreSQL 18
+- `minio` â€” object storage
+- `backend` â€” ASP.NET Core API
+- `frontend` â€” built Vite app served through Apache
 
 ### Compose Secrets
 
@@ -234,8 +235,8 @@ VITE_API_MODE=live
 ```
 
 Modes:
-- `live` — use the real backend API
-- `mock` — use local fixtures for offline/demo work
+- `live` â€” use the real backend API
+- `mock` â€” use local fixtures for offline/demo work
 
 ## Agent Setup
 
@@ -260,10 +261,10 @@ Default agent configuration shape:
 ```
 
 ### What each setting means
-- `Api:BaseUrl` — default backend URL used before a stored override exists
-- `Agent:AgentId` — optional fixed agent identifier
-- `Agent:HeartbeatIntervalSeconds` — heartbeat interval
-- `Agent:PolicySyncIntervalSeconds` — policy synchronization interval
+- `Api:BaseUrl` â€” default backend URL used before a stored override exists
+- `Agent:AgentId` â€” optional fixed agent identifier
+- `Agent:HeartbeatIntervalSeconds` â€” heartbeat interval
+- `Agent:PolicySyncIntervalSeconds` â€” policy synchronization interval
 
 ### Local agent state
 
@@ -282,6 +283,77 @@ This means that if you change the server later and the agent still connects to t
 1. update `ServerAddress` inside `state/agent-state.json`
 2. or delete the state file and start the agent again
 
+### Logical backup prerequisites
+
+For logical database dump policies the agent machine must have the native dump tools installed:
+- PostgreSQL: `pg_dump`
+- MySQL: `mysqldump`
+
+The agent first tries the configured command name, then the process `PATH`, and on Windows also checks common install folders such as `C:\Program Files\PostgreSQL\<version>\bin`.
+
+If you want predictable behavior across different machines, set the tool paths explicitly in agent config. Example:
+```json
+{
+  "Agent": {
+    "PostgreSqlDumpCommand": "C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe",
+    "MySqlDumpCommand": "C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe"
+  }
+}
+```
+
+### PostgreSQL auth modes
+
+PostgreSQL policies support two modes:
+- `credentials` ? universal mode; provide host, port, database, username and password
+- `integrated` ? no password is stored in the policy; `pg_dump` must already be able to access the database as the OS user running the agent
+
+Recommended practical rule:
+- for Docker Compose PostgreSQL use `credentials`
+- use `integrated` only for a specially configured local PostgreSQL installation where the agent process is already trusted by the database
+
+Why Docker Compose usually needs credentials:
+- the bundled PostgreSQL container is exposed over TCP
+- `pg_dump` from the agent reaches it as a network client
+- without a dedicated trust or equivalent auth rule, PostgreSQL will ask for a password
+
+### How to prepare PostgreSQL for passwordless agent access
+
+Use this only if you really want the `integrated` scenario and you control the database host.
+
+Typical idea:
+1. Create a dedicated database role for backups.
+2. Run the agent under a dedicated OS user.
+3. Configure PostgreSQL auth so that this user can connect locally without putting a password into the policy.
+4. Verify that `pg_dump` works from the same user account before testing the policy in RestoreMe.
+
+On Linux this is usually implemented through a local socket auth rule such as `peer`, `ident`, or another trusted local rule in `pg_hba.conf`.
+
+On Windows there is no direct Linux-style `peer` equivalent for the common local TCP scenario. In practice you normally choose one of these approaches:
+- keep using `credentials`
+- configure an environment-specific trusted local auth flow supported by your PostgreSQL installation
+- prepare another local secret mechanism outside the policy itself
+
+Important limitation:
+- the current Docker Compose PostgreSQL setup is not the recommended environment for testing passwordless `integrated` mode
+- use a locally installed and intentionally configured PostgreSQL instance for that scenario
+
+### How to validate PostgreSQL access before creating a policy
+
+Run the same dump tool manually under the same OS account that starts the agent.
+
+Credentials mode example:
+```powershell
+$env:PGPASSWORD = 'your_password'
+pg_dump --no-password --host 127.0.0.1 --port 5432 --username restoreme_user --format=plain --file test.sql restoreme_db
+```
+
+Integrated mode example:
+```powershell
+pg_dump --no-password --host 127.0.0.1 --port 5432 --format=plain --file test.sql restoreme_db
+```
+
+If the manual command fails, the RestoreMe policy will fail too.
+
 ### How to connect a new agent
 1. Set `Api:BaseUrl` to the backend URL you want to use.
 2. Start the agent.
@@ -293,8 +365,8 @@ This means that if you change the server later and the agent still connects to t
 ## Storage Addressing Model
 
 Storage configuration has two roles:
-- `Storage:Endpoint` — internal MinIO address used by the backend itself
-- `Storage:PublicEndpoint` — optional external storage address used for upload URLs returned to agents
+- `Storage:Endpoint` â€” internal MinIO address used by the backend itself
+- `Storage:PublicEndpoint` â€” optional external storage address used for upload URLs returned to agents
 
 ### Simple scenario
 
@@ -356,17 +428,21 @@ Set `Storage:PublicEndpoint` manually only when the external storage address dif
 ### Create a backup policy
 1. Open `Policies`.
 2. Select an approved agent.
-3. Enter policy name and source path.
-4. Set interval in days, hours, minutes and seconds.
-5. Save the policy.
+3. Choose a policy type.
+4. For `Filesystem`, enter a source path.
+5. For `PostgreSQL` or `MySQL`, enter database connection settings and the auth mode supported by that engine.
+6. Set interval in days, hours, minutes and seconds.
+7. Save the policy.
 
 ### Execute and inspect a backup
 1. The agent synchronizes policies.
 2. When a policy is due, the agent starts a backup job.
-3. The agent requests an upload ticket from the backend.
-4. The backend returns a presigned MinIO upload URL.
-5. The agent uploads the archive directly to object storage.
-6. The job and artifact become visible in the admin panel.
+3. For filesystem policies the agent uploads a file directly or first creates a ZIP archive from a directory.
+4. For database policies the agent runs `pg_dump` or `mysqldump` and creates a temporary `.sql` dump file.
+5. The agent requests an upload ticket from the backend.
+6. The backend returns a presigned MinIO upload URL.
+7. The agent uploads the prepared payload directly to object storage.
+8. The job and artifact become visible in the admin panel.
 
 ### Download an artifact
 1. Open `Artifacts`.
@@ -425,6 +501,27 @@ Check:
 - whether backend returned the correct public upload host
 - whether `Storage:PublicEndpoint` must be set explicitly in your network topology
 
+### PostgreSQL logical dump fails with `no password supplied`
+Reason:
+- the policy uses `integrated` mode, but the target PostgreSQL instance is not configured for passwordless access from the agent process
+
+Fix:
+- for the local Docker Compose PostgreSQL setup, switch the policy to `credentials`
+- use `127.0.0.1` instead of `localhost` if you want to avoid extra IPv6 attempts during local testing
+- reserve `integrated` mode for a specially configured local PostgreSQL installation
+
+### Database dump job looks stuck
+Current behavior should fail fast instead of waiting for interactive password input. If a job still appears stuck, check:
+- whether the running agent binary was restarted after the latest changes
+- whether the dump tool itself can be executed manually from the same OS account
+- whether the agent is blocked by antivirus or another local security tool
+
+### Agent cannot find `pg_dump` or `mysqldump`
+Check:
+- whether the native dump tool is installed on the agent machine
+- whether the tool is visible in the agent process environment
+- whether you should set `Agent:PostgreSqlDumpCommand` or `Agent:MySqlDumpCommand` to an absolute path
+
 ### Frontend shows old chunk import errors after rebuild
 Reason:
 - Vite chunk hashes changed after rebuild, but the browser still uses an old tab/runtime
@@ -451,4 +548,4 @@ The project is ready as an MVP/prototype foundation:
 - compose stack starts from a single folder
 - migrations are automatic
 - secrets can be passed through file-based Docker mounts
-- in simple deployments an agent usually needs only the backend address
+- in simple deployments an agent usually needs only the backend address

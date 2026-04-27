@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public DbSet<Agent> Agents { get; set; }
     public DbSet<BackupJob> BackupJobs { get; set; }
     public DbSet<BackupPolicy> BackupPolicies { get; set; }
+    public DbSet<BackupPolicyDatabaseSettings> BackupPolicyDatabaseSettings { get; set; }
     public DbSet<BackupArtifact> BackupArtifacts { get; set; }
     
     public DbSet<PendingAgent>  PendingAgents { get; set; }

@@ -3,17 +3,17 @@
 This folder is the single local entry point for starting the full RestoreMe stack.
 
 Contents:
-- `docker-compose.yml` — full stack definition
-- `.env` — non-secret ports and frontend mode
-- `secrets/` — local secret files mounted into containers
+- `docker-compose.yml` â€” full stack definition
+- `.env` â€” non-secret ports and frontend mode
+- `secrets/` â€” local secret files mounted into containers
 
 ## Services
 
 Current stack includes:
-- `db` — PostgreSQL 18
-- `minio` — object storage
-- `backend` — ASP.NET Core API
-- `frontend` — Vite production build served by Apache
+- `db` â€” PostgreSQL 18
+- `minio` â€” object storage
+- `backend` â€” ASP.NET Core API
+- `frontend` â€” Vite production build served by Apache
 
 ## Start the Stack
 
@@ -50,6 +50,7 @@ You can change these in `.env`.
 - backend runs EF Core migrations automatically on startup
 - backend talks to MinIO internally via `minio:9000`
 - agents usually need only the backend address in simple deployments
+- local Docker PostgreSQL is best tested through `credentials` mode for logical dump policies
 
 ## Secrets
 
@@ -135,6 +136,28 @@ docker compose up -d --build frontend
 5. Open the frontend.
 6. Start the worker agent separately if you want to test the real registration flow.
 
+## Logical database dump testing with Compose
+
+For the bundled local PostgreSQL container, the recommended first test is:
+- `Policy type`: `PostgreSQL logical dump`
+- `Auth mode`: `credentials`
+- `Host`: `127.0.0.1`
+- `Port`: `5432`
+- `Database`: `restoreme_db`
+- `Username`: the PostgreSQL user from your secret or connection string
+- `Password`: the PostgreSQL password from your secret
+
+Why this is the recommended path:
+- the compose PostgreSQL instance is reached over TCP
+- passwordless local auth is not the default for this setup
+- `integrated` mode is intended for a deliberately configured local PostgreSQL installation, not for the default compose database container
+
+Before creating a logical dump policy, also make sure the agent machine has the required native dump tool installed:
+- PostgreSQL: `pg_dump`
+- MySQL: `mysqldump`
+
+If needed, set the absolute tool path in the agent config.
+
 ## Troubleshooting
 
 ### Frontend opens but API requests fail
@@ -149,10 +172,16 @@ Check:
 - backend returned an upload URL with the correct external host
 - `Storage__PublicEndpoint` is configured if your storage host differs from the backend host
 
+### PostgreSQL logical dump fails without a password
+This usually means the policy is using `integrated` mode against the compose PostgreSQL container, which is not the recommended test scenario. Switch the policy to `credentials` and use `127.0.0.1:5432`.
+
+### Agent cannot find `pg_dump` or `mysqldump`
+Install the matching native dump tool on the agent machine or configure an absolute path in agent settings.
+
 ### Frontend route returns Not Found in Docker
 This should already be handled by the frontend container rewrite rules. If you still see it, rebuild the frontend image.
 
 ## Related Documentation
 
 - [Root README](D:\projects\RestorMe\README.md)
-- [Frontend README](D:\projects\RestorMe\Frontend\README.md)
+- [Frontend README](D:\projects\RestorMe\Frontend\README.md)
