@@ -18,6 +18,27 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
 
+function formatPolicyType(type: BackupPolicy['type']) {
+  switch (type) {
+    case 'postgres':
+      return 'PostgreSQL dump'
+    case 'mysql':
+      return 'MySQL dump'
+    default:
+      return 'Filesystem'
+  }
+}
+
+function formatPolicyTarget(policy: BackupPolicy) {
+  if (policy.type === 'filesystem') {
+    return policy.sourcePath
+  }
+
+  const databaseName = policy.databaseSettings?.databaseName ?? 'unknown-db'
+  const host = policy.databaseSettings?.host || 'local'
+  return `${databaseName} @ ${host}`
+}
+
 export function PoliciesPage() {
   const [search, setSearch] = useState('')
   const [editingPolicy, setEditingPolicy] = useState<BackupPolicy | null>(null)
@@ -55,9 +76,17 @@ export function PoliciesPage() {
     const matchesFilter =
       policyFilter === 'all' ||
       (policyFilter === 'enabled' ? policy.isEnabled : !policy.isEnabled)
+
     const matchesSearch =
       !searchValue ||
-      [policy.name, policy.sourcePath, agentNameMap.get(policy.agentId) ?? '']
+      [
+        policy.name,
+        formatPolicyTarget(policy),
+        formatPolicyType(policy.type),
+        policy.databaseSettings?.databaseName ?? '',
+        policy.databaseSettings?.host ?? '',
+        agentNameMap.get(policy.agentId) ?? '',
+      ]
         .join(' ')
         .toLowerCase()
         .includes(searchValue)
@@ -70,7 +99,7 @@ export function PoliciesPage() {
       <SectionHeading
         eyebrow="Policies"
         title="Backup scheduling rules"
-        description="Create, adjust and temporarily disable policy schedules without losing context about the target agent or the next planned run."
+        description="Create filesystem backup schedules or logical database dump policies without losing visibility into the target agent and next execution window."
         action={
           <Button
             onClick={() => {
@@ -89,7 +118,7 @@ export function PoliciesPage() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search policy, path or agent"
+            placeholder="Search policy, target, type or agent"
             className="pl-10"
           />
         </div>
@@ -106,7 +135,7 @@ export function PoliciesPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-surface-100 text-ink-800">
                 <tr>
-                  {['Policy', 'Agent', 'Path', 'Interval', 'Next run', 'Last run', 'State', 'Actions'].map((label) => (
+                  {['Policy', 'Type', 'Agent', 'Target', 'Interval', 'Next run', 'Last run', 'State', 'Actions'].map((label) => (
                     <th key={label} className="px-4 py-3 font-medium">
                       {label}
                     </th>
@@ -117,8 +146,9 @@ export function PoliciesPage() {
                 {filteredPolicies.map((policy) => (
                   <tr key={policy.id} className="border-t border-surface-200">
                     <td className="px-4 py-3 font-medium text-ink-950">{policy.name}</td>
+                    <td className="px-4 py-3 text-ink-800">{formatPolicyType(policy.type)}</td>
                     <td className="px-4 py-3 text-ink-800">{agentNameMap.get(policy.agentId) ?? 'Unknown agent'}</td>
-                    <td className="px-4 py-3 text-ink-800">{policy.sourcePath}</td>
+                    <td className="px-4 py-3 text-ink-800">{formatPolicyTarget(policy)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDurationSeconds(policy.intervalSeconds)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDateTime(policy.nextRunAt)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDateTime(policy.lastRunAt)}</td>
@@ -155,7 +185,7 @@ export function PoliciesPage() {
           </div>
         </Card>
       ) : (
-        <EmptyState title="No policies found" description="Adjust the filter or create the first backup policy for an approved agent." />
+        <EmptyState title="No policies found" description="Adjust the filter or create the first filesystem or database backup policy for an approved agent." />
       )}
 
       <PolicyFormDialog

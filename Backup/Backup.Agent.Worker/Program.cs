@@ -32,6 +32,7 @@ builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>((sp, client) =
 builder.Services.AddHttpClient<IMinioStorageClient, MinioStorageClient>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();
 builder.Services.AddSingleton<IChecksumService, ChecksumService>();
+builder.Services.AddSingleton<ILogicalBackupService, LogicalBackupService>();
 builder.Services.AddTransient<IBackupExecutor, BackupExecuter>();
 builder.Services.AddHostedService<Worker>();
 

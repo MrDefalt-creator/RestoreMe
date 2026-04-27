@@ -1,3 +1,4 @@
+using Backup.Agent.Worker.DTOs;
 using Backup.Agent.Worker.Interfaces;
 using Backup.Agent.Worker.State;
 using Backup.Shared.Contracts.DTOs.Jobs;
@@ -13,14 +14,22 @@ public class BackupExecuter : IBackupExecutor
     private readonly IBackupApiClient _backupApiClient;
     private readonly IMinioStorageClient _storageClient;
     private readonly IArchiveService _archiveService;
+    private readonly ILogicalBackupService _logicalBackupService;
         
-    public BackupExecuter(ILogger<BackupExecuter> logger, IAgentState agentState, IBackupApiClient backupApiClient, IArchiveService archiveService, IMinioStorageClient storageClient)
+    public BackupExecuter(
+        ILogger<BackupExecuter> logger,
+        IAgentState agentState,
+        IBackupApiClient backupApiClient,
+        IArchiveService archiveService,
+        IMinioStorageClient storageClient,
+        ILogicalBackupService logicalBackupService)
     {
         _logger = logger;
         _agentState = agentState;
         _backupApiClient = backupApiClient;
         _archiveService = archiveService;
         _storageClient = storageClient;
+        _logicalBackupService = logicalBackupService;
     }
     
     public async Task ExecutePolicyAsync(BackupPolicyDto policy, CancellationToken cancellationToken)
@@ -33,7 +42,7 @@ public class BackupExecuter : IBackupExecutor
         }
         
         Guid jobId = Guid.Empty;
-        string? tempArchivePath = null;
+        PreparedBackupPayload? preparedPayload = null;
 
         try
         {
@@ -43,47 +52,24 @@ public class BackupExecuter : IBackupExecutor
 
             jobId = await _backupApiClient.StartBackupJobAsync(agentId.Value, policy.Id, cancellationToken);
 
-            string uploadPath;
-            string fileName;
-            string contentType;
-
-            if (File.Exists(policy.SourcePath))
-            {
-                uploadPath = policy.SourcePath;
-                fileName = Path.GetFileName(policy.SourcePath);
-                contentType = "application/octet-stream";
-            }
-            else if (Directory.Exists(policy.SourcePath))
-            {
-                tempArchivePath = await _archiveService.CreateZipFromDirectoryAsync(
-                    policy.SourcePath,
-                    cancellationToken);
-
-                uploadPath = tempArchivePath;
-                fileName = Path.GetFileName(tempArchivePath);
-                contentType = "application/zip";
-            }
-            else
-            {
-                throw new FileNotFoundException($"Source path {policy.SourcePath} does not exist");
-            }
+            preparedPayload = await PreparePayloadAsync(policy, cancellationToken);
 
             var ticket = await _backupApiClient.RequestUploadTicketAsync(
                 new RequestUploadTicketRequest(
                     jobId,
                     policy.Id,
-                    fileName,
-                    contentType),
+                    preparedPayload.FileName,
+                    preparedPayload.ContentType),
                 cancellationToken);
 
 
             var uploadResult = await _storageClient.UploadFileAsync(
                 ticket.UploadUrl,
-                uploadPath,
-                contentType,
+                preparedPayload.FilePath,
+                preparedPayload.ContentType,
                 cancellationToken);
 
-            await _backupApiClient.AddArtifactAsync(jobId, fileName, ticket.ObjectKey, uploadResult.Size,
+            await _backupApiClient.AddArtifactAsync(jobId, preparedPayload.FileName, ticket.ObjectKey, uploadResult.Size,
                 uploadResult.Checksum, cancellationToken);
             await _backupApiClient.FinishBackupJobAsync(jobId, cancellationToken);
 
@@ -121,22 +107,57 @@ public class BackupExecuter : IBackupExecutor
         }
         finally
         {
-            if (!string.IsNullOrWhiteSpace(tempArchivePath) && File.Exists(tempArchivePath))
+            if (preparedPayload?.ShouldDeleteAfterUpload == true &&
+                File.Exists(preparedPayload.FilePath))
             {
                 try
                 {
-                    File.Delete(tempArchivePath);
+                    File.Delete(preparedPayload.FilePath);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(
                         ex,
-                        "Failed to delete temp archive: {ArchivePath}",
-                        tempArchivePath);
+                        "Failed to delete temp backup payload: {PayloadPath}",
+                        preparedPayload.FilePath);
                 }
             }
         }
     }
-    
+
+    private async Task<PreparedBackupPayload> PreparePayloadAsync(
+        BackupPolicyDto policy,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(policy.Type, "postgres", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(policy.Type, "mysql", StringComparison.OrdinalIgnoreCase))
+        {
+            return await _logicalBackupService.CreateDumpAsync(policy, cancellationToken);
+        }
+
+        if (File.Exists(policy.SourcePath))
+        {
+            return new PreparedBackupPayload(
+                policy.SourcePath,
+                Path.GetFileName(policy.SourcePath),
+                "application/octet-stream",
+                false);
+        }
+
+        if (Directory.Exists(policy.SourcePath))
+        {
+            var tempArchivePath = await _archiveService.CreateZipFromDirectoryAsync(
+                policy.SourcePath,
+                cancellationToken);
+
+            return new PreparedBackupPayload(
+                tempArchivePath,
+                Path.GetFileName(tempArchivePath),
+                "application/zip",
+                true);
+        }
+
+        throw new FileNotFoundException($"Source path {policy.SourcePath} does not exist");
+    }
 
 }

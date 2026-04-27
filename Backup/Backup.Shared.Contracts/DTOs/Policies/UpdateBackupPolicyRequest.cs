@@ -4,8 +4,10 @@ namespace Backup.Shared.Contracts.DTOs.Policies;
 
 public record UpdateBackupPolicyRequest(
     [Required] Guid AgentId,
+    [Required] string Type,
     [Required] string Name,
-    [Required] string SourcePath,
+    string? SourcePath,
     [Required] int IntervalSeconds,
-    [Required] bool IsEnabled
+    [Required] bool IsEnabled,
+    BackupPolicyDatabaseSettingsDto? DatabaseSettings
 );

@@ -17,6 +17,7 @@ public class PolicyRepository : IPolicyRepository
     public async Task<List<BackupPolicy>> GetAllPoliciesAsync()
     {
         return await _dbContext.BackupPolicies
+            .Include(x => x.DatabaseSettings)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
     }
@@ -30,6 +31,7 @@ public class PolicyRepository : IPolicyRepository
     public async Task<List<BackupPolicy>> GetAllPolicies(Guid agentId)
     {
         return await _dbContext.BackupPolicies
+            .Include(x => x.DatabaseSettings)
             .Where(x => x.AgentId == agentId)
             .ToListAsync();
     }
@@ -37,6 +39,7 @@ public class PolicyRepository : IPolicyRepository
     public async Task<BackupPolicy?> GetPolicyById(Guid policyId)
     {
         return await _dbContext.BackupPolicies
+            .Include(x => x.DatabaseSettings)
             .FirstOrDefaultAsync(x => x.Id == policyId);
     }
 

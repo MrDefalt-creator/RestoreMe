@@ -1,5 +1,6 @@
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Domain.Enums;
 using Backup.Shared.Contracts.DTOs;
 using Backup.Shared.Contracts.DTOs.Policies;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +44,13 @@ public class PoliciesController : ControllerBase
     {
         try
         {
-            var policy = await _policiesService.CreatePolicy(agentId, request.Name, request.SourcePath, request.Interval);
+            var policy = await _policiesService.CreatePolicy(
+                agentId,
+                request.Type,
+                request.Name,
+                request.SourcePath,
+                request.Interval,
+                request.DatabaseSettings);
 
             var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
             return Ok(response);
@@ -58,7 +65,14 @@ public class PoliciesController : ControllerBase
     public async Task<IActionResult> GetPolicyForAgent([FromRoute] Guid agentId)
     {
         var policies = await _policiesService.GetAllPolicies(agentId);
-        return Ok(policies);
+        return Ok(policies.Select(policy => new BackupPolicyDto(
+            policy.Id,
+            MapPolicyType(policy.Type),
+            policy.Name,
+            policy.SourcePath,
+            policy.IsEnabled,
+            policy.NextRunAt,
+            MapDatabaseSettings(policy.DatabaseSettings))));
     }
 
     [HttpGet("get_policy/{policyId}")]
@@ -66,7 +80,14 @@ public class PoliciesController : ControllerBase
     {
         var policy = await _policiesService.GetPolicyById(policyId);
         
-        var response = new BackupPolicyDto(policy.Id, policy.Name, policy.SourcePath, policy.IsEnabled, policy.NextRunAt);
+        var response = new BackupPolicyDto(
+            policy.Id,
+            MapPolicyType(policy.Type),
+            policy.Name,
+            policy.SourcePath,
+            policy.IsEnabled,
+            policy.NextRunAt,
+            MapDatabaseSettings(policy.DatabaseSettings));
         
         return Ok(response);
     }
@@ -77,10 +98,12 @@ public class PoliciesController : ControllerBase
         var policy = await _policiesService.UpdatePolicy(
             policyId,
             request.AgentId,
+            request.Type,
             request.Name,
             request.SourcePath,
             request.IntervalSeconds,
-            request.IsEnabled);
+            request.IsEnabled,
+            request.DatabaseSettings);
 
         return Ok(MapPolicy(policy));
     }
@@ -104,12 +127,52 @@ public class PoliciesController : ControllerBase
         return new AdminBackupPolicyDto(
             policy.Id,
             policy.AgentId,
+            MapPolicyType(policy.Type),
             policy.Name,
             policy.SourcePath,
             policy.IsEnabled,
             policy.IntervalSeconds,
             policy.CreatedAt,
             policy.NextRunAt,
-            policy.LastRunAt);
+            policy.LastRunAt,
+            MapDatabaseSettings(policy.DatabaseSettings));
+    }
+
+    private static string MapPolicyType(BackupPolicyType type)
+    {
+        return type switch
+        {
+            BackupPolicyType.FileSystem => "filesystem",
+            BackupPolicyType.PostgreSqlDump => "postgres",
+            BackupPolicyType.MySqlDump => "mysql",
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+    }
+
+    private static BackupPolicyDatabaseSettingsDto? MapDatabaseSettings(BackupPolicyDatabaseSettings? settings)
+    {
+        if (settings == null)
+        {
+            return null;
+        }
+
+        return new BackupPolicyDatabaseSettingsDto(
+            settings.Engine switch
+            {
+                DatabaseEngine.PostgreSql => "postgres",
+                DatabaseEngine.MySql => "mysql",
+                _ => throw new ArgumentOutOfRangeException(nameof(settings.Engine), settings.Engine, null)
+            },
+            settings.AuthMode switch
+            {
+                DatabaseDumpAuthMode.Integrated => "integrated",
+                DatabaseDumpAuthMode.Credentials => "credentials",
+                _ => throw new ArgumentOutOfRangeException(nameof(settings.AuthMode), settings.AuthMode, null)
+            },
+            settings.Host,
+            settings.Port,
+            settings.DatabaseName,
+            settings.Username,
+            settings.Password);
     }
 }

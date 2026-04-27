@@ -1,7 +1,11 @@
 import type { Agent, PendingAgent } from '@/entities/agent/model/types'
 import type { BackupArtifact } from '@/entities/artifact/model/types'
 import type { BackupJob, BackupJobStatus } from '@/entities/job/model/types'
-import type { BackupPolicy, UpsertPolicyInput } from '@/entities/policy/model/types'
+import type {
+  BackupPolicy,
+  BackupPolicyDatabaseSettings,
+  UpsertPolicyInput,
+} from '@/entities/policy/model/types'
 
 type DashboardSummary = {
   totalAgents: number
@@ -89,6 +93,7 @@ const db: {
     {
       id: 'cce21b30-8c5d-4d0c-b3c0-1eb4a5df6001',
       agentId: 'a7a9a2d9-08ca-45dd-9018-3d7acdb4d101',
+      type: 'filesystem',
       name: 'Documents every 15 minutes',
       sourcePath: 'C:\\Users\\Designer\\Documents',
       isEnabled: true,
@@ -96,10 +101,12 @@ const db: {
       nextRunAt: new Date(now + 1000 * 60 * 11).toISOString(),
       lastRunAt: new Date(now - 1000 * 60 * 4).toISOString(),
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 18).toISOString(),
+      databaseSettings: null,
     },
     {
       id: '5351eb46-4117-48de-a6ae-5ec617cb6002',
       agentId: 'a7a9a2d9-08ca-45dd-9018-3d7acdb4d101',
+      type: 'filesystem',
       name: 'Project cache nightly',
       sourcePath: 'D:\\Projects\\Cache',
       isEnabled: false,
@@ -107,10 +114,12 @@ const db: {
       nextRunAt: new Date(now + 1000 * 60 * 60 * 6).toISOString(),
       lastRunAt: new Date(now - 1000 * 60 * 60 * 18).toISOString(),
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 10).toISOString(),
+      databaseSettings: null,
     },
     {
       id: 'abf77945-fbab-4f38-b32e-f17c67526003',
       agentId: '6ad8bf35-8d35-4f8f-9cc4-092eafcb2b02',
+      type: 'filesystem',
       name: 'Finance share hourly',
       sourcePath: '\\\\corp-fs\\finance',
       isEnabled: true,
@@ -118,10 +127,12 @@ const db: {
       nextRunAt: new Date(now + 1000 * 60 * 22).toISOString(),
       lastRunAt: new Date(now - 1000 * 60 * 39).toISOString(),
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString(),
+      databaseSettings: null,
     },
     {
       id: 'c0d0ff0c-60fd-4570-aa55-0c0ad2db6004',
       agentId: 'bb65352d-1d27-42c4-b5b7-09ee0d6bd303',
+      type: 'filesystem',
       name: 'QA screenshots',
       sourcePath: '/Users/qa/Desktop/screenshots',
       isEnabled: true,
@@ -129,10 +140,12 @@ const db: {
       nextRunAt: new Date(now + 1000 * 60 * 9).toISOString(),
       lastRunAt: new Date(now - 1000 * 60 * 20).toISOString(),
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 8).toISOString(),
+      databaseSettings: null,
     },
     {
       id: '14d20b69-e39e-456f-8e25-b4256b826005',
       agentId: 'dd1248b0-fb4c-4881-90cf-0ad31a61d404',
+      type: 'filesystem',
       name: 'Branch archive nightly',
       sourcePath: '/srv/archive',
       isEnabled: true,
@@ -140,6 +153,28 @@ const db: {
       nextRunAt: new Date(now + 1000 * 60 * 60 * 10).toISOString(),
       lastRunAt: new Date(now - 1000 * 60 * 60 * 25).toISOString(),
       createdAt: new Date(now - 1000 * 60 * 60 * 24 * 41).toISOString(),
+      databaseSettings: null,
+    },
+    {
+      id: '7ae0d4f8-7b7d-4a68-9bd0-f38ba85f6010',
+      agentId: 'a7a9a2d9-08ca-45dd-9018-3d7acdb4d101',
+      type: 'postgres',
+      name: 'RestoreMe postgres nightly',
+      sourcePath: '',
+      isEnabled: true,
+      intervalSeconds: 86400,
+      nextRunAt: new Date(now + 1000 * 60 * 60 * 7).toISOString(),
+      lastRunAt: new Date(now - 1000 * 60 * 60 * 12).toISOString(),
+      createdAt: new Date(now - 1000 * 60 * 60 * 24 * 5).toISOString(),
+      databaseSettings: {
+        engine: 'postgres',
+        authMode: 'integrated',
+        host: 'localhost',
+        port: 5432,
+        databaseName: 'restoreme_db',
+        username: 'postgres',
+        password: null,
+      },
     },
   ],
   jobs: [
@@ -237,6 +272,12 @@ function randomId() {
   return crypto.randomUUID()
 }
 
+function cloneDatabaseSettings(
+  settings: BackupPolicyDatabaseSettings | null,
+): BackupPolicyDatabaseSettings | null {
+  return settings ? structuredClone(settings) : null
+}
+
 export async function getDashboardSummary() {
   const recentJobs = [...db.jobs]
     .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
@@ -321,6 +362,7 @@ export async function createPolicy(input: UpsertPolicyInput) {
   const policy: BackupPolicy = {
     id: randomId(),
     agentId: input.agentId,
+    type: input.type,
     name: input.name,
     sourcePath: input.sourcePath,
     isEnabled: input.isEnabled,
@@ -328,6 +370,7 @@ export async function createPolicy(input: UpsertPolicyInput) {
     nextRunAt: new Date(Date.now() + input.intervalSeconds * 1000).toISOString(),
     lastRunAt: null,
     createdAt: new Date().toISOString(),
+    databaseSettings: cloneDatabaseSettings(input.databaseSettings),
   }
 
   db.policies.unshift(policy)
@@ -342,10 +385,12 @@ export async function updatePolicy(policyId: string, input: UpsertPolicyInput) {
   }
 
   policy.agentId = input.agentId
+  policy.type = input.type
   policy.name = input.name
   policy.sourcePath = input.sourcePath
   policy.intervalSeconds = input.intervalSeconds
   policy.isEnabled = input.isEnabled
+  policy.databaseSettings = cloneDatabaseSettings(input.databaseSettings)
   policy.nextRunAt = new Date(Date.now() + input.intervalSeconds * 1000).toISOString()
 
   return delay(policy)
