@@ -18,6 +18,7 @@ public class AppUserRepository : IAppUserRepository
     public Task<List<AppUser>> GetAllAsync()
     {
         return _dbContext.AppUsers
+            .AsNoTracking()
             .OrderBy(x => x.Username)
             .ToListAsync();
     }
@@ -29,7 +30,9 @@ public class AppUserRepository : IAppUserRepository
 
     public Task<AppUser?> GetByNormalizedUsernameAsync(string normalizedUsername)
     {
-        return _dbContext.AppUsers.FirstOrDefaultAsync(x => x.NormalizedUsername == normalizedUsername);
+        return _dbContext.AppUsers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.NormalizedUsername == normalizedUsername);
     }
 
     public Task<int> CountAsync()

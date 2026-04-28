@@ -17,6 +17,7 @@ public class BackupArtifactRepository : IBackupArtifactRepository
     public async Task<List<BackupArtifact>> GetAllArtifactsAsync()
     {
         return await _dbContext.BackupArtifacts
+            .AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
     }
@@ -24,6 +25,7 @@ public class BackupArtifactRepository : IBackupArtifactRepository
     public async Task<List<BackupArtifact>> GetArtifactsByJobIdAsync(Guid jobId)
     {
         return await _dbContext.BackupArtifacts
+            .AsNoTracking()
             .Where(x => x.JobId == jobId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
@@ -32,6 +34,7 @@ public class BackupArtifactRepository : IBackupArtifactRepository
     public async Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId)
     {
         return await _dbContext.BackupArtifacts
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == artifactId);
     }
 

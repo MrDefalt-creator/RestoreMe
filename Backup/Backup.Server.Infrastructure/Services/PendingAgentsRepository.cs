@@ -18,6 +18,7 @@ public class PendingAgentsRepository : IPendingAgentsRepository
     public async Task<List<PendingAgent>> GetPendingAgentsAsync()
     {
         return await _dbContext.PendingAgents
+            .AsNoTracking()
             .Where(x => x.Status == PendingAgentStatus.Pending)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
@@ -30,7 +31,9 @@ public class PendingAgentsRepository : IPendingAgentsRepository
 
     public Task<PendingAgent?> GetByMachineNameAsync(string machineName)
     {
-        return _dbContext.PendingAgents.FirstOrDefaultAsync(x => x.MachineName == machineName);
+        return _dbContext.PendingAgents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.MachineName == machineName);
     }
 
     public async Task AddAsync(PendingAgent pendingAgent)

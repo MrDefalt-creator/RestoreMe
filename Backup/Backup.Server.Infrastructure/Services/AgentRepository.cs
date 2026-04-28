@@ -16,6 +16,7 @@ public class AgentRepository : IAgentRepository
     public async Task<List<Agent>> GetAllAgentsAsync()
     {
         return await _dbContext.Agents
+            .AsNoTracking()
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
     }
