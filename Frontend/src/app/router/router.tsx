@@ -2,6 +2,9 @@
 import { Suspense, lazy, type ReactNode } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 
+import { RequireAuth } from '@/app/router/RequireAuth'
+import { AccountPage } from '@/pages/account/AccountPage'
+import { LoginPage } from '@/pages/login/LoginPage'
 import { AppShell } from '@/widgets/app-shell/AppShell'
 
 const DashboardPage = lazy(() =>
@@ -34,6 +37,11 @@ const ArtifactsPage = lazy(() =>
     default: module.ArtifactsPage,
   })),
 )
+const UsersPage = lazy(() =>
+  import('@/pages/users/UsersPage').then((module) => ({
+    default: module.UsersPage,
+  })),
+)
 
 function withSuspense(node: ReactNode) {
   return (
@@ -51,15 +59,25 @@ function withSuspense(node: ReactNode) {
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
+      { path: 'account', element: <AccountPage /> },
       { path: 'agents', element: withSuspense(<AgentsPage />) },
       { path: 'pending-agents', element: withSuspense(<PendingAgentsPage />) },
       { path: 'policies', element: withSuspense(<PoliciesPage />) },
       { path: 'jobs', element: withSuspense(<JobsPage />) },
       { path: 'artifacts', element: withSuspense(<ArtifactsPage />) },
+      { path: 'users', element: withSuspense(<UsersPage />) },
     ],
   },
 ])

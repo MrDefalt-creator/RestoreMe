@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const envSchema = z.object({
-  VITE_API_BASE_URL: z.url().default('https://localhost:7104'),
+  VITE_API_BASE_URL: z.url().default('http://localhost:8080'),
   VITE_API_MODE: z.enum(['mock', 'live']).default('live'),
 })
 
@@ -11,7 +11,7 @@ const parsed = envSchema.safeParse({
 })
 
 const fallback = {
-  VITE_API_BASE_URL: 'https://localhost:7104',
+  VITE_API_BASE_URL: 'http://localhost:8080',
   VITE_API_MODE: 'live' as const,
 }
 

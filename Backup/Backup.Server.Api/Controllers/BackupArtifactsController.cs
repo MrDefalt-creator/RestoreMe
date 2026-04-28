@@ -1,12 +1,15 @@
+using Backup.Server.Api.Security;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs.Artifacts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backup.Server.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = AuthConstants.AdminReadPolicy)]
 public class BackupArtifactsController : ControllerBase
 {
     private readonly BackupArtifactsService _backupArtifactsService;

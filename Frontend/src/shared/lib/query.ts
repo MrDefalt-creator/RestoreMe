@@ -7,4 +7,5 @@ export const queryKeys = {
   jobs: ['jobs'] as const,
   jobDetails: (jobId: string) => ['jobs', jobId] as const,
   artifacts: ['artifacts'] as const,
+  users: ['users'] as const,
 }

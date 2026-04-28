@@ -4,5 +4,6 @@ namespace Backup.Shared.Contracts.DTOs.Agents;
 
 public record PendingAgentStatusResponse(
     [Required] int Status,
-    [Required] Guid? ApprovedAgentId
+    [Required] Guid? ApprovedAgentId,
+    string? AgentAccessToken
     );

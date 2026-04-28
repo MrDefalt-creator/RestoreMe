@@ -9,13 +9,13 @@ public class PendingAgent
     public string MachineName { get; set; } = null!;
     public string OsType { get; set; } = null!;
     public string Version { get; set; } = null!;
-    
+
     public PendingAgentStatus Status { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ApprovedAt { get; set; }
 
-    // null = ещё не подтверждён
     public Guid? ApprovedAgentId { get; set; }
-    
+
     public Agent? ApprovedAgent { get; set; }
 }

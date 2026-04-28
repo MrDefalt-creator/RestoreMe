@@ -18,7 +18,7 @@ export function normalizeApiError(error: unknown): ApiError {
     if (!error.response) {
       return {
         message:
-          'Network error. Ensure the API is running and the development certificate for https://localhost:7104 is trusted.',
+          'Network error. Ensure the RestoreMe API is running and reachable from the current browser session.',
         status: null,
         details: error.message,
       }

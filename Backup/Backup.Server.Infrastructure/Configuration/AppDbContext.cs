@@ -5,6 +5,7 @@ namespace Backup.Server.Infrastructure.Configuration;
 
 public class AppDbContext : DbContext
 {
+    public DbSet<AppUser> AppUsers { get; set; }
     public DbSet<Agent> Agents { get; set; }
     public DbSet<BackupJob> BackupJobs { get; set; }
     public DbSet<BackupPolicy> BackupPolicies { get; set; }

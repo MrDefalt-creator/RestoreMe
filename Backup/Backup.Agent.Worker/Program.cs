@@ -13,21 +13,22 @@ builder.Services.AddOptions<AgentOptions>().Bind(builder.Configuration.GetSectio
 
 builder.Services.AddSingleton<IAgentState, FileAgentStore>();
 builder.Services.AddSingleton<IApiEndpointResolver, ApiEndpointResolver>();
+builder.Services.AddTransient<AgentAccessTokenHandler>();
 
 builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>((sp, client) =>
 {
     var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
     var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
     client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
-});
+}).AddHttpMessageHandler<AgentAccessTokenHandler>();
 
 builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>((sp, client) =>
     {
         var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
         var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
         client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
-    }
-);
+    })
+    .AddHttpMessageHandler<AgentAccessTokenHandler>();
 
 builder.Services.AddHttpClient<IMinioStorageClient, MinioStorageClient>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();

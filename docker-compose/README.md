@@ -3,20 +3,45 @@
 This folder is the single local entry point for starting the full RestoreMe stack.
 
 Contents:
-- `docker-compose.yml` — full stack definition
-- `.env` — non-secret ports and frontend mode
-- `secrets/` — local secret files mounted into containers
+- `docker-compose.yml` - full stack definition
+- `.env` - non-secret ports and frontend mode
+- `secrets/` - local secret files mounted into containers
 
 ## Services
 
 Current stack includes:
-- `db` — PostgreSQL 18
-- `minio` — object storage
-- `backend` — ASP.NET Core API
-- `frontend` — Vite production build served by Apache
+- `db` - PostgreSQL 18
+- `minio` - object storage
+- `backend` - ASP.NET Core API
+- `frontend` - Vite production build served by Apache
 
-## Start the Stack
+## First-Time Startup
 
+Use this order when you deploy the stack on a clean workstation.
+
+1. Open [D:\projects\RestorMe\docker-compose\.env](D:\projects\RestorMe\docker-compose\.env) and check whether the default ports are free.
+2. Create or update the secret files inside [D:\projects\RestorMe\docker-compose\secrets](D:\projects\RestorMe\docker-compose\secrets).
+3. Run `docker compose up --build`.
+4. Wait until backend applies migrations.
+5. Open the frontend on `http://localhost:5173`.
+6. Sign in with the bootstrap administrator account.
+7. Create additional users if required.
+8. Start one or more agents separately.
+
+## Bootstrap Administrator
+
+On the first backend startup in `Development`, the system seeds one administrator account only if the user table is empty.
+
+Current dev credentials:
+- `admin / Admin123!`
+
+Important behavior:
+- if users already exist in the database, seed does not overwrite them
+- if you want a truly clean first-start state, use a clean database volume
+
+## Start and Stop
+
+Start the stack:
 ```powershell
 cd D:\projects\RestorMe\docker-compose
 docker compose up --build
@@ -43,18 +68,9 @@ By default the stack publishes:
 
 You can change these in `.env`.
 
-## Important Compose Behavior
-
-- frontend API URL is derived from `API_PORT` during the frontend image build
-- backend CORS in `Development` accepts localhost and loopback origins on any port
-- backend runs EF Core migrations automatically on startup
-- backend talks to MinIO internally via `minio:9000`
-- agents usually need only the backend address in simple deployments
-- local Docker PostgreSQL is best tested through `credentials` mode for logical dump policies
-
 ## Secrets
 
-Expected secret files in [secrets](D:\projects\RestorMe\docker-compose\secrets):
+Expected secret files in [D:\projects\RestorMe\docker-compose\secrets](D:\projects\RestorMe\docker-compose\secrets):
 - `postgres-password.txt`
 - `postgres-connection.txt`
 - `minio-access-key.txt`
@@ -82,6 +98,42 @@ minioadmin
 strong_minio_secret
 ```
 
+### Why there are two PostgreSQL secret files
+
+`postgres-password.txt` is used by the PostgreSQL container itself.
+
+`postgres-connection.txt` is used by the backend, because the backend reads a full connection string from `ConnectionStrings__DefaultConnection_FILE`.
+
+This keeps the container startup and backend startup independent and explicit.
+
+## How Compose Passes Secrets into the Application
+
+### PostgreSQL container
+
+The database container reads:
+- `POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password`
+
+The secret file must contain only the password.
+
+### Backend container
+
+The backend reads:
+- `ConnectionStrings__DefaultConnection_FILE=/run/secrets/postgres-connection`
+- `Storage__AccessKey_FILE=/run/secrets/minio-access-key`
+- `Storage__SecretKey_FILE=/run/secrets/minio-secret-key`
+
+This means the backend does not need hardcoded database or MinIO secrets in `docker-compose.yml`.
+
+## Important Compose Behavior
+
+- frontend API URL is derived from `API_PORT` during the frontend image build
+- backend CORS in `Development` accepts localhost and loopback origins on any port
+- backend runs EF Core migrations automatically on startup
+- backend talks to MinIO internally via `minio:9000`
+- backend returns public upload URLs based on `Storage__PublicEndpoint` or the incoming backend host
+- agents usually need only the backend address in simple deployments
+- local Docker PostgreSQL is best tested through `credentials` mode for logical dump policies
+
 ## Storage Addressing in Compose
 
 Compose uses two different storage addresses:
@@ -92,15 +144,43 @@ Compose uses two different storage addresses:
 
 If the agent runs on the same machine and reaches backend on `http://localhost:8080`, the backend can usually return upload URLs that also point to `http://localhost:9000`.
 
-### More complex scenario
+### Another machine in the LAN
 
-If the agent runs on another machine and the server is reached by a LAN IP or domain, you should make sure the public storage address matches that real external address.
+If the agent runs on another machine, then `localhost` is no longer correct for that agent.
+You should expose the backend and MinIO through the real LAN IP or domain.
 
-Examples:
+Example:
 - backend: `http://192.168.1.50:8080`
 - storage: `http://192.168.1.50:9000`
 
-If storage must be reached through another host or proxy, set `Storage__PublicEndpoint` explicitly.
+In that case update:
+- the agent backend address
+- `Storage__PublicEndpoint` in Compose if needed
+
+## Agent Setup Against the Compose Stack
+
+The agent is started separately from this Compose stack.
+
+Recommended local values for the current stack:
+- backend URL: `http://localhost:8080/`
+- enrollment token: `restoreme-agent-enrollment-dev-token`
+
+Important note:
+- the checked-in agent appsettings still contains an older placeholder base URL
+- before testing, point the agent to the actual backend URL you want to use
+
+Agent state file:
+- `state/agent-state.json`
+
+If the agent keeps using an old server address, update or delete that state file.
+
+## User Login and Session Behavior
+
+The frontend login page supports two modes:
+- `Remember me` enabled - the session is persisted in `localStorage`
+- `Remember me` disabled - the session is stored only for the current browser session
+
+This does not change backend security rules; it only changes frontend session persistence.
 
 ## Useful Commands
 
@@ -127,16 +207,19 @@ Rebuild only frontend:
 docker compose up -d --build frontend
 ```
 
-## First Start Checklist
+Remove containers but keep named volumes:
+```powershell
+docker compose down
+```
 
-1. Fill files in `secrets/`.
-2. Check `.env` ports if the defaults are occupied.
-3. Run `docker compose up --build`.
-4. Wait until backend applies migrations.
-5. Open the frontend.
-6. Start the worker agent separately if you want to test the real registration flow.
+Remove containers and named volumes too:
+```powershell
+docker compose down -v
+```
 
-## Logical database dump testing with Compose
+Use the last command only when you intentionally want to reset PostgreSQL and MinIO data.
+
+## Logical Database Dump Testing with Compose
 
 For the bundled local PostgreSQL container, the recommended first test is:
 - `Policy type`: `PostgreSQL logical dump`
@@ -144,7 +227,7 @@ For the bundled local PostgreSQL container, the recommended first test is:
 - `Host`: `127.0.0.1`
 - `Port`: `5432`
 - `Database`: `restoreme_db`
-- `Username`: the PostgreSQL user from your secret or connection string
+- `Username`: the PostgreSQL user from your connection string
 - `Password`: the PostgreSQL password from your secret
 
 Why this is the recommended path:
@@ -160,28 +243,37 @@ If needed, set the absolute tool path in the agent config.
 
 ## Troubleshooting
 
-### Frontend opens but API requests fail
+### Frontend opens but login does not work
 Check:
 - backend container is running
-- `API_PORT` is correct
-- browser is using the correct frontend URL
+- frontend image was rebuilt after the latest login-related changes
+- frontend is pointing to the correct backend URL
+- you are using the current seeded admin credentials on a clean or expected database
+
+### There should be only one bootstrap admin, but more users exist
+Reason:
+- the database was already populated before the latest seed rules
+
+Fix:
+- use a clean database volume for a fresh first startup
+- or delete extra users through the panel/database manually
 
 ### Agent can reach backend but cannot upload archives
 Check:
 - MinIO port is reachable from the agent machine
 - backend returned an upload URL with the correct external host
-- `Storage__PublicEndpoint` is configured if your storage host differs from the backend host
+- `Storage__PublicEndpoint` is correct for your topology
 
 ### PostgreSQL logical dump fails without a password
-This usually means the policy is using `integrated` mode against the compose PostgreSQL container, which is not the recommended test scenario. Switch the policy to `credentials` and use `127.0.0.1:5432`.
+This usually means the policy is using `integrated` mode against the compose PostgreSQL container. Switch the policy to `credentials` and use `127.0.0.1:5432`.
 
 ### Agent cannot find `pg_dump` or `mysqldump`
-Install the matching native dump tool on the agent machine or configure an absolute path in agent settings.
+Install the matching native dump tool on the agent machine or configure an absolute path in the agent settings.
 
 ### Frontend route returns Not Found in Docker
 This should already be handled by the frontend container rewrite rules. If you still see it, rebuild the frontend image.
 
 ## Related Documentation
 
-- [Root README](D:\projects\RestorMe\README.md)
-- [Frontend README](D:\projects\RestorMe\Frontend\README.md)
+- [D:\projects\RestorMe\README.md](D:\projects\RestorMe\README.md)
+- [D:\projects\RestorMe\Frontend\README.md](D:\projects\RestorMe\Frontend\README.md)

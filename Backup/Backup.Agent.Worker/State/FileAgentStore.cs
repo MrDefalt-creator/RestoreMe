@@ -55,6 +55,18 @@ public class FileAgentStore : IAgentState
         return state.ServerAddress;
     }
 
+    public async Task<string?> TryGetAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        var state = await LoadStateAsync(cancellationToken);
+
+        if (state == null || string.IsNullOrWhiteSpace(state.AccessToken))
+        {
+            return null;
+        }
+
+        return state.AccessToken;
+    }
+
     public async Task SaveAgentIdAsync(Guid agentId, CancellationToken cancellationToken)
     {
         var state = await LoadStateAsync(cancellationToken) ?? new AgentState();
@@ -67,6 +79,14 @@ public class FileAgentStore : IAgentState
     {
         var state = await LoadStateAsync(cancellationToken) ?? new AgentState();
         state.ServerAddress = serverAddress;
+
+        await SaveStateAsync(state, cancellationToken);
+    }
+
+    public async Task SaveAccessTokenAsync(string accessToken, CancellationToken cancellationToken)
+    {
+        var state = await LoadStateAsync(cancellationToken) ?? new AgentState();
+        state.AccessToken = accessToken;
 
         await SaveStateAsync(state, cancellationToken);
     }

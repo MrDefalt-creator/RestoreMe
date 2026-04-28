@@ -1,8 +1,9 @@
+using Backup.Server.Api.Security;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Domain.Enums;
-using Backup.Shared.Contracts.DTOs;
 using Backup.Shared.Contracts.DTOs.Policies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backup.Server.Api.Controllers;
@@ -12,12 +13,13 @@ namespace Backup.Server.Api.Controllers;
 public class PoliciesController : ControllerBase
 {
     private readonly PoliciesService _policiesService;
-    
-    public  PoliciesController(PoliciesService policiesService)
+
+    public PoliciesController(PoliciesService policiesService)
     {
         _policiesService = policiesService;
     }
 
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
     [HttpGet]
     public async Task<IActionResult> GetPolicies()
     {
@@ -25,13 +27,15 @@ public class PoliciesController : ControllerBase
         return Ok(policies.Select(MapPolicy));
     }
 
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
     [HttpGet("{policyId:guid}")]
     public async Task<IActionResult> GetPolicyByIdRoute([FromRoute] Guid policyId)
     {
         var policy = await _policiesService.GetPolicyById(policyId);
         return Ok(MapPolicy(policy));
     }
-    
+
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
     [HttpGet("agent/{agentId:guid}")]
     public async Task<IActionResult> GetPoliciesByAgent([FromRoute] Guid agentId)
     {
@@ -39,7 +43,8 @@ public class PoliciesController : ControllerBase
         return Ok(policies.Select(MapPolicy));
     }
 
-    [HttpPost("create_policy/{agentId}")]
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [HttpPost("create_policy/{agentId:guid}")]
     public async Task<IActionResult> CreatePolicyForAgent([FromRoute] Guid agentId, [FromBody] CreateBackupPolicyRequest request)
     {
         try
@@ -61,37 +66,39 @@ public class PoliciesController : ControllerBase
         }
     }
 
-    [HttpGet("get_policies/{agentId}")]
+    [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [HttpGet("get_policies/{agentId:guid}")]
     public async Task<IActionResult> GetPolicyForAgent([FromRoute] Guid agentId)
     {
+        if (User.TryGetAgentId() != agentId)
+        {
+            return Forbid();
+        }
+
         var policies = await _policiesService.GetAllPolicies(agentId);
-        return Ok(policies.Select(policy => new BackupPolicyDto(
-            policy.Id,
-            MapPolicyType(policy.Type),
-            policy.Name,
-            policy.SourcePath,
-            policy.IsEnabled,
-            policy.NextRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings))));
+        return Ok(policies.Select(MapAgentPolicy));
     }
 
-    [HttpGet("get_policy/{policyId}")]
+    [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [HttpGet("get_policy/{policyId:guid}")]
     public async Task<IActionResult> GetPolicy([FromRoute] Guid policyId)
     {
+        var currentAgentId = User.TryGetAgentId();
+        if (!currentAgentId.HasValue)
+        {
+            return Forbid();
+        }
+
         var policy = await _policiesService.GetPolicyById(policyId);
-        
-        var response = new BackupPolicyDto(
-            policy.Id,
-            MapPolicyType(policy.Type),
-            policy.Name,
-            policy.SourcePath,
-            policy.IsEnabled,
-            policy.NextRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings));
-        
-        return Ok(response);
+        if (policy.AgentId != currentAgentId.Value)
+        {
+            return Forbid();
+        }
+
+        return Ok(MapAgentPolicy(policy));
     }
 
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
     [HttpPut("{policyId:guid}")]
     public async Task<IActionResult> UpdatePolicy([FromRoute] Guid policyId, [FromBody] UpdateBackupPolicyRequest request)
     {
@@ -108,6 +115,7 @@ public class PoliciesController : ControllerBase
         return Ok(MapPolicy(policy));
     }
 
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
     [HttpPatch("{policyId:guid}/toggle")]
     public async Task<IActionResult> TogglePolicy([FromRoute] Guid policyId)
     {
@@ -115,9 +123,22 @@ public class PoliciesController : ControllerBase
         return Ok(MapPolicy(policy));
     }
 
-    [HttpPost("mark_policy_executed/{policyId}")]
+    [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [HttpPost("mark_policy_executed/{policyId:guid}")]
     public async Task<IActionResult> MarkPolicyExecuted([FromRoute] Guid policyId)
     {
+        var currentAgentId = User.TryGetAgentId();
+        if (!currentAgentId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var policy = await _policiesService.GetPolicyById(policyId);
+        if (policy.AgentId != currentAgentId.Value)
+        {
+            return Forbid();
+        }
+
         await _policiesService.MarkPolicyExecuted(policyId);
         return Ok();
     }
@@ -135,6 +156,18 @@ public class PoliciesController : ControllerBase
             policy.CreatedAt,
             policy.NextRunAt,
             policy.LastRunAt,
+            MapDatabaseSettings(policy.DatabaseSettings));
+    }
+
+    private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)
+    {
+        return new BackupPolicyDto(
+            policy.Id,
+            MapPolicyType(policy.Type),
+            policy.Name,
+            policy.SourcePath,
+            policy.IsEnabled,
+            policy.NextRunAt,
             MapDatabaseSettings(policy.DatabaseSettings));
     }
 

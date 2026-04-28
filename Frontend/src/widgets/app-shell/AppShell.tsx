@@ -1,24 +1,57 @@
-import { Archive, HardDriveDownload, History, LayoutDashboard, Menu, ShieldCheck, Workflow } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
+import { useAuthStore, type AuthRole } from '@/app/store/auth-store'
 import { useUiStore } from '@/app/store/ui-store'
 import { env } from '@/shared/config/env'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 
-const navigation = [
+type NavItem = {
+  to: string
+  label: string
+  icon: typeof LayoutDashboard
+  end?: boolean
+  roles?: AuthRole[]
+}
+
+const navigation: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/account', label: 'Account', icon: KeyRound },
   { to: '/agents', label: 'Agents', icon: HardDriveDownload },
   { to: '/pending-agents', label: 'Pending', icon: ShieldCheck },
   { to: '/policies', label: 'Policies', icon: Workflow },
   { to: '/jobs', label: 'Jobs', icon: History },
   { to: '/artifacts', label: 'Artifacts', icon: Archive },
+  { to: '/users', label: 'Users', icon: Users, roles: ['admin'] },
 ]
 
+function formatRole(role: string | undefined) {
+  switch (role) {
+    case 'admin':
+      return 'Admin'
+    case 'operator':
+      return 'Operator'
+    default:
+      return 'Viewer'
+  }
+}
+
 export function AppShell() {
+  const navigate = useNavigate()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
+  const user = useAuthStore((state) => state.user)
+  const clearSession = useAuthStore((state) => state.clearSession)
+
+  const availableNavigation = navigation.filter((item) => {
+    if (!item.roles) {
+      return true
+    }
+
+    return Boolean(user?.role && item.roles.includes(user.role))
+  })
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,rgba(248,251,253,0.94),rgba(237,244,250,0.98))]">
@@ -83,7 +116,7 @@ export function AppShell() {
                 sidebarState === 'expanded' ? '' : 'items-center',
               )}
             >
-              {navigation.map(({ to, label, icon: Icon, end }) => (
+              {availableNavigation.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -139,19 +172,19 @@ export function AppShell() {
 
             {env.apiMode === 'mock' ? (
               sidebarState === 'expanded' ? (
-              <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
-                <div className="flex items-center gap-3">
-                  <Badge tone="warning">Local data mode</Badge>
+                <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
+                  <div className="flex items-center gap-3">
+                    <Badge tone="warning">Local data mode</Badge>
+                  </div>
+                  <p className="mt-3 text-sm text-sky-100/76">
+                    Showing local sample data until the live API connection is available.
+                  </p>
                 </div>
-                <p className="mt-3 text-sm text-sky-100/76">
-                  Showing local sample data until the live API connection is available.
-                </p>
-              </div>
-            ) : (
-              <div className="flex justify-center">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              </div>
-            )
+              ) : (
+                <div className="flex justify-center">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                </div>
+              )
             ) : null}
           </div>
         </aside>
@@ -160,10 +193,30 @@ export function AppShell() {
           <header className="flex items-center justify-between gap-4 border-b border-surface-200/80 bg-[rgba(255,255,255,0.78)] px-5 py-4 md:px-8">
             <div>
               <p className="text-sm text-ink-800">
-                Architecture-first admin panel for RestoreMe backup operations.
+                Secure operator console for RestoreMe backup operations.
               </p>
             </div>
-            <Badge tone="accent">Vite + React + Zustand + Query</Badge>
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-3 rounded-2xl border border-surface-200 bg-white/80 px-3 py-2 md:flex">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-100 text-ink-900">
+                  <UserRound className="h-4 w-4" />
+                </span>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-ink-950">{user?.username ?? 'Unknown user'}</p>
+                  <p className="text-xs text-ink-800/70">{formatRole(user?.role)}</p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  clearSession()
+                  navigate('/login', { replace: true })
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </Button>
+            </div>
           </header>
           <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-5 md:px-8 md:py-7">
             <Outlet />

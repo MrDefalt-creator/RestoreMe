@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { useAuthStore } from '@/app/store/auth-store'
 import { ApproveAgentDialog } from '@/features/approve-agent/ApproveAgentDialog'
 import { getPendingAgents } from '@/entities/agent/api'
 import type { PendingAgent } from '@/entities/agent/model/types'
@@ -14,6 +15,8 @@ import { SectionHeading } from '@/shared/ui/SectionHeading'
 
 export function PendingAgentsPage() {
   const [selectedPendingAgent, setSelectedPendingAgent] = useState<PendingAgent | null>(null)
+  const role = useAuthStore((state) => state.user?.role)
+  const canApprove = role === 'operator' || role === 'admin'
   const pendingAgentsQuery = useQuery({
     queryKey: queryKeys.pendingAgents,
     queryFn: getPendingAgents,
@@ -53,9 +56,15 @@ export function PendingAgentsPage() {
                       <Badge tone="warning">{agent.status}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <Button size="sm" onClick={() => setSelectedPendingAgent(agent)}>
-                        Approve
-                      </Button>
+                      {canApprove ? (
+                        <Button size="sm" onClick={() => setSelectedPendingAgent(agent)}>
+                          Approve
+                        </Button>
+                      ) : (
+                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-ink-800/55">
+                          Read only
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -68,7 +77,7 @@ export function PendingAgentsPage() {
       )}
 
       <ApproveAgentDialog
-        open={Boolean(selectedPendingAgent)}
+        open={canApprove && Boolean(selectedPendingAgent)}
         pendingAgent={selectedPendingAgent}
         onClose={() => setSelectedPendingAgent(null)}
       />

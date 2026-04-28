@@ -7,5 +7,5 @@ public record AddArtifactBackupJobRequest(
     [Required] string FileName,
     [Required] string ObjectKey,
     [Required] long Size,
-    [Required] string Сhecksum
+    [Required] string Checksum
     );

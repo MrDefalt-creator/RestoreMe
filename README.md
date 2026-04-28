@@ -1,9 +1,9 @@
 # RestoreMe
 
-RestoreMe is a backup management system consisting of three main parts:
-- `Backup.Server.Api` — ASP.NET Core backend API
-- `Backup.Agent.Worker` — worker agent that registers, synchronizes policies, sends heartbeat and executes backups
-- `Frontend` — React admin panel for operators
+RestoreMe is a backup management system with three main parts:
+- `Backup.Server.Api` - ASP.NET Core backend API
+- `Backup.Agent.Worker` - agent that registers, synchronizes policies, sends heartbeat and executes backups
+- `Frontend` - React admin panel for operators and administrators
 
 The system uses:
 - PostgreSQL for relational data
@@ -29,70 +29,74 @@ RestorMe/
   README.md
 ```
 
-## What Is Already Implemented
+## Main Capabilities
 
 ### Backend
 - layered architecture: API / Application / Domain / Infrastructure / Shared.Contracts
-- agent pending registration and approval flow
+- pending agent registration and approval flow
 - heartbeat processing
-- policy CRUD for the admin panel
+- policy CRUD for filesystem and logical database backups
 - backup jobs lifecycle: start, fail, complete
 - artifact storage in MinIO and artifact download through backend
-- automatic EF Core migrations on application startup
-- database indexes for the main read paths
-- support for config values and file-based secrets
+- automatic EF Core migrations on startup
+- file-based secret support through `*_FILE`
+- JWT authentication for panel users
+- role model: `admin`, `operator`, `viewer`
+- agent bootstrap protection through enrollment token and dedicated agent access tokens
 
 ### Agent
-- can use a configured `AgentId` or receive one after pending registration
+- can receive an `AgentId` after pending registration or reuse a saved one
 - stores local state in `state/agent-state.json`
-- stores both `AgentId` and the resolved backend server address
-- resolves backend URL from local state first, then from config
+- stores backend server address and agent access token locally
 - sends heartbeat and periodically synchronizes policies
-- packs source directories into archives and uploads them to object storage
-- can execute logical database dump policies for PostgreSQL and MySQL
+- executes filesystem backup policies
+- executes logical PostgreSQL and MySQL dump policies
+- uploads prepared payloads directly to object storage through upload tickets returned by backend
 
 ### Frontend
-- app shell with sidebar and responsive layout
-- dashboard with aggregate metrics
+- secure login page with `Remember me`
+- dashboard
 - agents page
-- pending agents page with approval dialog
-- policies page with create, edit and toggle
+- pending agents approval page
+- policies page
 - jobs page
-- artifacts page with download action
-- automatic polling in live mode, so data refreshes without manual page reload
+- artifacts page
+- account page for self-service password change
+- users page for administrator access management
+- automatic polling in live mode
 
 ## Prerequisites
 
-### For local development without Docker
+### Local development without Docker
 - .NET SDK 10
 - Node.js 22+
 - Yarn 1.x
 - PostgreSQL
 - MinIO
 
-### For Docker startup
+### Local full stack with Docker
 - Docker Desktop
 - Docker Compose
 
-## Quick Start
+## Recommended Startup Modes
 
-### Option 1. Run the whole stack with Docker Compose
+### Option 1. Full stack through Docker Compose
 
-This is the easiest way to start the project.
+This is the easiest and recommended local startup path.
 
 ```powershell
 cd D:\projects\RestorMe\docker-compose
 docker compose up --build
 ```
 
-After startup the services are available at:
+Default published addresses:
 - frontend: `http://localhost:5173`
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
 - PostgreSQL: `localhost:5432`
 
-### Option 2. Run services manually
+### Option 2. Manual startup
 
 Backend:
 ```powershell
@@ -113,63 +117,75 @@ cd D:\projects\RestorMe\Backup
 dotnet run --project .\Backup.Agent.Worker\Backup.Agent.Worker.csproj
 ```
 
-## Docker Compose Setup
+## First Deployment Checklist
 
-The centralized Docker entry point is:
-- [docker-compose/docker-compose.yml](D:\projects\RestorMe\docker-compose\docker-compose.yml)
+Use this sequence for a clean local deployment or first workstation setup.
 
-The folder contains:
-- `docker-compose.yml` — full stack startup
-- `.env` — non-secret ports and frontend build mode
-- `secrets/` — local secret files mounted into containers
+1. Fill secret files in [D:\projects\RestorMe\docker-compose\secrets](D:\projects\RestorMe\docker-compose\secrets).
+2. Check [D:\projects\RestorMe\docker-compose\.env](D:\projects\RestorMe\docker-compose\.env) if default ports are already occupied.
+3. Start the stack with `docker compose up --build`.
+4. Wait until backend applies migrations.
+5. Open `http://localhost:5173`.
+6. Sign in with the bootstrap administrator account.
+7. Create additional users if needed.
+8. Start one or more agents separately.
+9. Approve pending agents in the panel.
+10. Create policies and verify jobs/artifacts.
 
-### Current Compose Services
-- `db` — PostgreSQL 18
-- `minio` — object storage
-- `backend` — ASP.NET Core API
-- `frontend` — built Vite app served through Apache
+## Secrets and Sensitive Configuration
 
-### Compose Secrets
+### Compose secrets directory
 
-Current compose expects these files in [docker-compose/secrets](D:\projects\RestorMe\docker-compose\secrets):
+Local Docker startup expects these files in [D:\projects\RestorMe\docker-compose\secrets](D:\projects\RestorMe\docker-compose\secrets):
 - `postgres-password.txt`
 - `postgres-connection.txt`
 - `minio-access-key.txt`
 - `minio-secret-key.txt`
 
-Example `postgres-password.txt`:
+Examples:
+
+`postgres-password.txt`
 ```text
 my_strong_postgres_password
 ```
 
-Example `postgres-connection.txt`:
+`postgres-connection.txt`
 ```text
 Host=postgres;Port=5432;Database=restoreme_db;Username=restoreme_user;Password=my_strong_postgres_password
 ```
 
-Example `minio-access-key.txt`:
+`minio-access-key.txt`
 ```text
 minioadmin
 ```
 
-Example `minio-secret-key.txt`:
+`minio-secret-key.txt`
 ```text
 strong_minio_secret
 ```
 
-### Compose Notes
-- frontend API URL is derived from `API_PORT`
-- frontend SPA routes such as `/agents`, `/policies` and `/jobs` are handled inside the frontend container
-- backend runs migrations automatically on startup
-- backend CORS in `Development` accepts localhost and loopback origins on any port
-- backend talks to MinIO through the internal Docker address `minio:9000`
+### How backend reads secrets
 
-## Backend Configuration
+The backend supports both regular config values and file-based secrets.
+
+Examples:
+- `ConnectionStrings:DefaultConnection`
+- `ConnectionStrings:DefaultConnection_FILE`
+- `Storage:AccessKey`
+- `Storage:AccessKey_FILE`
+- `Storage:SecretKey`
+- `Storage:SecretKey_FILE`
+
+Meaning:
+- regular values are convenient for quick local development
+- `*_FILE` is the preferred way when Docker mounts secret files into the container
+
+### Important backend config sections
 
 Main backend config file:
-- [Backup.Server.Api/appsettings.json](D:\projects\RestorMe\Backup\Backup.Server.Api\appsettings.json)
+- [D:\projects\RestorMe\Backup\Backup.Server.Api\appsettings.json](D:\projects\RestorMe\Backup\Backup.Server.Api\appsettings.json)
 
-Important configuration sections:
+Important sections:
 - `ConnectionStrings:DefaultConnection`
 - `ConnectionStrings:DefaultConnection_FILE`
 - `Storage:Endpoint`
@@ -181,22 +197,135 @@ Important configuration sections:
 - `Storage:BucketName`
 - `Storage:UseSsl`
 - `Storage:UploadUrlExpirySeconds`
+- `Jwt:Issuer`
+- `Jwt:Audience`
+- `Jwt:SigningKey`
+- `AgentEnrollment:EnrollmentToken`
 
-### File-based secrets
+### Production-minded note
 
-The backend supports both regular config values and `*_FILE` secrets. This means:
-- local development can use values from `appsettings.json`
-- Docker can override sensitive values through mounted secret files
+For diploma and local deployment, file-based Docker secrets are a good improvement over plain YAML values.
+For real production, a dedicated secret manager or platform secret store is still preferable.
+
+## Authentication and Roles
+
+### Bootstrap administrator
+
+In `Development`, the system seeds exactly one initial administrator if the user table is empty.
+
+Current dev credentials:
+- `admin / Admin123!`
+
+Source:
+- [D:\projects\RestorMe\Backup\Backup.Server.Api\appsettings.Development.json](D:\projects\RestorMe\Backup\Backup.Server.Api\appsettings.Development.json)
+
+Important behavior:
+- seeding runs only when there are no users in the database yet
+- if users already exist, the seed does not overwrite them
+- for an already populated database, you should manage users through the panel or the database itself
+
+### Panel roles
+
+- `viewer` - read-only access to the workspace
+- `operator` - can work with agents, policies, jobs and artifacts
+- `admin` - full access, including user management
+
+### User management rules
+
+Implemented safeguards:
+- at least one active administrator must remain in the system
+- the current signed-in account cannot be deleted from the admin table
+- the current signed-in account cannot be disabled from the admin table
+- the current signed-in account cannot have its role changed from the admin table
+- every signed-in user can change their own password on the `Account` page
+- only administrators can create users, change ����� passwords, disable users and delete users
+
+### Remember me behavior
+
+The login page allows the user to choose session persistence:
+- if `Remember me` is enabled, the session is stored in `localStorage`
+- if `Remember me` is disabled, the session lives only in `sessionStorage`
+- a non-persistent session disappears when the browser session ends
+
+## Agent Security Model
+
+### Bootstrap and regular operation
+
+Agent security now works in two phases:
+
+1. The agent uses `Api:EnrollmentToken` for initial registration and access recovery.
+2. After approval, the backend issues a dedicated agent access token.
+3. The agent stores this token in local state and uses it for:
+   - heartbeat
+   - policy sync
+   - backup job start/finish/fail
+   - artifact registration
+   - upload ticket requests
+
+### Agent config
+
+Main agent config file:
+- [D:\projects\RestorMe\Backup\Backup.Agent.Worker\appsettings.json](D:\projects\RestorMe\Backup\Backup.Agent.Worker\appsettings.json)
+
+Important settings:
+- `Api:BaseUrl`
+- `Api:EnrollmentToken`
+- `Agent:AgentId`
+- `Agent:HeartbeatIntervalSeconds`
+- `Agent:PolicySyncIntervalSeconds`
+- `Agent:PostgreSqlDumpCommand`
+- `Agent:MySqlDumpCommand`
+
+Important note:
+- current checked-in agent `appsettings.json` still contains a legacy local `https://localhost:7104/` base URL as a placeholder
+- for the current Docker stack, point the agent to `http://localhost:8080/` or to the real server address you want it to use
+
+### Agent local state
+
+The agent stores local state in:
+- `state/agent-state.json`
+
+That state can contain:
+- `AgentId`
+- `ServerAddress`
+- `AccessToken`
+
+Behavior:
+- if a saved `ServerAddress` exists, it has priority over config `Api:BaseUrl`
+- if an agent already has `AgentId` but no access token, it can recover a new token through enrollment flow
+
+## Storage Addressing Model
+
+Two storage addresses are important:
+- `Storage:Endpoint` - internal MinIO address used by backend
+- `Storage:PublicEndpoint` - external address used in upload URLs returned to agents
+
+### Simple deployment
+
+In the common case the agent only needs the backend address.
+
+Example:
+- backend: `http://my-server:8080`
+- storage: `http://my-server:9000`
+
+In this case the backend can build correct upload URLs for the agent automatically.
+
+### When `Storage:PublicEndpoint` must be set explicitly
+
+Set it explicitly when:
+- backend and storage are exposed on different domains
+- storage is published through another reverse proxy
+- the agent reaches backend through one address, but must reach storage through another address
 
 ## Database and Migrations
 
-EF Core migrations live in:
-- [Backup.Server.Infrastructure/Migrations](D:\projects\RestorMe\Backup\Backup.Server.Infrastructure\Migrations)
+Migrations live in:
+- [D:\projects\RestorMe\Backup\Backup.Server.Infrastructure\Migrations](D:\projects\RestorMe\Backup\Backup.Server.Infrastructure\Migrations)
 
-Current behavior:
-- migrations are applied automatically on backend startup
-- if the database is empty, schema is created automatically
-- if the database is already up to date, startup continues normally
+Behavior:
+- backend applies migrations automatically on startup
+- empty database is initialized automatically
+- up-to-date database continues startup normally
 
 Create a new migration manually:
 ```powershell
@@ -206,92 +335,38 @@ dotnet ef migrations add MigrationName --project .\Backup.Server.Infrastructure\
 
 ## Frontend Setup
 
-Frontend project folder:
-- [Frontend](D:\projects\RestorMe\Frontend)
-
-Install dependencies:
-```powershell
-cd D:\projects\RestorMe\Frontend
-yarn
-```
-
-Run in development mode:
-```powershell
-yarn dev
-```
+Frontend folder:
+- [D:\projects\RestorMe\Frontend](D:\projects\RestorMe\Frontend)
 
 Useful commands:
 ```powershell
-yarn typecheck
-yarn lint
+cd D:\projects\RestorMe\Frontend
+yarn
+yarn dev
 yarn build
 yarn preview
 ```
 
-Frontend environment example:
+Typical local frontend environment:
 ```env
 VITE_API_BASE_URL=http://localhost:8080
 VITE_API_MODE=live
 ```
 
 Modes:
-- `live` — use the real backend API
-- `mock` — use local fixtures for offline/demo work
+- `live` - use real backend API
+- `mock` - use local fixtures for offline/demo work
 
-## Agent Setup
+## Logical Database Dump Policies
 
-Agent project folder:
-- [Backup.Agent.Worker](D:\projects\RestorMe\Backup\Backup.Agent.Worker)
+### Required native tools
 
-Main agent config file:
-- [Backup.Agent.Worker/appsettings.json](D:\projects\RestorMe\Backup\Backup.Agent.Worker\appsettings.json)
-
-Default agent configuration shape:
-```json
-{
-  "Api": {
-    "BaseUrl": "https://localhost:7104/"
-  },
-  "Agent": {
-    "AgentId": "",
-    "HeartbeatIntervalSeconds": 60,
-    "PolicySyncIntervalSeconds": 30
-  }
-}
-```
-
-### What each setting means
-- `Api:BaseUrl` — default backend URL used before a stored override exists
-- `Agent:AgentId` — optional fixed agent identifier
-- `Agent:HeartbeatIntervalSeconds` — heartbeat interval
-- `Agent:PolicySyncIntervalSeconds` — policy synchronization interval
-
-### Local agent state
-
-The worker stores local state in a file named:
-- `state/agent-state.json`
-
-That file contains:
-- saved `AgentId`
-- saved `ServerAddress`
-
-Important behavior:
-- if `ServerAddress` already exists in local state, the agent uses it first
-- if local state does not contain a server address, the agent falls back to `Api:BaseUrl`
-
-This means that if you change the server later and the agent still connects to the old address, you should either:
-1. update `ServerAddress` inside `state/agent-state.json`
-2. or delete the state file and start the agent again
-
-### Logical backup prerequisites
-
-For logical database dump policies the agent machine must have the native dump tools installed:
+The agent machine must have the native dump tools installed:
 - PostgreSQL: `pg_dump`
 - MySQL: `mysqldump`
 
-The agent first tries the configured command name, then the process `PATH`, and on Windows also checks common install folders such as `C:\Program Files\PostgreSQL\<version>\bin`.
+For predictable behavior across machines, you can set absolute tool paths in agent config:
 
-If you want predictable behavior across different machines, set the tool paths explicitly in agent config. Example:
 ```json
 {
   "Agent": {
@@ -303,43 +378,15 @@ If you want predictable behavior across different machines, set the tool paths e
 
 ### PostgreSQL auth modes
 
-PostgreSQL policies support two modes:
-- `credentials` ? universal mode; provide host, port, database, username and password
-- `integrated` ? no password is stored in the policy; `pg_dump` must already be able to access the database as the OS user running the agent
+PostgreSQL policies support:
+- `credentials` - recommended universal mode
+- `integrated` - no password is stored in the policy; `pg_dump` must already be able to access the database as the OS user running the agent
 
-Recommended practical rule:
-- for Docker Compose PostgreSQL use `credentials`
-- use `integrated` only for a specially configured local PostgreSQL installation where the agent process is already trusted by the database
+Recommended rule:
+- for the local Docker Compose PostgreSQL container, use `credentials`
+- use `integrated` only for a deliberately configured local PostgreSQL installation
 
-Why Docker Compose usually needs credentials:
-- the bundled PostgreSQL container is exposed over TCP
-- `pg_dump` from the agent reaches it as a network client
-- without a dedicated trust or equivalent auth rule, PostgreSQL will ask for a password
-
-### How to prepare PostgreSQL for passwordless agent access
-
-Use this only if you really want the `integrated` scenario and you control the database host.
-
-Typical idea:
-1. Create a dedicated database role for backups.
-2. Run the agent under a dedicated OS user.
-3. Configure PostgreSQL auth so that this user can connect locally without putting a password into the policy.
-4. Verify that `pg_dump` works from the same user account before testing the policy in RestoreMe.
-
-On Linux this is usually implemented through a local socket auth rule such as `peer`, `ident`, or another trusted local rule in `pg_hba.conf`.
-
-On Windows there is no direct Linux-style `peer` equivalent for the common local TCP scenario. In practice you normally choose one of these approaches:
-- keep using `credentials`
-- configure an environment-specific trusted local auth flow supported by your PostgreSQL installation
-- prepare another local secret mechanism outside the policy itself
-
-Important limitation:
-- the current Docker Compose PostgreSQL setup is not the recommended environment for testing passwordless `integrated` mode
-- use a locally installed and intentionally configured PostgreSQL instance for that scenario
-
-### How to validate PostgreSQL access before creating a policy
-
-Run the same dump tool manually under the same OS account that starts the agent.
+### Manual validation before creating a policy
 
 Credentials mode example:
 ```powershell
@@ -354,101 +401,32 @@ pg_dump --no-password --host 127.0.0.1 --port 5432 --format=plain --file test.sq
 
 If the manual command fails, the RestoreMe policy will fail too.
 
-### How to connect a new agent
-1. Set `Api:BaseUrl` to the backend URL you want to use.
-2. Start the agent.
-3. The agent sends pending registration to the backend.
-4. Open the frontend and go to `Pending`.
-5. Approve the agent and assign a readable name.
-6. After approval, the agent starts working under its assigned `AgentId`.
-
-## Storage Addressing Model
-
-Storage configuration has two roles:
-- `Storage:Endpoint` — internal MinIO address used by the backend itself
-- `Storage:PublicEndpoint` — optional external storage address used for upload URLs returned to agents
-
-### Simple scenario
-
-In the common scenario the agent only needs the backend address.
-
-Example:
-- agent connects to `http://my-server:8080`
-- backend receives the upload ticket request on `my-server`
-- backend builds the public MinIO upload URL on the same host with the MinIO port
-- agent uploads directly to MinIO without separate storage configuration
-
-This keeps deployment simple: in the normal case you update only the backend address for the agent.
-
-### When `Storage:PublicEndpoint` should be set explicitly
-
-Set `Storage:PublicEndpoint` manually only when the external storage address differs from the backend host, for example:
-- backend and storage are published on different domains
-- MinIO is exposed through another proxy
-- the agent reaches backend through one address, but storage must be reached through another address
-
-## Frontend Endpoints Used
-
-### Agents
-- `GET /api/agents`
-- `GET /api/agents/agent/{id}`
-- `GET /api/agents/pending`
-- `POST /api/agents/approve/{pendingId}`
-- `GET /api/agents/status/{pendingId}`
-
-### Policies
-- `GET /api/policies`
-- `GET /api/policies/{id}`
-- `GET /api/policies/agent/{agentId}`
-- `POST /api/policies/create_policy/{agentId}`
-- `PUT /api/policies/{id}`
-- `PATCH /api/policies/{id}/toggle`
-
-### Jobs
-- `GET /api/backupjobs`
-- `GET /api/backupjobs/{id}`
-- `GET /api/backupjobs/agent/{agentId}`
-- `GET /api/backupjobs/policy/{policyId}`
-- `POST /api/backupjobs/upload_ticket`
-
-### Artifacts
-- `GET /api/backupartifacts`
-- `GET /api/backupartifacts/job/{jobId}`
-- `GET /api/backupartifacts/{artifactId}/download`
-
 ## Typical Operator Workflow
 
 ### Approve a new agent
 1. Start backend and frontend.
 2. Start the worker agent.
-3. Open the `Pending` page.
-4. Approve the machine and assign a readable agent name.
-5. The worker continues with the assigned `AgentId`.
+3. Open `Pending`.
+4. Approve the machine and assign an agent name.
+5. The agent continues under the assigned `AgentId` and access token.
 
 ### Create a backup policy
 1. Open `Policies`.
 2. Select an approved agent.
 3. Choose a policy type.
 4. For `Filesystem`, enter a source path.
-5. For `PostgreSQL` or `MySQL`, enter database connection settings and the auth mode supported by that engine.
-6. Set interval in days, hours, minutes and seconds.
+5. For `PostgreSQL` or `MySQL`, enter database settings and auth mode.
+6. Set interval.
 7. Save the policy.
 
 ### Execute and inspect a backup
 1. The agent synchronizes policies.
 2. When a policy is due, the agent starts a backup job.
-3. For filesystem policies the agent uploads a file directly or first creates a ZIP archive from a directory.
-4. For database policies the agent runs `pg_dump` or `mysqldump` and creates a temporary `.sql` dump file.
-5. The agent requests an upload ticket from the backend.
-6. The backend returns a presigned MinIO upload URL.
-7. The agent uploads the prepared payload directly to object storage.
-8. The job and artifact become visible in the admin panel.
-
-### Download an artifact
-1. Open `Artifacts`.
-2. Find the needed record.
-3. Click `Download`.
-4. The frontend downloads the file through the backend artifact endpoint.
+3. The agent prepares a ZIP archive or logical dump file.
+4. The agent requests an upload ticket from backend.
+5. Backend returns a presigned MinIO upload URL.
+6. The agent uploads payload directly to object storage.
+7. The job and artifact become visible in the panel.
 
 ## Common Commands
 
@@ -470,7 +448,6 @@ dotnet run --project .\Backup.Agent.Worker\Backup.Agent.Worker.csproj
 ```powershell
 cd D:\projects\RestorMe\Frontend
 yarn
-yarn dev
 yarn build
 ```
 
@@ -487,65 +464,43 @@ docker compose logs -f db
 
 ## Troubleshooting
 
-### Agent keeps connecting to the old backend address
+### Frontend login does not reach backend
+Check:
+- frontend was rebuilt after the latest login page changes
+- backend is actually running on the expected address
+- `VITE_API_BASE_URL` points to the correct backend URL
+
+### Only the bootstrap admin should exist, but old users are still present
 Reason:
-- `ServerAddress` is already saved in the agent state file and has higher priority than `Api:BaseUrl`
+- user seeding only runs when the user table is empty
 
 Fix:
-- edit `state/agent-state.json` and update `ServerAddress`
-- or delete the state file and start the agent again
+- use a clean database for a fresh first startup
+- or delete old users manually through the panel/database if you want to return to a single-admin state
+
+### Agent keeps connecting to the old backend address
+Reason:
+- `ServerAddress` is already saved in `state/agent-state.json`
+
+Fix:
+- update `ServerAddress` manually
+- or delete the state file and restart the agent
 
 ### Agent can reach backend but cannot upload to MinIO
 Check:
-- whether MinIO is reachable from the agent machine
-- whether backend returned the correct public upload host
-- whether `Storage:PublicEndpoint` must be set explicitly in your network topology
+- MinIO port is reachable from the agent machine
+- backend returned the correct public storage host
+- `Storage:PublicEndpoint` is configured if storage host differs from backend host
 
 ### PostgreSQL logical dump fails with `no password supplied`
 Reason:
-- the policy uses `integrated` mode, but the target PostgreSQL instance is not configured for passwordless access from the agent process
+- `integrated` mode is used against a database that is not configured for passwordless access
 
 Fix:
-- for the local Docker Compose PostgreSQL setup, switch the policy to `credentials`
-- use `127.0.0.1` instead of `localhost` if you want to avoid extra IPv6 attempts during local testing
-- reserve `integrated` mode for a specially configured local PostgreSQL installation
-
-### Database dump job looks stuck
-Current behavior should fail fast instead of waiting for interactive password input. If a job still appears stuck, check:
-- whether the running agent binary was restarted after the latest changes
-- whether the dump tool itself can be executed manually from the same OS account
-- whether the agent is blocked by antivirus or another local security tool
-
-### Agent cannot find `pg_dump` or `mysqldump`
-Check:
-- whether the native dump tool is installed on the agent machine
-- whether the tool is visible in the agent process environment
-- whether you should set `Agent:PostgreSqlDumpCommand` or `Agent:MySqlDumpCommand` to an absolute path
-
-### Frontend shows old chunk import errors after rebuild
-Reason:
-- Vite chunk hashes changed after rebuild, but the browser still uses an old tab/runtime
-
-Fix:
-- reload the page once after deploy or rebuild
-
-### Docker dev uses HTTP instead of HTTPS
-This is expected for the local compose setup.
-For production, TLS should be terminated by a reverse proxy or ingress.
+- switch the policy to `credentials`
+- use `127.0.0.1` instead of `localhost` for local testing if needed
 
 ## Additional Documentation
 
-More focused local docs:
-- [Frontend README](D:\projects\RestorMe\Frontend\README.md)
-- [Docker Compose README](D:\projects\RestorMe\docker-compose\README.md)
-
-## Status
-
-The project is ready as an MVP/prototype foundation:
-- frontend is integrated with backend
-- backend routes support the admin panel
-- agent can register, synchronize and execute policies
-- compose stack starts from a single folder
-- migrations are automatic
-- secrets can be passed through file-based Docker mounts
-- in simple deployments an agent usually needs only the backend address
+- [D:\projects\RestorMe\docker-compose\README.md](D:\projects\RestorMe\docker-compose\README.md)
+- [D:\projects\RestorMe\Frontend\README.md](D:\projects\RestorMe\Frontend\README.md)

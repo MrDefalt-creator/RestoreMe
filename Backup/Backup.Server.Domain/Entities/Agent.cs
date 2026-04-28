@@ -15,6 +15,7 @@ public class Agent
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastSeenAt { get; set; }
+    public DateTime? ApprovedAt { get; set; }
 
     public ICollection<BackupPolicy> Policies { get; set; } = new List<BackupPolicy>();
     

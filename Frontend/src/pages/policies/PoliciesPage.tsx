@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { useAuthStore } from '@/app/store/auth-store'
 import { useUiStore } from '@/app/store/ui-store'
 import { PolicyFormDialog } from '@/features/policy-form/PolicyFormDialog'
 import { getAgents } from '@/entities/agent/api'
@@ -43,6 +44,8 @@ export function PoliciesPage() {
   const [search, setSearch] = useState('')
   const [editingPolicy, setEditingPolicy] = useState<BackupPolicy | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const role = useAuthStore((state) => state.user?.role)
+  const canWrite = role === 'operator' || role === 'admin'
   const policyFilter = useUiStore((state) => state.policyFilter)
   const setPolicyFilter = useUiStore((state) => state.setPolicyFilter)
   const deferredSearch = useDeferredValue(search)
@@ -101,14 +104,16 @@ export function PoliciesPage() {
         title="Backup scheduling rules"
         description="Create filesystem backup schedules or logical database dump policies without losing visibility into the target agent and next execution window."
         action={
-          <Button
-            onClick={() => {
-              setEditingPolicy(null)
-              setIsDialogOpen(true)
-            }}
-          >
-            Create policy
-          </Button>
+          canWrite ? (
+            <Button
+              onClick={() => {
+                setEditingPolicy(null)
+                setIsDialogOpen(true)
+              }}
+            >
+              Create policy
+            </Button>
+          ) : null
         }
       />
 
@@ -158,25 +163,31 @@ export function PoliciesPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            setEditingPolicy(policy)
-                            setIsDialogOpen(true)
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleMutation.mutate(policy.id)}
-                        >
-                          Toggle
-                        </Button>
-                      </div>
+                      {canWrite ? (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setEditingPolicy(policy)
+                              setIsDialogOpen(true)
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => toggleMutation.mutate(policy.id)}
+                          >
+                            Toggle
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-ink-800/55">
+                          Read only
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -189,7 +200,7 @@ export function PoliciesPage() {
       )}
 
       <PolicyFormDialog
-        open={isDialogOpen}
+        open={canWrite && isDialogOpen}
         agents={agentsQuery.data ?? []}
         policy={editingPolicy}
         onClose={() => setIsDialogOpen(false)}

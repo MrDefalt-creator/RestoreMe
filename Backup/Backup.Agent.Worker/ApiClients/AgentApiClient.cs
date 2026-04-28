@@ -1,7 +1,9 @@
 using System.Net.Http.Json;
 using Backup.Agent.Worker.Interfaces;
+using Backup.Agent.Worker.Options;
 using Backup.Shared.Contracts.DTOs.Agents;
 using Backup.Shared.Contracts.DTOs.Policies;
+using Microsoft.Extensions.Options;
 
 namespace Backup.Agent.Worker.ApiClients;
 
@@ -9,20 +11,21 @@ public class AgentApiClient : IAgentApiClient
 {
     private readonly ILogger<AgentApiClient> _logger;
     private readonly HttpClient _httpClient;
+    private readonly ApiOptions _apiOptions;
     
-    public AgentApiClient(ILogger<AgentApiClient> logger, HttpClient httpClient)
+    public AgentApiClient(ILogger<AgentApiClient> logger, HttpClient httpClient, IOptions<ApiOptions> apiOptions)
     {
         _logger = logger;
         _httpClient = httpClient;
+        _apiOptions = apiOptions.Value;
     }
 
     public async Task<Guid> RegisterPendingAsync(PendingAgentRequest request, CancellationToken cancellationToken)
     {
-        var response = await _httpClient.PostAsJsonAsync(
-            "/api/Agents/register_pending",
-            request,
-            cancellationToken
-        );
+        using var httpRequest = CreateEnrollmentRequest(HttpMethod.Post, "/api/Agents/register_pending");
+        httpRequest.Content = JsonContent.Create(request);
+
+        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -37,6 +40,23 @@ public class AgentApiClient : IAgentApiClient
         }
 
         return result.PendingId;
+    }
+
+    public async Task<string> IssueAccessTokenAsync(Guid agentId, string machineName, CancellationToken cancellationToken)
+    {
+        using var request = CreateEnrollmentRequest(HttpMethod.Post, $"/api/Agents/issue_access_token/{agentId}");
+        request.Content = JsonContent.Create(new IssueAgentAccessTokenRequest(machineName));
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<IssueAgentAccessTokenResponse>(cancellationToken);
+        if (result == null || string.IsNullOrWhiteSpace(result.AccessToken))
+        {
+            throw new Exception("IssueAccessToken response is empty.");
+        }
+
+        return result.AccessToken;
     }
 
     public async Task<bool> SendHeartbeatAsync(Guid agentId, CancellationToken cancellationToken)
@@ -61,7 +81,8 @@ public class AgentApiClient : IAgentApiClient
     
     public async Task<PendingAgentStatusResponse> GetPendingStatusAsync(Guid pendingId, CancellationToken cancellationToken)
     {
-        var response = await _httpClient.GetAsync($"api/Agents/status/{pendingId}", cancellationToken);
+        using var request = CreateEnrollmentRequest(HttpMethod.Get, $"api/Agents/status/{pendingId}");
+        var response = await _httpClient.SendAsync(request, cancellationToken);
         
         response.EnsureSuccessStatusCode();
         
@@ -96,5 +117,17 @@ public class AgentApiClient : IAgentApiClient
         var polices = await response.Content.ReadFromJsonAsync<List<BackupPolicyDto>>(cancellationToken: cancellationToken);
         
         return polices ?? new List<BackupPolicyDto>();
+    }
+
+    private HttpRequestMessage CreateEnrollmentRequest(HttpMethod method, string relativeUrl)
+    {
+        var request = new HttpRequestMessage(method, relativeUrl);
+
+        if (!string.IsNullOrWhiteSpace(_apiOptions.EnrollmentToken))
+        {
+            request.Headers.Add("X-Agent-Enrollment-Token", _apiOptions.EnrollmentToken);
+        }
+
+        return request;
     }
 }

@@ -98,6 +98,21 @@ public class Worker : BackgroundService
 
         if (storedAgentId.HasValue)
         {
+            var storedAccessToken = await _agentState.TryGetAccessTokenAsync(cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(storedAccessToken))
+            {
+                _logger.LogInformation(
+                    "AgentId found in local state, but no access token is stored. Issuing a new access token via enrollment flow.");
+
+                var accessToken = await _apiClient.IssueAccessTokenAsync(
+                    storedAgentId.Value,
+                    Environment.MachineName,
+                    cancellationToken);
+
+                await _agentState.SaveAccessTokenAsync(accessToken, cancellationToken);
+            }
+
             _logger.LogInformation("AgentId loaded from local state. AgentId: {AgentId}", storedAgentId.Value);
             return storedAgentId.Value;
         }
@@ -116,8 +131,14 @@ public class Worker : BackgroundService
             if (status.ApprovedAgentId.HasValue)
             {
                 var approvedAgentId = status.ApprovedAgentId.Value;
+
+                if (string.IsNullOrWhiteSpace(status.AgentAccessToken))
+                {
+                    throw new InvalidOperationException("Agent approval response did not contain an access token.");
+                }
                 
                 await _agentState.SaveAgentIdAsync(approvedAgentId, cancellationToken);
+                await _agentState.SaveAccessTokenAsync(status.AgentAccessToken, cancellationToken);
                 
                 _logger.LogInformation("Agent approved. AgentId: {AgentId}", approvedAgentId);
                 

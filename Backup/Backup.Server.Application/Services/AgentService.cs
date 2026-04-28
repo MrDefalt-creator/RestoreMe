@@ -100,6 +100,7 @@ public class AgentService
         {
             pendingAgent.Status = PendingAgentStatus.Approved;
             pendingAgent.ApprovedAgentId = existingAgent.Id;
+            pendingAgent.ApprovedAt = DateTime.UtcNow;
 
             await _pendingAgentsRepository.UpdateAsync(pendingAgent);
             await _pendingAgentsRepository.SaveChangesAsync();
@@ -115,7 +116,8 @@ public class AgentService
             OsType = pendingAgent.OsType,
             Version = pendingAgent.Version,
             Status = AgentStatus.Offline,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            ApprovedAt = DateTime.UtcNow
         };
 
         await _agentRepository.AddAgent(agent);
@@ -123,6 +125,7 @@ public class AgentService
 
         pendingAgent.Status = PendingAgentStatus.Approved;
         pendingAgent.ApprovedAgentId = agent.Id;
+        pendingAgent.ApprovedAt = DateTime.UtcNow;
 
         await _pendingAgentsRepository.UpdateAsync(pendingAgent);
         await _pendingAgentsRepository.SaveChangesAsync();
