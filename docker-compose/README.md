@@ -19,8 +19,8 @@ Current stack includes:
 
 Use this order when you deploy the stack on a clean workstation.
 
-1. Open [D:\projects\RestorMe\docker-compose\.env](D:\projects\RestorMe\docker-compose\.env) and check whether the default ports are free.
-2. Create or update the secret files inside [D:\projects\RestorMe\docker-compose\secrets](D:\projects\RestorMe\docker-compose\secrets).
+1. Open [.env](.env) and check whether the default ports are free.
+2. Create or update the secret files inside [secrets](secrets).
 3. Run `docker compose up --build`.
 4. Wait until backend applies migrations.
 5. Open the frontend on `http://localhost:5173`.
@@ -43,7 +43,7 @@ Important behavior:
 
 Start the stack:
 ```powershell
-cd D:\projects\RestorMe\docker-compose
+cd docker-compose
 docker compose up --build
 ```
 
@@ -70,7 +70,7 @@ You can change these in `.env`.
 
 ## Secrets
 
-Expected secret files in [D:\projects\RestorMe\docker-compose\secrets](D:\projects\RestorMe\docker-compose\secrets):
+Expected secret files in [secrets](secrets):
 - `postgres-password.txt`
 - `postgres-connection.txt`
 - `minio-access-key.txt`
@@ -275,5 +275,6 @@ This should already be handled by the frontend container rewrite rules. If you s
 
 ## Related Documentation
 
-- [D:\projects\RestorMe\README.md](D:\projects\RestorMe\README.md)
-- [D:\projects\RestorMe\Frontend\README.md](D:\projects\RestorMe\Frontend\README.md)
+- [../README.md](../README.md)
+- [../Frontend/README.md](../Frontend/README.md)
+
