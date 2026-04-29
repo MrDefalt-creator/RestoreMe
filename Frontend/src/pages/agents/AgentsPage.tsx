@@ -4,8 +4,10 @@ import { Search } from 'lucide-react'
 
 import { useUiStore } from '@/app/store/ui-store'
 import { getAgents } from '@/entities/agent/api'
+import type { AgentStatus } from '@/entities/agent/model/types'
 import { getJobs } from '@/entities/job/api'
 import { getPolicies } from '@/entities/policy/api'
+import type { BackupPolicy } from '@/entities/policy/model/types'
 import { formatDateTime, formatRelativeTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
@@ -13,8 +15,6 @@ import { Card } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
-import type { AgentStatus } from '@/entities/agent/model/types'
-import type { BackupPolicy } from '@/entities/policy/model/types'
 
 function formatPolicyTarget(policy: BackupPolicy) {
   if (policy.type === 'filesystem') {
@@ -150,7 +150,7 @@ export function AgentsPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-600">Selected agent</p>
                 <h2 className="mt-2 text-2xl font-semibold text-ink-950">{selectedAgent.name}</h2>
                 <p className="mt-1 text-sm text-ink-800">
-                  {selectedAgent.machineName} � {selectedAgent.osType}
+                  {selectedAgent.machineName} / {selectedAgent.osType}
                 </p>
               </div>
 

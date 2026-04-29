@@ -4,6 +4,8 @@ import { createBrowserRouter } from 'react-router-dom'
 
 import { RequireAuth } from '@/app/router/RequireAuth'
 import { AccountPage } from '@/pages/account/AccountPage'
+import { NotFoundPage } from '@/pages/errors/NotFoundPage'
+import { RouterErrorPage } from '@/pages/errors/RouterErrorPage'
 import { LoginPage } from '@/pages/login/LoginPage'
 import { AppShell } from '@/widgets/app-shell/AppShell'
 
@@ -61,6 +63,7 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <RouterErrorPage />,
   },
   {
     path: '/',
@@ -69,6 +72,7 @@ export const router = createBrowserRouter([
         <AppShell />
       </RequireAuth>
     ),
+    errorElement: <RouterErrorPage />,
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'account', element: <AccountPage /> },
@@ -78,6 +82,12 @@ export const router = createBrowserRouter([
       { path: 'jobs', element: withSuspense(<JobsPage />) },
       { path: 'artifacts', element: withSuspense(<ArtifactsPage />) },
       { path: 'users', element: withSuspense(<UsersPage />) },
+      { path: '*', element: <NotFoundPage compact /> },
     ],
+  },
+  {
+    path: '*',
+    element: <NotFoundPage />,
+    errorElement: <RouterErrorPage />,
   },
 ])
