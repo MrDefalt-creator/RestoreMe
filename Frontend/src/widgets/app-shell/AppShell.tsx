@@ -7,6 +7,7 @@ import { env } from '@/shared/config/env'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
+import { BrandMark } from '@/shared/ui/BrandMark'
 
 type NavItem = {
   to: string
@@ -79,25 +80,23 @@ export function AppShell() {
                   'flex items-center',
                   sidebarState === 'expanded'
                     ? 'justify-between gap-3'
-                    : 'w-full justify-center gap-0',
+                    : 'w-full flex-col justify-center gap-3',
                 )}
               >
-                <div
+                <BrandMark
+                  compact={sidebarState !== 'expanded'}
+                  subtitle="Backup Console"
                   className={cn(
                     'overflow-hidden transition-all',
-                    sidebarState === 'expanded' ? 'w-auto opacity-100' : 'w-0 opacity-0',
+                    sidebarState === 'expanded' ? 'w-auto opacity-100' : 'w-12 opacity-100',
                   )}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-200/85">
-                    RestoreMe
-                  </p>
-                  <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-                    Backup Console
-                  </h1>
-                </div>
+                />
                 <Button
                   variant="ghost"
-                  className="h-11 w-11 rounded-2xl border border-white/10 bg-white/5 p-0 text-white hover:bg-white/10"
+                  className={cn(
+                    'rounded-2xl border border-white/10 bg-white/5 p-0 text-white hover:bg-white/10',
+                    sidebarState === 'expanded' ? 'h-11 w-11' : 'h-12 w-12',
+                  )}
                   onClick={toggleSidebar}
                 >
                   <Menu className="h-4 w-4" />

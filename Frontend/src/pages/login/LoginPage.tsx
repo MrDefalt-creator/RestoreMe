@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { login } from '@/entities/auth/api'
+import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Input } from '@/shared/ui/Input'
@@ -55,12 +56,7 @@ export function LoginPage() {
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-5xl items-center justify-center">
         <Card className="grid w-full max-w-4xl gap-8 overflow-hidden border-white/70 bg-white/88 p-0 shadow-[0_32px_80px_rgba(16,32,51,0.12)] md:grid-cols-[1.05fr_0.95fr]">
           <div className="bg-[linear-gradient(180deg,rgba(11,24,39,0.98),rgba(16,46,72,0.96))] px-8 py-10 text-white md:px-10 md:py-12">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-200/85">
-              RestoreMe
-            </p>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-              Backup Console
-            </h1>
+            <BrandMark subtitle="Backup Console" />
             <p className="mt-4 max-w-md text-sm leading-7 text-sky-100/78">
               Secure operator access for agents, backup policies, jobs and stored artifacts.
             </p>
