@@ -10,6 +10,9 @@ The system uses:
 - MinIO for object storage
 - Docker Compose for local full-stack startup
 
+> [!WARNING]
+> Read this README and [docker-compose/README.md](docker-compose/README.md) before starting the stack. The repository intentionally includes Docker Compose `.env` and starter secret files to make first setup faster, but all default credentials and tokens must be changed before public, shared or production-like deployment.
+
 ## Repository Layout
 
 ```text
@@ -84,6 +87,9 @@ RestorMe/
 
 This is the easiest and recommended local startup path.
 
+> [!WARNING]
+> Before running Compose outside a private local test environment, replace every checked-in value in `docker-compose/secrets`, rotate the bootstrap administrator password after first login, and replace JWT/enrollment tokens in backend and agent configuration.
+
 ```powershell
 cd docker-compose
 docker compose up --build
@@ -121,16 +127,18 @@ dotnet run --project .\Backup.Agent.Worker\Backup.Agent.Worker.csproj
 
 Use this sequence for a clean local deployment or first workstation setup.
 
-1. Fill secret files in [docker-compose/secrets](docker-compose/secrets).
-2. Check [docker-compose/.env](docker-compose/.env) if default ports are already occupied.
-3. Start the stack with `docker compose up --build`.
-4. Wait until backend applies migrations.
-5. Open `http://localhost:5173`.
-6. Sign in with the bootstrap administrator account.
-7. Create additional users if needed.
-8. Start one or more agents separately.
-9. Approve pending agents in the panel.
-10. Create policies and verify jobs/artifacts.
+1. Read [docker-compose/README.md](docker-compose/README.md).
+2. Replace starter values in [docker-compose/secrets](docker-compose/secrets).
+3. Check [docker-compose/.env](docker-compose/.env) if default ports are already occupied.
+4. Start the stack with `docker compose up --build`.
+5. Wait until backend applies migrations.
+6. Open `http://localhost:5173`.
+7. Sign in with the bootstrap administrator account.
+8. Change the bootstrap administrator password.
+9. Create additional users if needed.
+10. Start one or more agents separately.
+11. Approve pending agents in the panel.
+12. Create policies and verify jobs/artifacts.
 
 ## Secrets and Sensitive Configuration
 
@@ -141,6 +149,9 @@ Local Docker startup expects these files in [docker-compose/secrets](docker-comp
 - `postgres-connection.txt`
 - `minio-access-key.txt`
 - `minio-secret-key.txt`
+
+> [!WARNING]
+> These files are committed only as local starter values. Treat them like templates with working defaults: replace them before pushing a deployed instance to any shared network, demo server or production-like environment.
 
 Examples:
 
@@ -156,12 +167,12 @@ Host=postgres;Port=5432;Database=restoreme_db;Username=restoreme_user;Password=m
 
 `minio-access-key.txt`
 ```text
-minioadmin
+restoreme_minio_dev
 ```
 
 `minio-secret-key.txt`
 ```text
-strong_minio_secret
+restoreme_minio_dev_ChangeMe_2026!
 ```
 
 ### How backend reads secrets
@@ -216,6 +227,9 @@ In `Development`, the system seeds exactly one initial administrator if the user
 Current dev credentials:
 - `admin / Admin123!`
 
+> [!WARNING]
+> Change the bootstrap administrator password immediately after the first login. The checked-in value is public development bootstrap data, not a secret.
+
 Source:
 - [Backup/Backup.Server.Api/appsettings.Development.json](Backup/Backup.Server.Api/appsettings.Development.json)
 
@@ -238,7 +252,7 @@ Implemented safeguards:
 - the current signed-in account cannot be disabled from the admin table
 - the current signed-in account cannot have its role changed from the admin table
 - every signed-in user can change their own password on the `Account` page
-- only administrators can create users, change ����� passwords, disable users and delete users
+- only administrators can create users, change other users' passwords, disable users and delete users
 
 ### Remember me behavior
 
@@ -275,6 +289,9 @@ Important settings:
 - `Agent:PolicySyncIntervalSeconds`
 - `Agent:PostgreSqlDumpCommand`
 - `Agent:MySqlDumpCommand`
+
+> [!WARNING]
+> Replace `AgentEnrollment:EnrollmentToken` on the backend and `Api:EnrollmentToken` on every agent before using the system outside local development.
 
 Important note:
 - current checked-in agent `appsettings.json` still contains a legacy local `https://localhost:7104/` base URL as a placeholder

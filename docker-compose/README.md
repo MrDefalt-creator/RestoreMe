@@ -2,6 +2,9 @@
 
 This folder is the single local entry point for starting the full RestoreMe stack.
 
+> [!WARNING]
+> Read this file before running the stack. The repository includes `.env` and starter files in `secrets/` for convenience, but the values are public development defaults and must be replaced before any shared, demo or production-like deployment.
+
 Contents:
 - `docker-compose.yml` - full stack definition
 - `.env` - non-secret ports and frontend mode
@@ -20,13 +23,14 @@ Current stack includes:
 Use this order when you deploy the stack on a clean workstation.
 
 1. Open [.env](.env) and check whether the default ports are free.
-2. Create or update the secret files inside [secrets](secrets).
+2. Replace the starter secret files inside [secrets](secrets).
 3. Run `docker compose up --build`.
 4. Wait until backend applies migrations.
 5. Open the frontend on `http://localhost:5173`.
 6. Sign in with the bootstrap administrator account.
-7. Create additional users if required.
-8. Start one or more agents separately.
+7. Change the bootstrap administrator password.
+8. Create additional users if required.
+9. Start one or more agents separately.
 
 ## Bootstrap Administrator
 
@@ -34,6 +38,9 @@ On the first backend startup in `Development`, the system seeds one administrato
 
 Current dev credentials:
 - `admin / Admin123!`
+
+> [!WARNING]
+> Change this password after the first login. The checked-in bootstrap account is included only to make initial local setup possible.
 
 Important behavior:
 - if users already exist in the database, seed does not overwrite them
@@ -76,6 +83,9 @@ Expected secret files in [secrets](secrets):
 - `minio-access-key.txt`
 - `minio-secret-key.txt`
 
+> [!WARNING]
+> Do not reuse the checked-in starter values for a deployed instance. Replace PostgreSQL password, PostgreSQL connection string, MinIO access key and MinIO secret key together before exposing the stack.
+
 ### Example values
 
 `postgres-password.txt`
@@ -90,12 +100,12 @@ Host=postgres;Port=5432;Database=restoreme_db;Username=restoreme_user;Password=m
 
 `minio-access-key.txt`
 ```text
-minioadmin
+restoreme_minio_dev
 ```
 
 `minio-secret-key.txt`
 ```text
-strong_minio_secret
+restoreme_minio_dev_ChangeMe_2026!
 ```
 
 ### Why there are two PostgreSQL secret files
@@ -164,6 +174,9 @@ The agent is started separately from this Compose stack.
 Recommended local values for the current stack:
 - backend URL: `http://localhost:8080/`
 - enrollment token: `restoreme-agent-enrollment-dev-token`
+
+> [!WARNING]
+> Replace the enrollment token in backend and agent configuration before using agents on any shared network. The default token is public repository data.
 
 Important note:
 - the checked-in agent appsettings still contains an older placeholder base URL
