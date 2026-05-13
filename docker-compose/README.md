@@ -16,7 +16,8 @@ Current stack includes:
 - `db` - PostgreSQL 18
 - `minio` - object storage
 - `backend` - ASP.NET Core API
-- `frontend` - Vite production build served by Apache
+- `frontend` - stable RestoreMe frontend served by Apache
+- `frontend-2` - flagship Frontend 2.0 prototype served by Apache
 
 ## First-Time Startup
 
@@ -26,7 +27,7 @@ Use this order when you deploy the stack on a clean workstation.
 2. Replace the starter secret files inside [secrets](secrets).
 3. Run `docker compose up --build`.
 4. Wait until backend applies migrations.
-5. Open the frontend on `http://localhost:5173`.
+5. Open the stable frontend on `http://localhost:5173`, or Frontend 2.0 on `http://localhost:5174`.
 6. Sign in with the bootstrap administrator account.
 7. Change the bootstrap administrator password.
 8. Create additional users if required.
@@ -67,7 +68,8 @@ docker compose down
 ## Default Ports
 
 By default the stack publishes:
-- frontend: `http://localhost:5173`
+- stable frontend: `http://localhost:5173`
+- frontend 2.0: `http://localhost:5174`
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
@@ -136,7 +138,7 @@ This means the backend does not need hardcoded database or MinIO secrets in `doc
 
 ## Important Compose Behavior
 
-- frontend API URL is derived from `API_PORT` during the frontend image build
+- frontend API URLs are derived from `API_PORT` during the frontend image builds
 - backend CORS in `Development` accepts localhost and loopback origins on any port
 - backend runs EF Core migrations automatically on startup
 - backend talks to MinIO internally via `minio:9000`
@@ -195,6 +197,22 @@ The frontend login page supports two modes:
 
 This does not change backend security rules; it only changes frontend session persistence.
 
+## Frontend Versions in Compose
+
+The Compose stack runs both UI versions against the same backend, database and object storage:
+
+- `frontend` on `http://localhost:5173` is the stable diploma baseline.
+- `frontend-2` on `http://localhost:5174` is the next-generation UI prototype.
+
+Both frontends use the same API and should show the same agents, policies, jobs and artifacts after polling/refetch.
+
+Useful comparison flow:
+1. Create or update a policy in one frontend.
+2. Open the other frontend.
+3. Confirm the same policy appears there.
+4. Let the agent execute the policy.
+5. Confirm the resulting job and artifact appear in both frontends.
+
 ## Useful Commands
 
 Show service status:
@@ -206,6 +224,7 @@ Show logs:
 ```powershell
 docker compose logs -f backend
 docker compose logs -f frontend
+docker compose logs -f frontend-2
 docker compose logs -f minio
 docker compose logs -f db
 ```
@@ -218,6 +237,11 @@ docker compose up -d --build backend
 Rebuild only frontend:
 ```powershell
 docker compose up -d --build frontend
+```
+
+Rebuild only Frontend 2.0:
+```powershell
+docker compose up -d --build frontend-2
 ```
 
 Remove containers but keep named volumes:
@@ -263,6 +287,13 @@ Check:
 - frontend is pointing to the correct backend URL
 - you are using the current seeded admin credentials on a clean or expected database
 
+### Frontend 2.0 is not available on port 5174
+Check:
+- `.env` contains `FRONTEND_2_PORT=5174`
+- `frontend-2` container exists in `docker compose ps`
+- the image was rebuilt with `docker compose up -d --build frontend-2`
+- another local process is not already using the selected port
+
 ### There should be only one bootstrap admin, but more users exist
 Reason:
 - the database was already populated before the latest seed rules
@@ -290,4 +321,5 @@ This should already be handled by the frontend container rewrite rules. If you s
 
 - [../README.md](../README.md)
 - [../Frontend/README.md](../Frontend/README.md)
+- [../Frontend-2.0/README.md](../Frontend-2.0/README.md)
 

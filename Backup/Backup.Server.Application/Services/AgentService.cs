@@ -29,6 +29,19 @@ public class AgentService
         var existingPending = await _pendingAgentsRepository.GetByMachineNameAsync(machineName);
         if (existingPending != null)
         {
+            if (existingPending.Status == PendingAgentStatus.Rejected)
+            {
+                existingPending.OsType = os;
+                existingPending.Version = version;
+                existingPending.Status = PendingAgentStatus.Pending;
+                existingPending.CreatedAt = DateTime.UtcNow;
+                existingPending.ApprovedAt = null;
+                existingPending.ApprovedAgentId = null;
+
+                await _pendingAgentsRepository.UpdateAsync(existingPending);
+                await _pendingAgentsRepository.SaveChangesAsync();
+            }
+
             return existingPending.Id;
         }
 
@@ -131,6 +144,28 @@ public class AgentService
         await _pendingAgentsRepository.SaveChangesAsync();
 
         return agent.Id;
+    }
+
+    public async Task RejectAgent(Guid pendingId)
+    {
+        var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId);
+
+        if (pendingAgent == null)
+        {
+            throw new Exception("Pending agent not found");
+        }
+
+        if (pendingAgent.Status == PendingAgentStatus.Approved)
+        {
+            throw new InvalidOperationException("Approved agent requests cannot be rejected.");
+        }
+
+        pendingAgent.Status = PendingAgentStatus.Rejected;
+        pendingAgent.ApprovedAgentId = null;
+        pendingAgent.ApprovedAt = null;
+
+        await _pendingAgentsRepository.UpdateAsync(pendingAgent);
+        await _pendingAgentsRepository.SaveChangesAsync();
     }
 
 

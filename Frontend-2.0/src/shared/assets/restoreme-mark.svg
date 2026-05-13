@@ -1,0 +1,39 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M126 22L56 44C42 48 32 61 32 76V126C32 183 71 216 111 232L126 238L141 232C181 216 220 183 220 126V82"
+    stroke="#173766"
+    stroke-width="16"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <ellipse cx="112" cy="88" rx="44" ry="16" fill="#183760" />
+  <path d="M68 88V118C68 126.837 87.6995 134 112 134C136.301 134 156 126.837 156 118V88" fill="#119A9C" />
+  <ellipse cx="112" cy="118" rx="44" ry="16" fill="#119A9C" />
+  <path d="M68 118V148C68 156.837 87.6995 164 112 164C136.301 164 156 156.837 156 148V118" fill="#17A7E4" />
+  <ellipse cx="112" cy="148" rx="44" ry="16" fill="#17A7E4" />
+  <path
+    d="M182 156V78"
+    stroke="#17A7E4"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <path
+    d="M161 98L182 72L203 98"
+    stroke="#17A7E4"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="176" cy="184" r="28" fill="#11B2B6" />
+  <path
+    d="M162 184L172 194L191 174"
+    stroke="white"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M195 40L199 49L208 53L199 57L195 66L191 57L182 53L191 49L195 40Z"
+    fill="#1CB8EE"
+  />
+</svg>

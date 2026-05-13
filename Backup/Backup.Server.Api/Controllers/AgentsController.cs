@@ -85,6 +85,14 @@ public class AgentsController : ControllerBase
         return Ok(agentId);
     }
 
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [HttpPost("reject/{pendingId:guid}")]
+    public async Task<IActionResult> Reject([FromRoute] Guid pendingId)
+    {
+        await _agentService.RejectAgent(pendingId);
+        return NoContent();
+    }
+
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
     [HttpPost("issue_access_token/{agentId:guid}")]
     public async Task<IActionResult> IssueAccessToken([FromRoute] Guid agentId, [FromBody] IssueAgentAccessTokenRequest request)

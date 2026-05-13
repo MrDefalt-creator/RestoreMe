@@ -1,9 +1,10 @@
 # RestoreMe
 
-RestoreMe is a backup management system with three main parts:
+RestoreMe is a backup management system with these main parts:
 - `Backup.Server.Api` - ASP.NET Core backend API
 - `Backup.Agent.Worker` - agent that registers, synchronizes policies, sends heartbeat and executes backups
-- `Frontend` - React admin panel for operators and administrators
+- `Frontend` - stable React admin panel for operators and administrators
+- `Frontend-2.0` - flagship next-generation UI prototype built on the same backend contracts
 
 The system uses:
 - PostgreSQL for relational data
@@ -25,6 +26,7 @@ RestorMe/
     Backup.Agent.Worker/
     Backup.Shared.Contracts/
   Frontend/
+  Frontend-2.0/
   docker-compose/
     docker-compose.yml
     .env
@@ -56,7 +58,7 @@ RestorMe/
 - executes logical PostgreSQL and MySQL dump policies
 - uploads prepared payloads directly to object storage through upload tickets returned by backend
 
-### Frontend
+### Frontend v1
 - secure login page with `Remember me`
 - dashboard
 - agents page
@@ -67,6 +69,15 @@ RestorMe/
 - account page for self-service password change
 - users page for administrator access management
 - automatic polling in live mode
+
+### Frontend 2.0
+- Apple-like flagship UI prototype for the same RestoreMe backend
+- dark and light themes
+- refined dashboard with activity trend, protection mix and attention items
+- agents page with filters, policy coverage and details dialog
+- pending agent approve and reject flows
+- policies, jobs and backups/artifacts views aligned with current backend DTOs
+- automatic polling and query invalidation tuned for live operational use
 
 ## Prerequisites
 
@@ -96,7 +107,8 @@ docker compose up --build
 ```
 
 Default published addresses:
-- frontend: `http://localhost:5173`
+- frontend v1: `http://localhost:5173`
+- frontend 2.0: `http://localhost:5174`
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
@@ -117,6 +129,13 @@ yarn
 yarn dev
 ```
 
+Frontend 2.0:
+```powershell
+cd Frontend-2.0
+yarn
+yarn dev
+```
+
 Agent:
 ```powershell
 cd Backup
@@ -132,7 +151,7 @@ Use this sequence for a clean local deployment or first workstation setup.
 3. Check [docker-compose/.env](docker-compose/.env) if default ports are already occupied.
 4. Start the stack with `docker compose up --build`.
 5. Wait until backend applies migrations.
-6. Open `http://localhost:5173`.
+6. Open `http://localhost:5173` for the stable frontend, or `http://localhost:5174` for Frontend 2.0.
 7. Sign in with the bootstrap administrator account.
 8. Change the bootstrap administrator password.
 9. Create additional users if needed.
@@ -352,7 +371,7 @@ dotnet ef migrations add MigrationName --project .\Backup.Server.Infrastructure\
 
 ## Frontend Setup
 
-Frontend folder:
+Stable frontend folder:
 - [Frontend](Frontend)
 
 Useful commands:
@@ -373,6 +392,32 @@ VITE_API_MODE=live
 Modes:
 - `live` - use real backend API
 - `mock` - use local fixtures for offline/demo work
+
+## Frontend 2.0 Setup
+
+Frontend 2.0 folder:
+- [Frontend-2.0](Frontend-2.0)
+
+Useful commands:
+```powershell
+cd Frontend-2.0
+yarn
+yarn dev
+yarn build
+yarn preview
+```
+
+Typical local environment:
+```env
+VITE_API_BASE_URL=http://localhost:8080
+VITE_API_MODE=live
+```
+
+Notes:
+- Frontend 2.0 is the flagship UI prototype, not the primary diploma baseline.
+- It uses the same backend and database as the original frontend.
+- Data created in one frontend should be visible in the other after refetch/polling.
+- In Docker Compose it is published on `http://localhost:5174`.
 
 ## Logical Database Dump Policies
 
@@ -468,6 +513,13 @@ yarn
 yarn build
 ```
 
+### Frontend 2.0
+```powershell
+cd Frontend-2.0
+yarn
+yarn build
+```
+
 ### Docker Compose
 ```powershell
 cd docker-compose
@@ -475,6 +527,7 @@ docker compose up --build
 docker compose down
 docker compose logs -f backend
 docker compose logs -f frontend
+docker compose logs -f frontend-2
 docker compose logs -f minio
 docker compose logs -f db
 ```
@@ -521,5 +574,6 @@ Fix:
 
 - [docker-compose/README.md](docker-compose/README.md)
 - [Frontend/README.md](Frontend/README.md)
+- [Frontend-2.0/README.md](Frontend-2.0/README.md)
 
 

@@ -9,6 +9,8 @@ namespace Backup.Agent.Worker;
 
 public class Worker : BackgroundService
 {
+    private const int PendingAgentRejectedStatus = 0;
+
     private readonly ILogger<Worker> _logger;
     private readonly IAgentApiClient _apiClient;
     private readonly IBackupApiClient _backupClient;
@@ -127,6 +129,15 @@ public class Worker : BackgroundService
         while (!cancellationToken.IsCancellationRequested)
         {
             var status = await _apiClient.GetPendingStatusAsync(pendingId, cancellationToken);
+
+            if (status.Status == PendingAgentRejectedStatus)
+            {
+                _logger.LogError(
+                    "Agent registration was rejected by the server. PendingId: {PendingId}. Worker stopped.",
+                    pendingId);
+
+                throw new InvalidOperationException("Agent registration was rejected by the server.");
+            }
 
             if (status.ApprovedAgentId.HasValue)
             {
