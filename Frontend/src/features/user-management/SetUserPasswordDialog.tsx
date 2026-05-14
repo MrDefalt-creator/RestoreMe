@@ -9,6 +9,7 @@ import type { AdminUser } from '@/entities/user/model/types'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
+import { useI18n } from '@/shared/i18n'
 
 const setPasswordSchema = z
   .object({
@@ -30,6 +31,7 @@ type SetUserPasswordDialogProps = {
 }
 
 export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUserPasswordDialogProps) {
+  const { t } = useI18n()
   const form = useForm<SetPasswordValues>({
     resolver: zodResolver(setPasswordSchema),
     mode: 'onChange',
@@ -48,7 +50,7 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
       return setUserPassword(user.id, values.newPassword)
     },
     onSuccess: () => {
-      toast.success('Password updated')
+      toast.success(t('Password updated'))
       form.reset({
         newPassword: '',
         confirmPassword: '',
@@ -56,7 +58,7 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
       onSuccess()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update password')
+      toast.error(error instanceof Error ? error.message : t('Unable to update password'))
     },
   })
 
@@ -64,25 +66,25 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
     <Dialog
       open={open}
       onClose={onClose}
-      title="Change user password"
-      description={user ? `Set a new password for ${user.username}.` : 'Set a new password for the selected user.'}
+      title={t('Change user password')}
+      description={user ? t('Set a new password for {username}.', { username: user.username }) : t('Set a new password for the selected user.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            Save password
+            {mutation.isPending ? t('Saving...') : t('Save password')}
           </Button>
         </>
       }
     >
       <div className="space-y-2">
         <label className="text-sm font-medium text-ink-900" htmlFor="set-user-password-new">
-          New password
+          {t('New password')}
         </label>
         <Input id="set-user-password-new" type="password" placeholder="StrongPass123!" {...form.register('newPassword')} />
         {form.formState.errors.newPassword ? (
@@ -91,9 +93,9 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-ink-900" htmlFor="set-user-password-confirm">
-          Confirm password
+          {t('Confirm password')}
         </label>
-        <Input id="set-user-password-confirm" type="password" placeholder="Repeat the new password" {...form.register('confirmPassword')} />
+        <Input id="set-user-password-confirm" type="password" placeholder={t('Repeat the new password')} {...form.register('confirmPassword')} />
         {form.formState.errors.confirmPassword ? (
           <p className="text-sm text-danger-500">{form.formState.errors.confirmPassword.message}</p>
         ) : null}

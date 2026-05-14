@@ -1,14 +1,17 @@
 import { QueryClient } from '@tanstack/react-query'
 
 import { env } from '@/shared/config/env'
+import { getRefreshIntervalMs } from '@/shared/i18n'
 
-const liveRefetchInterval = env.apiMode === 'live' ? 10_000 : false
+export function getLiveRefetchInterval() {
+  return env.apiMode === 'live' ? getRefreshIntervalMs() : false
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 10_000,
-      refetchInterval: liveRefetchInterval,
+      refetchInterval: getLiveRefetchInterval(),
       refetchIntervalInBackground: false,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,

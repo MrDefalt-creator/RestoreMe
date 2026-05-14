@@ -18,6 +18,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { useI18n } from '@/shared/i18n'
 
 const maxHours = 23
 const maxMinutes = 59
@@ -214,6 +215,7 @@ export function PolicyFormDialog({
   policy,
   onClose,
 }: PolicyFormDialogProps) {
+  const { t } = useI18n()
   const queryClient = useQueryClient()
   const previousOpenRef = useRef(false)
   const previousPolicyIdRef = useRef<string | null>(null)
@@ -296,13 +298,13 @@ export function PolicyFormDialog({
         ? updatePolicy(policy.id, toPolicyPayload(values))
         : createPolicy(toPolicyPayload(values)),
     onSuccess: () => {
-      toast.success(policy ? 'Policy updated' : 'Policy created')
+      toast.success(policy ? t('Policy updated') : t('Policy created'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.policies })
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
       onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Policy save failed')
+      toast.error(error instanceof Error ? error.message : t('Policy save failed'))
     },
   })
 
@@ -318,18 +320,18 @@ export function PolicyFormDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={policy ? 'Edit backup policy' : 'Create backup policy'}
-      description="Policies can protect file paths or create logical database dumps through the same scheduling flow."
+      title={policy ? t('Edit backup policy') : t('Create backup policy')}
+      description={t('Policies can protect file paths or create logical database dumps through the same scheduling flow.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            {policy ? 'Save changes' : 'Create policy'}
+            {mutation.isPending ? t('Saving...') : policy ? t('Save changes') : t('Create policy')}
           </Button>
         </>
       }
@@ -337,7 +339,7 @@ export function PolicyFormDialog({
       <div className="grid gap-5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <div className="space-y-2">
           <label className="text-sm font-medium text-ink-900" htmlFor="policy-agent">
-            Agent
+            {t('Agent')}
           </label>
           <Select id="policy-agent" className="truncate" {...form.register('agentId')}>
             {agents.map((agent) => (
@@ -353,20 +355,20 @@ export function PolicyFormDialog({
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-ink-900" htmlFor="policy-type">
-            Policy type
+            {t('Policy type')}
           </label>
           <Select id="policy-type" {...form.register('type')}>
-            <option value="filesystem">Filesystem backup</option>
-            <option value="postgres">PostgreSQL logical dump</option>
-            <option value="mysql">MySQL logical dump</option>
+            <option value="filesystem">{t('Filesystem backup')}</option>
+            <option value="postgres">{t('PostgreSQL logical dump')}</option>
+            <option value="mysql">{t('MySQL logical dump')}</option>
           </Select>
         </div>
 
         <div className="space-y-2 md:col-span-2">
           <label className="text-sm font-medium text-ink-900" htmlFor="policy-name">
-            Policy name
+            {t('Policy name')}
           </label>
-          <Input id="policy-name" placeholder="Documents every 15 minutes" {...form.register('name')} />
+          <Input id="policy-name" placeholder={t('Documents every 15 minutes')} {...form.register('name')} />
           {form.formState.errors.name ? (
             <p className="text-sm text-danger-500">{form.formState.errors.name.message}</p>
           ) : null}
@@ -374,7 +376,7 @@ export function PolicyFormDialog({
 
         <div className="space-y-2 md:col-span-2">
           <label className="text-sm font-medium text-ink-900" htmlFor="policy-interval">
-            Interval
+            {t('Interval')}
           </label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="space-y-2">
@@ -389,7 +391,7 @@ export function PolicyFormDialog({
                   setValueAs: (value) => Number(value || 0),
                 })}
               />
-              <p className="text-center text-xs text-ink-800/70">Days</p>
+              <p className="text-center text-xs text-ink-800/70">{t('Days')}</p>
             </div>
             <div className="space-y-2">
               <Input
@@ -404,7 +406,7 @@ export function PolicyFormDialog({
                   setValueAs: (value) => Number(value || 0),
                 })}
               />
-              <p className="text-center text-xs text-ink-800/70">Hours</p>
+              <p className="text-center text-xs text-ink-800/70">{t('Hours')}</p>
             </div>
             <div className="space-y-2">
               <Input
@@ -419,7 +421,7 @@ export function PolicyFormDialog({
                   setValueAs: (value) => Number(value || 0),
                 })}
               />
-              <p className="text-center text-xs text-ink-800/70">Minutes</p>
+              <p className="text-center text-xs text-ink-800/70">{t('Minutes')}</p>
             </div>
             <div className="space-y-2">
               <Input
@@ -434,7 +436,7 @@ export function PolicyFormDialog({
                   setValueAs: (value) => Number(value || 0),
                 })}
               />
-              <p className="text-center text-xs text-ink-800/70">Seconds</p>
+              <p className="text-center text-xs text-ink-800/70">{t('Seconds')}</p>
             </div>
           </div>
           {form.formState.errors.interval ? (
@@ -450,7 +452,7 @@ export function PolicyFormDialog({
         {policyType === 'filesystem' ? (
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium text-ink-900" htmlFor="policy-source-path">
-              Source path
+              {t('Source path')}
             </label>
             <Input id="policy-source-path" placeholder="C:\\Users\\Backup" {...form.register('sourcePath')} />
             {sourcePathError ? (
@@ -461,21 +463,21 @@ export function PolicyFormDialog({
           <>
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="policy-db-name">
-                Database name
+                {t('Database name')}
               </label>
               <Input id="policy-db-name" placeholder="restoreme_db" {...form.register('databaseSettings.databaseName')} />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="policy-db-host">
-                Host
+                {t('Host')}
               </label>
               <Input id="policy-db-host" placeholder="localhost" {...form.register('databaseSettings.host')} />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="policy-db-port">
-                Port
+                {t('Port')}
               </label>
               <Input
                 id="policy-db-port"
@@ -491,16 +493,16 @@ export function PolicyFormDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="policy-auth-mode">
-                Auth mode
+                {t('Auth mode')}
               </label>
               <Select id="policy-auth-mode" {...form.register('databaseSettings.authMode')} disabled={policyType === 'mysql'}>
                 {policyType === 'postgres' ? (
                   <>
-                    <option value="integrated">Integrated / local</option>
-                    <option value="credentials">Username + password</option>
+                    <option value="integrated">{t('Integrated / local')}</option>
+                    <option value="credentials">{t('Username + password')}</option>
                   </>
                 ) : (
-                  <option value="credentials">Username + password</option>
+                  <option value="credentials">{t('Username + password')}</option>
                 )}
               </Select>
             </div>
@@ -508,8 +510,8 @@ export function PolicyFormDialog({
             <div className="space-y-2 md:col-span-2">
               <p className="rounded-2xl border border-surface-200 bg-surface-100 px-4 py-3 text-sm text-ink-800">
                 {policyType === 'postgres'
-                  ? 'Recommended: use integrated/local auth when pg_dump can access the database without storing a password in the policy. Credentials mode stays available as the universal fallback.'
-                  : 'MySQL uses credentials mode in this first iteration. Make sure mysqldump is installed on the agent machine.'}
+                  ? t('Recommended: use integrated/local auth when pg_dump can access the database without storing a password in the policy. Credentials mode stays available as the universal fallback.')
+                  : t('MySQL uses credentials mode in this first iteration. Make sure mysqldump is installed on the agent machine.')}
               </p>
             </div>
 
@@ -517,16 +519,16 @@ export function PolicyFormDialog({
               <>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-ink-900" htmlFor="policy-db-username">
-                    Username
+                    {t('Username')}
                   </label>
                   <Input id="policy-db-username" placeholder="backup_user" {...form.register('databaseSettings.username')} />
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-ink-900" htmlFor="policy-db-password">
-                    Password
+                    {t('Password')}
                   </label>
-                  <Input id="policy-db-password" type="password" placeholder="Enter database password" {...form.register('databaseSettings.password')} />
+                  <Input id="policy-db-password" type="password" placeholder={t('Enter database password')} {...form.register('databaseSettings.password')} />
                 </div>
               </>
             ) : null}
@@ -542,7 +544,7 @@ export function PolicyFormDialog({
 
       <label className="flex items-center gap-3 rounded-2xl border border-surface-200 bg-white px-4 py-3">
         <input type="checkbox" className="h-4 w-4 accent-sky-600" {...form.register('isEnabled')} />
-        <span className="text-sm text-ink-900">Enable scheduling immediately</span>
+        <span className="text-sm text-ink-900">{t('Enable scheduling immediately')}</span>
       </label>
     </Dialog>
   )

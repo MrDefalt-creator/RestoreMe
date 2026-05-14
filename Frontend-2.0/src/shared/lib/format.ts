@@ -1,8 +1,21 @@
 import { format, formatDistanceToNow, parseISO } from 'date-fns'
+import { enUS, ru } from 'date-fns/locale'
+
+import { getStoredDateStyle, getStoredLanguage } from '@/shared/i18n'
+
+function getDateLocale() {
+  return getStoredLanguage() === 'ru' ? ru : enUS
+}
 
 export function formatDateTime(dateString: string): string {
   const date = parseISO(dateString)
-  return format(date, 'MMM d, yyyy \'at\' HH:mm')
+  const pattern = getStoredDateStyle() === 'compact'
+    ? 'yyyy-MM-dd HH:mm'
+    : getStoredLanguage() === 'ru' ? 'd MMM yyyy, HH:mm' : 'MMM d, yyyy \'at\' HH:mm'
+
+  return format(date, pattern, {
+    locale: getDateLocale(),
+  })
 }
 
 export function formatDurationSeconds(seconds: number): string {
@@ -29,7 +42,7 @@ export function formatFileSize(bytes: number): string {
 
 export function formatRelativeTime(dateString: string): string {
   const date = parseISO(dateString)
-  return formatDistanceToNow(date, { addSuffix: true })
+  return formatDistanceToNow(date, { addSuffix: true, locale: getDateLocale() })
 }
 
 export function formatTarget(target: string): string {

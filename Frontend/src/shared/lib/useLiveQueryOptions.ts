@@ -1,0 +1,17 @@
+import { useMemo } from 'react'
+
+import { env } from '@/shared/config/env'
+import { useI18n } from '@/shared/i18n'
+
+export function useLiveQueryOptions() {
+  const { refreshIntervalMs } = useI18n()
+
+  return useMemo(
+    () => ({
+      staleTime: refreshIntervalMs === false ? 60_000 : 10_000,
+      refetchInterval: env.apiMode === 'live' ? refreshIntervalMs : false,
+      refetchIntervalInBackground: false,
+    }),
+    [refreshIntervalMs],
+  )
+}

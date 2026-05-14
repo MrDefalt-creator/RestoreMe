@@ -17,6 +17,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { useI18n } from '@/shared/i18n'
 
 const policySchema = z.object({
   agentId: z.string().min(1, 'Select an agent'),
@@ -178,6 +179,7 @@ export function PolicyFormDialog({
   policy,
   onClose,
 }: PolicyFormDialogProps) {
+  const { t } = useI18n()
   const queryClient = useQueryClient()
   const form = useForm<PolicyFormValues>({
     resolver: zodResolver(policySchema),
@@ -214,13 +216,13 @@ export function PolicyFormDialog({
         ? updatePolicy(policy.id, toPayload(values))
         : createPolicy(toPayload(values)),
     onSuccess: () => {
-      toast.success(policy ? 'Policy updated' : 'Policy created')
+      toast.success(policy ? t('Policy updated') : t('Policy created'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.policies })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
       onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Policy save failed')
+      toast.error(error instanceof Error ? error.message : t('Policy save failed'))
     },
   })
 
@@ -230,30 +232,30 @@ export function PolicyFormDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={policy ? 'Edit backup policy' : 'Create backup policy'}
-      description="Choose what should be protected, how often it runs, and which agent owns the work."
+      title={policy ? t('Edit backup policy') : t('Create backup policy')}
+      description={t('Choose what should be protected, how often it runs, and which agent owns the work.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!canCreate || !form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            {mutation.isPending ? 'Saving...' : policy ? 'Save changes' : 'Create policy'}
+            {mutation.isPending ? t('Saving...') : policy ? t('Save changes') : t('Create policy')}
           </Button>
         </>
       }
     >
       {!canCreate ? (
         <div className="rounded-lg border border-border bg-secondary p-4 text-sm text-muted-foreground">
-          Approve at least one agent before creating backup policies.
+          {t('Approve at least one agent before creating backup policies.')}
         </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Agent" error={form.formState.errors.agentId?.message}>
+        <Field label={t('Agent')} error={form.formState.errors.agentId?.message}>
           <Select {...form.register('agentId')}>
             {agents.map((agent) => (
               <option key={agent.id} value={agent.id}>
@@ -263,20 +265,20 @@ export function PolicyFormDialog({
           </Select>
         </Field>
 
-        <Field label="Policy type">
+        <Field label={t('Policy type')}>
           <Select {...form.register('type')}>
-            <option value="filesystem">Filesystem backup</option>
-            <option value="postgres">PostgreSQL dump</option>
-            <option value="mysql">MySQL dump</option>
+            <option value="filesystem">{t('Filesystem backup')}</option>
+            <option value="postgres">{t('PostgreSQL dump')}</option>
+            <option value="mysql">{t('MySQL dump')}</option>
           </Select>
         </Field>
 
-        <Field label="Name" error={form.formState.errors.name?.message} className="md:col-span-2">
-          <Input placeholder="Documents every 15 minutes" {...form.register('name')} />
+        <Field label={t('Name')} error={form.formState.errors.name?.message} className="md:col-span-2">
+          <Input placeholder={t('Documents every 15 minutes')} {...form.register('name')} />
         </Field>
 
         <Field
-          label="Run every"
+          label={t('Run every')}
           error={form.formState.errors.intervalValue?.message ?? form.formState.errors.intervalUnit?.message}
         >
           <div className="grid grid-cols-[1fr_150px] gap-3">
@@ -289,9 +291,9 @@ export function PolicyFormDialog({
               })}
             />
             <Select {...form.register('intervalUnit')}>
-              <option value="minutes">Minutes</option>
-              <option value="hours">Hours</option>
-              <option value="days">Days</option>
+              <option value="minutes">{t('Minutes')}</option>
+              <option value="hours">{t('Hours')}</option>
+              <option value="days">{t('Days')}</option>
             </Select>
           </div>
         </Field>
@@ -302,22 +304,22 @@ export function PolicyFormDialog({
             className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
             {...form.register('isEnabled')}
           />
-          <span>Enable scheduling immediately</span>
+          <span>{t('Enable scheduling immediately')}</span>
         </label>
 
         {policyType === 'filesystem' ? (
-          <Field label="Source path" error={form.formState.errors.sourcePath?.message} className="md:col-span-2">
+          <Field label={t('Source path')} error={form.formState.errors.sourcePath?.message} className="md:col-span-2">
             <Input placeholder="C:\\Users\\Backup" {...form.register('sourcePath')} />
           </Field>
         ) : (
           <>
-            <Field label="Database name" error={form.formState.errors.databaseName?.message}>
+            <Field label={t('Database name')} error={form.formState.errors.databaseName?.message}>
               <Input placeholder="restoreme_db" {...form.register('databaseName')} />
             </Field>
-            <Field label="Host" error={form.formState.errors.host?.message}>
+            <Field label={t('Host')} error={form.formState.errors.host?.message}>
               <Input placeholder="localhost" {...form.register('host')} />
             </Field>
-            <Field label="Port">
+            <Field label={t('Port')}>
               <Input
                 type="number"
                 min={0}
@@ -328,20 +330,20 @@ export function PolicyFormDialog({
                 })}
               />
             </Field>
-            <Field label="Auth mode">
+            <Field label={t('Auth mode')}>
               <Select {...form.register('authMode')} disabled={policyType === 'mysql'}>
-                <option value="integrated">Integrated / local</option>
-                <option value="credentials">Username + password</option>
+                <option value="integrated">{t('Integrated / local')}</option>
+                <option value="credentials">{t('Username + password')}</option>
               </Select>
             </Field>
 
             {authMode === 'credentials' ? (
               <>
-                <Field label="Username" error={form.formState.errors.username?.message}>
+                <Field label={t('Username')} error={form.formState.errors.username?.message}>
                   <Input placeholder="backup_user" {...form.register('username')} />
                 </Field>
-                <Field label="Password" error={form.formState.errors.password?.message}>
-                  <Input type="password" placeholder="Database password" {...form.register('password')} />
+                <Field label={t('Password')} error={form.formState.errors.password?.message}>
+                  <Input type="password" placeholder={t('Database password')} {...form.register('password')} />
                 </Field>
               </>
             ) : null}

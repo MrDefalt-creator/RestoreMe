@@ -313,8 +313,8 @@ Important settings:
 > Replace `AgentEnrollment:EnrollmentToken` on the backend and `Api:EnrollmentToken` on every agent before using the system outside local development.
 
 Important note:
-- current checked-in agent `appsettings.json` still contains a legacy local `https://localhost:7104/` base URL as a placeholder
-- for the current Docker stack, point the agent to `http://localhost:8080/` or to the real server address you want it to use
+- checked-in agent defaults point to the local Docker Compose backend at `http://localhost:8080/`
+- for another machine or server, change `Api:BaseUrl` to the real backend address before starting the agent
 
 ### Agent local state
 
@@ -329,6 +329,7 @@ That state can contain:
 Behavior:
 - if a saved `ServerAddress` exists, it has priority over config `Api:BaseUrl`
 - if an agent already has `AgentId` but no access token, it can recover a new token through enrollment flow
+- if the agent still connects to an old backend after changing config, update or delete `state/agent-state.json`
 
 ## Storage Addressing Model
 

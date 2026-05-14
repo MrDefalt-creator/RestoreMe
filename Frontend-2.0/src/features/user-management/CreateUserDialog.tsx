@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { useI18n } from '@/shared/i18n'
 
 const createUserSchema = z.object({
   username: z.string().trim().min(3, 'Username must contain at least 3 characters').max(64, 'Username is too long'),
@@ -25,6 +26,7 @@ type CreateUserDialogProps = {
 }
 
 export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
+  const { t } = useI18n()
   const queryClient = useQueryClient()
   const form = useForm<CreateUserValues>({
     resolver: zodResolver(createUserSchema),
@@ -42,15 +44,15 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
         username: values.username,
         password: values.password,
         role: values.role as UserRole,
-      }),
+    }),
     onSuccess: () => {
-      toast.success('User created')
+      toast.success(t('User created'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
       form.reset()
       onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to create user')
+      toast.error(error instanceof Error ? error.message : t('Unable to create user'))
     },
   })
 
@@ -58,33 +60,33 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
     <Dialog
       open={open}
       onClose={onClose}
-      title="Create user"
-      description="Add an operator, viewer or administrator account for RestoreMe."
+      title={t('Create user')}
+      description={t('Add an operator, viewer or administrator account for RestoreMe.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            {mutation.isPending ? 'Creating...' : 'Create user'}
+            {mutation.isPending ? t('Creating...') : t('Create user')}
           </Button>
         </>
       }
     >
-      <Field label="Username" error={form.formState.errors.username?.message}>
+      <Field label={t('Username')} error={form.formState.errors.username?.message}>
         <Input placeholder="backup-operator" {...form.register('username')} />
       </Field>
-      <Field label="Password" error={form.formState.errors.password?.message}>
+      <Field label={t('Password')} error={form.formState.errors.password?.message}>
         <Input type="password" placeholder="StrongPass123!" {...form.register('password')} />
       </Field>
-      <Field label="Role" error={form.formState.errors.role?.message}>
+      <Field label={t('Role')} error={form.formState.errors.role?.message}>
         <Select {...form.register('role')}>
-          <option value="viewer">Viewer</option>
-          <option value="operator">Operator</option>
-          <option value="admin">Admin</option>
+          <option value="viewer">{t('Viewer')}</option>
+          <option value="operator">{t('Operator')}</option>
+          <option value="admin">{t('Admin')}</option>
         </Select>
       </Field>
     </Dialog>

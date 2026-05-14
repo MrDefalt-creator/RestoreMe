@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { login } from '@/entities/auth/api'
+import { useI18n } from '@/shared/i18n'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -21,6 +22,7 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>
 
 export function LoginPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const accessToken = useAuthStore((state) => state.accessToken)
   const setSession = useAuthStore((state) => state.setSession)
@@ -39,11 +41,11 @@ export function LoginPage() {
     mutationFn: (values: LoginValues) => login(values.username, values.password),
     onSuccess: (result, variables) => {
       setSession(result.accessToken, result.user, variables.rememberMe)
-      toast.success('Signed in successfully')
+      toast.success(t('Signed in successfully'))
       navigate('/', { replace: true })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Sign in failed')
+      toast.error(error instanceof Error ? error.message : t('Sign in failed'))
     },
   })
 
@@ -56,13 +58,13 @@ export function LoginPage() {
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-5xl items-center justify-center">
         <Card className="grid w-full max-w-4xl gap-8 overflow-hidden border-white/70 bg-white/88 p-0 shadow-[0_32px_80px_rgba(16,32,51,0.12)] md:grid-cols-[1.05fr_0.95fr]">
           <div className="bg-[linear-gradient(180deg,rgba(11,24,39,0.98),rgba(16,46,72,0.96))] px-8 py-10 text-white md:px-10 md:py-12">
-            <BrandMark subtitle="Backup Console" />
+            <BrandMark subtitle={t('Backup Console')} />
             <p className="mt-4 max-w-md text-sm leading-7 text-sky-100/78">
-              Secure operator access for agents, backup policies, jobs and stored artifacts.
+              {t('Secure operator access for agents, backup policies, jobs and stored artifacts.')}
             </p>
             <div className="mt-8 space-y-3 text-sm text-sky-100/74">
-              <p>Use your assigned operator or admin account to enter the console.</p>
-              <p>The development profile can bootstrap demo users through backend configuration.</p>
+              <p>{t('Use your assigned operator or admin account to enter the console.')}</p>
+              <p>{t('The development profile can bootstrap demo users through backend configuration.')}</p>
             </div>
           </div>
 
@@ -70,10 +72,10 @@ export function LoginPage() {
             <div className="max-w-md space-y-6">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.28em] text-ink-800/55">
-                  Sign in
+                  {t('Sign in')}
                 </p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink-950">
-                  Access the workspace
+                  {t('Access the workspace')}
                 </h2>
               </div>
 
@@ -83,7 +85,7 @@ export function LoginPage() {
               >
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-ink-900" htmlFor="login-username">
-                    Username
+                    {t('Username')}
                   </label>
                   <Input id="login-username" placeholder="admin" {...form.register('username')} />
                   {form.formState.errors.username ? (
@@ -93,9 +95,9 @@ export function LoginPage() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-ink-900" htmlFor="login-password">
-                    Password
+                    {t('Password')}
                   </label>
-                  <Input id="login-password" type="password" placeholder="Enter password" {...form.register('password')} />
+                  <Input id="login-password" type="password" placeholder={t('Enter password')} {...form.register('password')} />
                   {form.formState.errors.password ? (
                     <p className="text-sm text-danger-500">{form.formState.errors.password.message}</p>
                   ) : null}
@@ -107,11 +109,11 @@ export function LoginPage() {
                     className="h-4 w-4 rounded border-surface-300 text-[#102033] focus:ring-[#102033]"
                     {...form.register('rememberMe')}
                   />
-                  <span>Remember me on this device</span>
+                  <span>{t('Remember me on this device')}</span>
                 </label>
 
                 <Button type="submit" className="w-full justify-center" disabled={!form.formState.isValid || mutation.isPending}>
-                  Sign in
+                  {mutation.isPending ? t('Signing in...') : t('Sign in')}
                 </Button>
               </form>
             </div>

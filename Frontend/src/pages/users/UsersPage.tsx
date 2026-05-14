@@ -10,6 +10,8 @@ import { SetUserPasswordDialog } from '@/features/user-management/SetUserPasswor
 import { getUsers, updateUserRole, updateUserStatus } from '@/entities/user/api'
 import type { AdminUser, UserRole } from '@/entities/user/model/types'
 import { formatDateTime } from '@/shared/lib/format'
+import { formatRoleLabel, useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -17,17 +19,6 @@ import { Card } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
-
-function formatRole(role: UserRole) {
-  switch (role) {
-    case 'admin':
-      return 'Admin'
-    case 'operator':
-      return 'Operator'
-    default:
-      return 'Viewer'
-  }
-}
 
 function getRoleTone(role: UserRole): 'success' | 'warning' | 'neutral' {
   switch (role) {
@@ -87,6 +78,8 @@ function isSameUser(
 }
 
 export function UsersPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null)
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null)
@@ -96,6 +89,7 @@ export function UsersPage() {
   const usersQuery = useQuery({
     queryKey: queryKeys.users,
     queryFn: getUsers,
+    ...liveQueryOptions,
     enabled: isAdmin,
   })
   const { roleMutation, statusMutation } = useUserMutations()
@@ -105,12 +99,12 @@ export function UsersPage() {
       <div className="space-y-8">
         <SectionHeading
           eyebrow="Security"
-          title="User access management"
-          description="This workspace is reserved for administrators who manage operator and viewer access."
+          title={t('User access management')}
+          description={t('This workspace is reserved for administrators who manage operator and viewer access.')}
         />
         <EmptyState
-          title="Administrator access required"
-          description="Sign in as an administrator to create users, change roles and disable stale accounts."
+          title={t('Administrator access required')}
+          description={t('Sign in as an administrator to create users, change roles and disable stale accounts.')}
         />
       </div>
     )
@@ -121,12 +115,12 @@ export function UsersPage() {
   return (
     <div className="space-y-8">
       <SectionHeading
-        eyebrow="Security"
-        title="User access management"
-        description="Issue operator and viewer accounts, adjust privileges, rotate passwords and remove stale access without exposing backup agents or policy controls to every user."
+        eyebrow={t('Security')}
+        title={t('User access management')}
+        description={t('Issue operator and viewer accounts, adjust privileges, rotate passwords and remove stale access without exposing backup agents or policy controls to every user.')}
         action={
           <Button onClick={() => setIsDialogOpen(true)}>
-            Create user
+            {t('Create user')}
           </Button>
         }
       />
@@ -135,9 +129,9 @@ export function UsersPage() {
         <Card>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">Accounts</p>
+              <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Accounts')}</p>
               <p className="mt-3 text-3xl font-semibold text-ink-950">{users.length}</p>
-              <p className="mt-2 text-sm text-ink-800/75">Platform identities seeded or created for the control plane.</p>
+              <p className="mt-2 text-sm text-ink-800/75">{t('Platform identities seeded or created for the control plane.')}</p>
             </div>
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-100 text-ink-900">
               <UserCog className="h-5 w-5" />
@@ -147,9 +141,9 @@ export function UsersPage() {
         <Card>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">Active users</p>
+              <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Active users')}</p>
               <p className="mt-3 text-3xl font-semibold text-ink-950">{users.filter((user) => user.isActive).length}</p>
-              <p className="mt-2 text-sm text-ink-800/75">Accounts that can currently access the administrative workspace.</p>
+              <p className="mt-2 text-sm text-ink-800/75">{t('Accounts that can currently access the administrative workspace.')}</p>
             </div>
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-100 text-ink-900">
               <Shield className="h-5 w-5" />
@@ -158,13 +152,13 @@ export function UsersPage() {
         </Card>
         <Card>
           <div className="space-y-3">
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">Role model</p>
+            <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Role model')}</p>
             <div className="flex flex-wrap gap-2">
-              <Badge tone="warning">Admin</Badge>
-              <Badge tone="success">Operator</Badge>
-              <Badge tone="neutral">Viewer</Badge>
+              <Badge tone="warning">{t('Admin')}</Badge>
+              <Badge tone="success">{t('Operator')}</Badge>
+              <Badge tone="neutral">{t('Viewer')}</Badge>
             </div>
-            <p className="text-sm text-ink-800/75">Admins manage access, operators manage agents and policies, viewers keep read-only visibility.</p>
+            <p className="text-sm text-ink-800/75">{t('Admins manage access, operators manage agents and policies, viewers keep read-only visibility.')}</p>
           </div>
         </Card>
       </div>
@@ -177,7 +171,7 @@ export function UsersPage() {
                 <tr>
                   {['Username', 'Role', 'Status', 'Created', 'Actions'].map((label) => (
                     <th key={label} className="px-4 py-3.5 font-medium align-middle">
-                      {label}
+                      {t(label)}
                     </th>
                   ))}
                 </tr>
@@ -192,18 +186,18 @@ export function UsersPage() {
                       <td className="px-4 py-4 align-middle">
                         <div className="flex min-h-11 items-center gap-2">
                           <span className="font-medium text-ink-950">{user.username}</span>
-                          {isCurrent ? <Badge tone="neutral">Current session</Badge> : null}
+                          {isCurrent ? <Badge tone="neutral">{t('Current session')}</Badge> : null}
                         </div>
                       </td>
                       <td className="px-4 py-4 align-middle">
                         <div className="flex min-h-11 items-center">
-                          <Badge tone={getRoleTone(user.role)}>{formatRole(user.role)}</Badge>
+                          <Badge tone={getRoleTone(user.role)}>{formatRoleLabel(user.role, t)}</Badge>
                         </div>
                       </td>
                       <td className="px-4 py-4 align-middle">
                         <div className="flex min-h-11 items-center">
                           <Badge tone={user.isActive ? 'success' : 'neutral'}>
-                            {user.isActive ? 'Active' : 'Disabled'}
+                            {user.isActive ? t('Active') : t('Disabled')}
                           </Badge>
                         </div>
                       </td>
@@ -214,8 +208,8 @@ export function UsersPage() {
                         <div className="flex min-h-11 items-center">
                           {isCurrent ? (
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge tone="neutral">Protected account</Badge>
-                              <span className="text-xs text-ink-800/65">Use the Account page to change your own password.</span>
+                              <Badge tone="neutral">{t('Protected account')}</Badge>
+                              <span className="text-xs text-ink-800/65">{t('Use the Account page to change your own password.')}</span>
                             </div>
                           ) : (
                             <div className="flex flex-wrap items-center gap-2">
@@ -230,16 +224,16 @@ export function UsersPage() {
                                 }
                                 className="min-w-[146px]"
                               >
-                                <option value="viewer">Viewer</option>
-                                <option value="operator">Operator</option>
-                                <option value="admin">Admin</option>
+                                <option value="viewer">{t('Viewer')}</option>
+                                <option value="operator">{t('Operator')}</option>
+                                <option value="admin">{t('Admin')}</option>
                               </Select>
                               <Button
                                 size="sm"
                                 variant="secondary"
                                 onClick={() => setPasswordUser(user)}
                               >
-                                Password
+                                {t('Password')}
                               </Button>
                               <Button
                                 size="sm"
@@ -252,14 +246,14 @@ export function UsersPage() {
                                   })
                                 }
                               >
-                                {user.isActive ? 'Disable' : 'Enable'}
+                                {user.isActive ? t('Disable') : t('Enable')}
                               </Button>
                               <Button
                                 size="sm"
                                 variant="danger"
                                 onClick={() => setDeletingUser(user)}
                               >
-                                Delete
+                                {t('Delete')}
                               </Button>
                             </div>
                           )}
@@ -274,8 +268,8 @@ export function UsersPage() {
         </Card>
       ) : (
         <EmptyState
-          title="No user accounts found"
-          description="Create the first operator, viewer or administrator account for the secured control plane."
+          title={t('No user accounts found')}
+          description={t('Create the first operator, viewer or administrator account for the secured control plane.')}
         />
       )}
 

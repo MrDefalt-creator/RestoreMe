@@ -14,16 +14,22 @@ import { Select } from '@/shared/ui/Select'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDurationSeconds, formatDateTime } from '@/shared/lib/format'
 import { toast } from 'sonner'
+import { useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
 export function PoliciesPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const queryClient = useQueryClient()
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
     queryFn: getPolicies,
+    ...liveQueryOptions,
   })
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
+    ...liveQueryOptions,
   })
 
   const [search, setSearch] = useState('')
@@ -34,12 +40,12 @@ export function PoliciesPage() {
     mutationFn: (policy: { id: string; isEnabled: boolean }) =>
       togglePolicy(policy.id),
     onSuccess: () => {
-      toast.success('Policy state updated')
+      toast.success(t('Policy state updated'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.policies })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update policy')
+      toast.error(error instanceof Error ? error.message : t('Unable to update policy'))
     },
   })
 
@@ -64,21 +70,21 @@ export function PoliciesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              Backup Policies
+              {t('Backup Policies')}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Create and manage backup schedules
+              {t('Create and manage backup schedules')}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="success">{filteredPolicies.length} policies</Badge>
+            <Badge variant="success">{t('{count} policies', { count: filteredPolicies.length })}</Badge>
             <Button
               onClick={() => {
                 setEditingPolicy(null)
                 setIsDialogOpen(true)
               }}
             >
-              Create policy
+              {t('Create policy')}
             </Button>
           </div>
         </div>
@@ -90,16 +96,16 @@ export function PoliciesPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search policies..."
+              placeholder={t('Search policies...')}
               className="pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <Select value={policyFilter} onChange={(event) => setPolicyFilter(event.target.value as 'all' | 'enabled' | 'disabled')}>
-            <option value="all">All policies</option>
-            <option value="enabled">Enabled only</option>
-            <option value="disabled">Disabled only</option>
+            <option value="all">{t('All policies')}</option>
+            <option value="enabled">{t('Enabled only')}</option>
+            <option value="disabled">{t('Disabled only')}</option>
           </Select>
         </CardContent>
       </Card>
@@ -107,8 +113,8 @@ export function PoliciesPage() {
       {/* Policies Table */}
       <Card className="overflow-hidden">
         <CardHeader>
-          <CardTitle className="text-xl">Recent policies</CardTitle>
-          <CardDescription>View and manage backup schedules</CardDescription>
+          <CardTitle className="text-xl">{t('Recent policies')}</CardTitle>
+          <CardDescription>{t('View and manage backup schedules')}</CardDescription>
         </CardHeader>
         <CardContent>
           {filteredPolicies.length ? (
@@ -116,13 +122,13 @@ export function PoliciesPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-secondary/70">
                   <tr>
-                    <Th>Policy</Th>
-                    <Th>Type</Th>
-                    <Th>Path</Th>
-                    <Th>Interval</Th>
-                    <Th>Next Run</Th>
-                    <Th>State</Th>
-                    <Th>Actions</Th>
+                    <Th>{t('Policy')}</Th>
+                    <Th>{t('Type')}</Th>
+                    <Th>{t('Path')}</Th>
+                    <Th>{t('Interval')}</Th>
+                    <Th>{t('Next Run')}</Th>
+                    <Th>{t('State')}</Th>
+                    <Th>{t('Actions')}</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -131,7 +137,7 @@ export function PoliciesPage() {
                       <Td>{policy.name}</Td>
                       <Td className="uppercase tracking-wider">{formatPolicyType(policy.type)}</Td>
                       <Td className="max-w-[150px] truncate">
-                        {policy.sourcePath || 'N/A'}
+                        {policy.sourcePath || t('N/A')}
                       </Td>
                       <Td>{formatDurationSeconds(policy.intervalSeconds)}</Td>
                       <Td className="text-muted-foreground">
@@ -139,7 +145,7 @@ export function PoliciesPage() {
                       </Td>
                       <Td>
                         <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
-                          {policy.isEnabled ? 'enabled' : 'disabled'}
+                          {policy.isEnabled ? t('enabled') : t('disabled')}
                         </Badge>
                       </Td>
                       <Td>
@@ -152,7 +158,7 @@ export function PoliciesPage() {
                               setIsDialogOpen(true)
                             }}
                           >
-                            Edit
+                            {t('Edit')}
                           </Button>
                           <Button
                             variant="ghost"
@@ -163,7 +169,7 @@ export function PoliciesPage() {
                               isEnabled: policy.isEnabled,
                             })}
                           >
-                            Toggle
+                            {t('Toggle')}
                           </Button>
                         </div>
                       </Td>
@@ -174,8 +180,8 @@ export function PoliciesPage() {
             </div>
           ) : (
             <EmptyState
-              title="No policies found"
-              description="Adjust the filter or create the first backup policy."
+              title={t('No policies found')}
+              description={t('Adjust the filter or create the first backup policy.')}
             />
           )}
         </CardContent>
