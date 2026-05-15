@@ -14,7 +14,7 @@ const buttonVariants = cva(
           'border border-surface-300 bg-white text-ink-900 hover:border-accent-500 hover:text-accent-600 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400',
         ghost: 'text-ink-800 hover:bg-white/70 disabled:text-slate-400',
         danger:
-          'bg-danger-500 text-white shadow-[0_10px_25px_rgba(194,65,12,0.2)] hover:bg-danger-500/90 disabled:bg-orange-200 disabled:text-orange-50 disabled:shadow-none',
+          'border border-[#fecaca] bg-[#fef2f2] text-[#b91c1c] shadow-none hover:border-[#fca5a5] hover:bg-[#fee2e2] hover:text-[#991b1b] disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400',
       },
       size: {
         md: 'h-11',
