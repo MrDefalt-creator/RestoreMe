@@ -180,6 +180,7 @@ export function PolicyFormDialog({
   onClose,
 }: PolicyFormDialogProps) {
   const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const form = useForm<PolicyFormValues>({
     resolver: zodResolver(policySchema),
@@ -255,7 +256,7 @@ export function PolicyFormDialog({
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label={t('Agent')} error={form.formState.errors.agentId?.message}>
+        <Field label={t('Agent')} error={formError(form.formState.errors.agentId?.message)}>
           <Select {...form.register('agentId')}>
             {agents.map((agent) => (
               <option key={agent.id} value={agent.id}>
@@ -273,13 +274,13 @@ export function PolicyFormDialog({
           </Select>
         </Field>
 
-        <Field label={t('Name')} error={form.formState.errors.name?.message} className="md:col-span-2">
+        <Field label={t('Name')} error={formError(form.formState.errors.name?.message)} className="md:col-span-2">
           <Input placeholder={t('Documents every 15 minutes')} {...form.register('name')} />
         </Field>
 
         <Field
           label={t('Run every')}
-          error={form.formState.errors.intervalValue?.message ?? form.formState.errors.intervalUnit?.message}
+          error={formError(form.formState.errors.intervalValue?.message ?? form.formState.errors.intervalUnit?.message)}
         >
           <div className="grid grid-cols-[1fr_150px] gap-3">
             <Input
@@ -308,15 +309,15 @@ export function PolicyFormDialog({
         </label>
 
         {policyType === 'filesystem' ? (
-          <Field label={t('Source path')} error={form.formState.errors.sourcePath?.message} className="md:col-span-2">
+          <Field label={t('Source path')} error={formError(form.formState.errors.sourcePath?.message)} className="md:col-span-2">
             <Input placeholder="C:\\Users\\Backup" {...form.register('sourcePath')} />
           </Field>
         ) : (
           <>
-            <Field label={t('Database name')} error={form.formState.errors.databaseName?.message}>
+            <Field label={t('Database name')} error={formError(form.formState.errors.databaseName?.message)}>
               <Input placeholder="restoreme_db" {...form.register('databaseName')} />
             </Field>
-            <Field label={t('Host')} error={form.formState.errors.host?.message}>
+            <Field label={t('Host')} error={formError(form.formState.errors.host?.message)}>
               <Input placeholder="localhost" {...form.register('host')} />
             </Field>
             <Field label={t('Port')}>
@@ -339,10 +340,10 @@ export function PolicyFormDialog({
 
             {authMode === 'credentials' ? (
               <>
-                <Field label={t('Username')} error={form.formState.errors.username?.message}>
+                <Field label={t('Username')} error={formError(form.formState.errors.username?.message)}>
                   <Input placeholder="backup_user" {...form.register('username')} />
                 </Field>
-                <Field label={t('Password')} error={form.formState.errors.password?.message}>
+                <Field label={t('Password')} error={formError(form.formState.errors.password?.message)}>
                   <Input type="password" placeholder={t('Database password')} {...form.register('password')} />
                 </Field>
               </>

@@ -121,13 +121,15 @@ type MetricCardProps = {
 }
 
 function MetricCard({ icon: Icon, title, value, detail }: MetricCardProps) {
+  const { t } = useI18n()
+
   return (
     <Card className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="rounded-2xl bg-sky-50 p-3 text-accent-600">
           <Icon className="h-5 w-5" />
         </div>
-        <Badge tone="neutral">Overview</Badge>
+        <Badge tone="neutral">{t('Overview')}</Badge>
       </div>
       <div>
         <p className="text-sm text-ink-800">{title}</p>

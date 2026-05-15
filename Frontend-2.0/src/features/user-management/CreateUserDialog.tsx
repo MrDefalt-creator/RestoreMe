@@ -27,6 +27,7 @@ type CreateUserDialogProps = {
 
 export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
   const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const form = useForm<CreateUserValues>({
     resolver: zodResolver(createUserSchema),
@@ -76,13 +77,13 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
         </>
       }
     >
-      <Field label={t('Username')} error={form.formState.errors.username?.message}>
+      <Field label={t('Username')} error={formError(form.formState.errors.username?.message)}>
         <Input placeholder="backup-operator" {...form.register('username')} />
       </Field>
-      <Field label={t('Password')} error={form.formState.errors.password?.message}>
+      <Field label={t('Password')} error={formError(form.formState.errors.password?.message)}>
         <Input type="password" placeholder="StrongPass123!" {...form.register('password')} />
       </Field>
-      <Field label={t('Role')} error={form.formState.errors.role?.message}>
+      <Field label={t('Role')} error={formError(form.formState.errors.role?.message)}>
         <Select {...form.register('role')}>
           <option value="viewer">{t('Viewer')}</option>
           <option value="operator">{t('Operator')}</option>

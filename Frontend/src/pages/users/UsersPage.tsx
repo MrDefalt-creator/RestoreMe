@@ -31,18 +31,18 @@ function getRoleTone(role: UserRole): 'success' | 'warning' | 'neutral' {
   }
 }
 
-function useUserMutations() {
+function useUserMutations(t: (key: string) => string) {
   const queryClient = useQueryClient()
 
   const roleMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: UserRole }) =>
       updateUserRole(userId, role),
     onSuccess: () => {
-      toast.success('User role updated')
+      toast.success(t('User role updated'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update role')
+      toast.error(error instanceof Error ? error.message : t('Unable to update role'))
     },
   })
 
@@ -50,11 +50,11 @@ function useUserMutations() {
     mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) =>
       updateUserStatus(userId, isActive),
     onSuccess: () => {
-      toast.success('User status updated')
+      toast.success(t('User status updated'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update status')
+      toast.error(error instanceof Error ? error.message : t('Unable to update status'))
     },
   })
 
@@ -92,7 +92,7 @@ export function UsersPage() {
     ...liveQueryOptions,
     enabled: isAdmin,
   })
-  const { roleMutation, statusMutation } = useUserMutations()
+  const { roleMutation, statusMutation } = useUserMutations(t)
 
   if (!isAdmin) {
     return (

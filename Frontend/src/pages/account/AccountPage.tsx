@@ -40,6 +40,7 @@ export function AccountPage() {
   const { dateStyle, language, refreshInterval, setDateStyle, setLanguage, setRefreshInterval, t } = useI18n()
   const user = useAuthStore((state) => state.user)
   const isLive = env.apiMode === 'live'
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const form = useForm<AccountPasswordValues>({
     resolver: zodResolver(accountPasswordSchema),
     mode: 'onChange',
@@ -103,7 +104,7 @@ export function AccountPage() {
               </label>
               <Input id="account-current-password" type="password" placeholder={t('Enter current password')} {...form.register('currentPassword')} />
               {form.formState.errors.currentPassword ? (
-                <p className="text-sm text-danger-500">{form.formState.errors.currentPassword.message}</p>
+                <p className="text-sm text-danger-500">{formError(form.formState.errors.currentPassword.message)}</p>
               ) : null}
             </div>
 
@@ -113,7 +114,7 @@ export function AccountPage() {
               </label>
               <Input id="account-new-password" type="password" placeholder={t('Choose a stronger password')} {...form.register('newPassword')} />
               {form.formState.errors.newPassword ? (
-                <p className="text-sm text-danger-500">{form.formState.errors.newPassword.message}</p>
+                <p className="text-sm text-danger-500">{formError(form.formState.errors.newPassword.message)}</p>
               ) : null}
             </div>
 
@@ -123,7 +124,7 @@ export function AccountPage() {
               </label>
               <Input id="account-confirm-password" type="password" placeholder={t('Repeat the new password')} {...form.register('confirmPassword')} />
               {form.formState.errors.confirmPassword ? (
-                <p className="text-sm text-danger-500">{form.formState.errors.confirmPassword.message}</p>
+                <p className="text-sm text-danger-500">{formError(form.formState.errors.confirmPassword.message)}</p>
               ) : null}
             </div>
 

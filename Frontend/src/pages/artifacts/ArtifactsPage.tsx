@@ -42,10 +42,10 @@ export function ArtifactsPage() {
       await downloadArtifact(artifact)
     },
     onSuccess: () => {
-      toast.success('Artifact download started')
+      toast.success(t('Artifact download started'))
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Artifact download failed')
+      toast.error(error instanceof Error ? error.message : t('Artifact download failed'))
     },
     onSettled: () => {
       setDownloadingArtifactId(null)

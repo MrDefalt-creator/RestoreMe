@@ -41,6 +41,7 @@ export function AccountPage() {
   const { dateStyle, language, refreshInterval, setDateStyle, setLanguage, setRefreshInterval, t } = useI18n()
   const { theme, setTheme } = useTheme()
   const user = useAuthStore((state) => state.user)
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const form = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
     mode: 'onChange',
@@ -100,13 +101,13 @@ export function AccountPage() {
           </CardHeader>
           <CardContent>
             <form className="space-y-5" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-              <Field label={t('Current password')} error={form.formState.errors.currentPassword?.message}>
+              <Field label={t('Current password')} error={formError(form.formState.errors.currentPassword?.message)}>
                 <Input type="password" placeholder={t('Enter current password')} {...form.register('currentPassword')} />
               </Field>
-              <Field label={t('New password')} error={form.formState.errors.newPassword?.message}>
+              <Field label={t('New password')} error={formError(form.formState.errors.newPassword?.message)}>
                 <Input type="password" placeholder={t('Choose a stronger password')} {...form.register('newPassword')} />
               </Field>
-              <Field label={t('Confirm new password')} error={form.formState.errors.confirmPassword?.message}>
+              <Field label={t('Confirm new password')} error={formError(form.formState.errors.confirmPassword?.message)}>
                 <Input type="password" placeholder={t('Repeat the new password')} {...form.register('confirmPassword')} />
               </Field>
               <Button type="submit" disabled={!form.formState.isValid || mutation.isPending}>

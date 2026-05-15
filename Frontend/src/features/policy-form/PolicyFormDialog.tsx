@@ -216,6 +216,7 @@ export function PolicyFormDialog({
   onClose,
 }: PolicyFormDialogProps) {
   const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const previousOpenRef = useRef(false)
   const previousPolicyIdRef = useRef<string | null>(null)
@@ -308,13 +309,15 @@ export function PolicyFormDialog({
     },
   })
 
-  const sourcePathError = form.formState.errors.sourcePath?.message
+  const sourcePathError = formError(form.formState.errors.sourcePath?.message)
   const databaseError =
-    form.formState.errors.databaseSettings?.databaseName?.message ||
-    form.formState.errors.databaseSettings?.host?.message ||
-    form.formState.errors.databaseSettings?.username?.message ||
-    form.formState.errors.databaseSettings?.password?.message ||
-    form.formState.errors.databaseSettings?.port?.message
+    formError(
+      form.formState.errors.databaseSettings?.databaseName?.message ||
+        form.formState.errors.databaseSettings?.host?.message ||
+        form.formState.errors.databaseSettings?.username?.message ||
+        form.formState.errors.databaseSettings?.password?.message ||
+        form.formState.errors.databaseSettings?.port?.message,
+    )
 
   return (
     <Dialog
@@ -349,7 +352,7 @@ export function PolicyFormDialog({
             ))}
           </Select>
           {form.formState.errors.agentId ? (
-            <p className="text-sm text-danger-500">{form.formState.errors.agentId.message}</p>
+            <p className="text-sm text-danger-500">{formError(form.formState.errors.agentId.message)}</p>
           ) : null}
         </div>
 
@@ -370,7 +373,7 @@ export function PolicyFormDialog({
           </label>
           <Input id="policy-name" placeholder={t('Documents every 15 minutes')} {...form.register('name')} />
           {form.formState.errors.name ? (
-            <p className="text-sm text-danger-500">{form.formState.errors.name.message}</p>
+            <p className="text-sm text-danger-500">{formError(form.formState.errors.name.message)}</p>
           ) : null}
         </div>
 
@@ -441,10 +444,12 @@ export function PolicyFormDialog({
           </div>
           {form.formState.errors.interval ? (
             <p className="text-sm text-danger-500">
-              {form.formState.errors.interval.days?.message ||
-                form.formState.errors.interval.hours?.message ||
-                form.formState.errors.interval.minutes?.message ||
-                form.formState.errors.interval.seconds?.message}
+              {formError(
+                form.formState.errors.interval.days?.message ||
+                  form.formState.errors.interval.hours?.message ||
+                  form.formState.errors.interval.minutes?.message ||
+                  form.formState.errors.interval.seconds?.message,
+              )}
             </p>
           ) : null}
         </div>

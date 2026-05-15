@@ -35,6 +35,7 @@ type CreateUserDialogProps = {
 
 export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
   const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const form = useForm<CreateUserValues>({
     resolver: zodResolver(createUserSchema),
@@ -94,7 +95,7 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
         </label>
         <Input id="create-user-username" placeholder="backup-operator" {...form.register('username')} />
         {form.formState.errors.username ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.username.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.username.message)}</p>
         ) : null}
       </div>
 
@@ -104,7 +105,7 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
         </label>
         <Input id="create-user-password" type="password" placeholder="StrongPass123!" {...form.register('password')} />
         {form.formState.errors.password ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.password.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.password.message)}</p>
         ) : null}
       </div>
 
@@ -118,7 +119,7 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
           <option value="admin">{formatRoleLabel('admin', t)}</option>
         </Select>
         {form.formState.errors.role ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.role.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.role.message)}</p>
         ) : null}
       </div>
     </Dialog>

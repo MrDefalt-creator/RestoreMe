@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios'
 
 import { useAuthStore } from '@/app/store/auth-store'
+import { normalizeApiError } from '@/shared/api/errors'
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -31,7 +32,7 @@ apiClient.interceptors.response.use(
         window.location.assign('/login')
       }
     }
-    return Promise.reject(error)
+    return Promise.reject(normalizeApiError(error))
   },
 )
 

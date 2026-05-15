@@ -31,6 +31,7 @@ type SetUserPasswordDialogProps = {
 
 export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUserPasswordDialogProps) {
   const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const form = useForm<SetPasswordValues>({
     resolver: zodResolver(setPasswordSchema),
     mode: 'onChange',
@@ -81,14 +82,14 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
         <label className="text-sm font-medium text-foreground">{t('New password')}</label>
         <Input type="password" placeholder="StrongPass123!" {...form.register('newPassword')} />
         {form.formState.errors.newPassword ? (
-          <p className="text-sm text-destructive">{form.formState.errors.newPassword.message}</p>
+          <p className="text-sm text-destructive">{formError(form.formState.errors.newPassword.message)}</p>
         ) : null}
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-foreground">{t('Confirm password')}</label>
         <Input type="password" placeholder={t('Repeat the new password')} {...form.register('confirmPassword')} />
         {form.formState.errors.confirmPassword ? (
-          <p className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
+          <p className="text-sm text-destructive">{formError(form.formState.errors.confirmPassword.message)}</p>
         ) : null}
       </div>
     </Dialog>

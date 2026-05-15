@@ -31,6 +31,7 @@ export function ApproveAgentDialog({
   onClose,
 }: ApproveAgentDialogProps) {
   const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const form = useForm<ApproveAgentValues>({
     resolver: zodResolver(approveSchema),
@@ -95,7 +96,7 @@ export function ApproveAgentDialog({
         </label>
         <Input id="approve-name" placeholder={t('Accounting workstation')} {...form.register('name')} />
         {form.formState.errors.name ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.name.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.name.message)}</p>
         ) : null}
       </div>
     </Dialog>

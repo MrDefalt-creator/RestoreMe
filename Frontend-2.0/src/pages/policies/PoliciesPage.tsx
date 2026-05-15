@@ -16,10 +16,13 @@ import { formatDurationSeconds, formatDateTime } from '@/shared/lib/format'
 import { toast } from 'sonner'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useAuthStore } from '@/app/store/auth-store'
 
 export function PoliciesPage() {
   const { t } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
+  const role = useAuthStore((state) => state.user?.role)
+  const canWrite = role === 'admin' || role === 'operator'
   const queryClient = useQueryClient()
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
@@ -78,14 +81,16 @@ export function PoliciesPage() {
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="success">{t('{count} policies', { count: filteredPolicies.length })}</Badge>
-            <Button
-              onClick={() => {
-                setEditingPolicy(null)
-                setIsDialogOpen(true)
-              }}
-            >
-              {t('Create policy')}
-            </Button>
+            {canWrite ? (
+              <Button
+                onClick={() => {
+                  setEditingPolicy(null)
+                  setIsDialogOpen(true)
+                }}
+              >
+                {t('Create policy')}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -128,14 +133,14 @@ export function PoliciesPage() {
                     <Th>{t('Interval')}</Th>
                     <Th>{t('Next Run')}</Th>
                     <Th>{t('State')}</Th>
-                    <Th>{t('Actions')}</Th>
+                    {canWrite ? <Th>{t('Actions')}</Th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredPolicies.map((policy) => (
                     <tr key={policy.id} className="hover:bg-secondary/35">
                       <Td>{policy.name}</Td>
-                      <Td className="uppercase tracking-wider">{formatPolicyType(policy.type)}</Td>
+                      <Td className="uppercase tracking-wider">{formatPolicyType(policy.type, t)}</Td>
                       <Td className="max-w-[150px] truncate">
                         {policy.sourcePath || t('N/A')}
                       </Td>
@@ -148,31 +153,33 @@ export function PoliciesPage() {
                           {policy.isEnabled ? t('enabled') : t('disabled')}
                         </Badge>
                       </Td>
-                      <Td>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingPolicy(policy)
-                              setIsDialogOpen(true)
-                            }}
-                          >
-                            {t('Edit')}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={toggleMutation.isPending}
-                            onClick={() => toggleMutation.mutate({
-                              id: policy.id,
-                              isEnabled: policy.isEnabled,
-                            })}
-                          >
-                            {t('Toggle')}
-                          </Button>
-                        </div>
-                      </Td>
+                      {canWrite ? (
+                        <Td>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingPolicy(policy)
+                                setIsDialogOpen(true)
+                              }}
+                            >
+                              {t('Edit')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={toggleMutation.isPending}
+                              onClick={() => toggleMutation.mutate({
+                                id: policy.id,
+                                isEnabled: policy.isEnabled,
+                              })}
+                            >
+                              {t('Toggle')}
+                            </Button>
+                          </div>
+                        </Td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -181,13 +188,15 @@ export function PoliciesPage() {
           ) : (
             <EmptyState
               title={t('No policies found')}
-              description={t('Adjust the filter or create the first backup policy.')}
+              description={canWrite
+                ? t('Adjust the filter or create the first backup policy.')
+                : t('No backup policies are available for the current filter.')}
             />
           )}
         </CardContent>
       </Card>
       <PolicyFormDialog
-        open={isDialogOpen}
+        open={canWrite && isDialogOpen}
         agents={agentsQuery.data ?? []}
         policy={editingPolicy}
         onClose={() => setIsDialogOpen(false)}
@@ -212,13 +221,13 @@ function Td({ children, className }: { children: React.ReactNode; className?: st
   )
 }
 
-function formatPolicyType(type: string): string {
+function formatPolicyType(type: string, t: (key: string) => string): string {
   switch (type) {
     case 'postgres':
-      return 'PostgreSQL'
+      return t('PostgreSQL dump')
     case 'mysql':
-      return 'MySQL'
+      return t('MySQL dump')
     default:
-      return 'Filesystem'
+      return t('Filesystem')
   }
 }
