@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -182,6 +182,8 @@ export function PolicyFormDialog({
   const { t } = useI18n()
   const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
+  const previousOpenRef = useRef(false)
+  const previousPolicyIdRef = useRef<string | null>(null)
   const form = useForm<PolicyFormValues>({
     resolver: zodResolver(policySchema),
     mode: 'onChange',
@@ -192,10 +194,32 @@ export function PolicyFormDialog({
 
   useEffect(() => {
     if (!open) {
+      previousOpenRef.current = false
+      previousPolicyIdRef.current = policy?.id ?? null
       return
     }
 
-    form.reset(toFormValues(policy, agents))
+    const currentPolicyId = policy?.id ?? null
+    const shouldReset = !previousOpenRef.current || previousPolicyIdRef.current !== currentPolicyId
+
+    if (shouldReset) {
+      form.reset(toFormValues(policy, agents))
+    }
+
+    previousOpenRef.current = true
+    previousPolicyIdRef.current = currentPolicyId
+  }, [agents, form, open, policy])
+
+  useEffect(() => {
+    if (!open || policy || form.getValues('agentId') || form.formState.isDirty) {
+      return
+    }
+
+    const firstAgentId = agents[0]?.id
+
+    if (firstAgentId) {
+      form.setValue('agentId', firstAgentId, { shouldValidate: true })
+    }
   }, [agents, form, open, policy])
 
   useEffect(() => {
