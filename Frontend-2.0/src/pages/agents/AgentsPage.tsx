@@ -26,6 +26,8 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
 import { Spinner } from '@/shared/ui/Spinner'
+import { useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
 const statusTone: Record<Agent['status'], 'success' | 'warning' | 'neutral'> = {
   online: 'success',
@@ -39,6 +41,8 @@ type StatusFilter = 'all' | Agent['status']
 type PolicyCoverageFilter = 'all' | 'with-policies' | 'without-policies'
 
 export function AgentsPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -47,10 +51,12 @@ export function AgentsPage() {
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
+    ...liveQueryOptions,
   })
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
     queryFn: getPolicies,
+    ...liveQueryOptions,
   })
 
   const agents = agentsQuery.data ?? EMPTY_AGENTS
@@ -110,17 +116,17 @@ export function AgentsPage() {
   return (
     <div className="space-y-7">
       <SectionHeading
-        eyebrow="Infrastructure"
-        title="Agents"
-        description="A live map of registered machines, their heartbeat health, and the protection policy coverage behind each one."
-        action={<Badge variant="success">{stats.online} online</Badge>}
+        eyebrow={t('Infrastructure')}
+        title={t('Agents')}
+        description={t('A live map of registered machines, their heartbeat health, and the protection policy coverage behind each one.')}
+        action={<Badge variant="success">{t('{count} online', { count: stats.online })}</Badge>}
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <AgentMetric icon={<Server />} label="Registered" value={stats.total} />
-        <AgentMetric icon={<Wifi />} label="Online now" value={stats.online} tone="success" />
-        <AgentMetric icon={<AlertTriangle />} label="Need review" value={stats.stale + stats.offline} tone="warning" />
-        <AgentMetric icon={<ShieldCheck />} label="Policies" value={stats.policies} />
+        <AgentMetric icon={<Server />} label={t('Registered')} value={stats.total} />
+        <AgentMetric icon={<Wifi />} label={t('Online now')} value={stats.online} tone="success" />
+        <AgentMetric icon={<AlertTriangle />} label={t('Need review')} value={stats.stale + stats.offline} tone="warning" />
+        <AgentMetric icon={<ShieldCheck />} label={t('Policies')} value={stats.policies} />
       </div>
 
       <Card>
@@ -131,20 +137,20 @@ export function AgentsPage() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by agent, machine, OS, status, or id..."
+                placeholder={t('Search by agent, machine, OS, status, or id...')}
                 className="pl-10"
               />
             </div>
             <Button
               variant={filtersOpen || hasActiveFilters ? 'primary' : 'secondary'}
               onClick={() => setFiltersOpen((value) => !value)}
-              title={filtersOpen ? 'Hide filters' : 'Show filters'}
+              title={filtersOpen ? t('Hide filters') : t('Show filters')}
             >
               <SlidersHorizontal className="h-4 w-4" />
-              Filters
+              {t('Filters')}
               {hasActiveFilters ? (
                 <span className="ml-1 rounded bg-primary-foreground/18 px-1.5 py-0.5 text-[11px]">
-                  active
+                  {t('active')}
                 </span>
               ) : null}
             </Button>
@@ -152,32 +158,32 @@ export function AgentsPage() {
 
           {filtersOpen ? (
             <div className="grid gap-3 border-t border-border pt-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
-              <FilterField label="Status">
+              <FilterField label={t('Status')}>
                 <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
-                  <option value="all">All statuses</option>
-                  <option value="online">Online</option>
-                  <option value="stale">Stale</option>
-                  <option value="offline">Offline</option>
+                  <option value="all">{t('All statuses')}</option>
+                  <option value="online">{t('Online')}</option>
+                  <option value="stale">{t('Stale')}</option>
+                  <option value="offline">{t('Offline')}</option>
                 </Select>
               </FilterField>
 
-              <FilterField label="Operating system">
+              <FilterField label={t('Operating system')}>
                 <Select value={osFilter} onChange={(event) => setOsFilter(event.target.value)}>
-                  <option value="all">All systems</option>
+                  <option value="all">{t('All systems')}</option>
                   {osOptions.map((os) => (
                     <option key={os} value={os}>{os}</option>
                   ))}
                 </Select>
               </FilterField>
 
-              <FilterField label="Policy coverage">
+              <FilterField label={t('Policy coverage')}>
                 <Select
                   value={policyCoverageFilter}
                   onChange={(event) => setPolicyCoverageFilter(event.target.value as PolicyCoverageFilter)}
                 >
-                  <option value="all">Any coverage</option>
-                  <option value="with-policies">With policies</option>
-                  <option value="without-policies">Without policies</option>
+                  <option value="all">{t('Any coverage')}</option>
+                  <option value="with-policies">{t('With policies')}</option>
+                  <option value="without-policies">{t('Without policies')}</option>
                 </Select>
               </FilterField>
 
@@ -185,20 +191,20 @@ export function AgentsPage() {
                 variant="outline"
                 onClick={resetFilters}
                 disabled={!hasActiveFilters}
-                title="Reset filters"
+                title={t('Reset filters')}
               >
                 <X className="h-4 w-4" />
-                Reset
+                {t('Reset')}
               </Button>
             </div>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>
-              Showing {filteredAgents.length} of {agents.length} agents
+              {t('Showing {shown} of {total} agents', { shown: filteredAgents.length, total: agents.length })}
             </span>
             {hasActiveFilters ? (
-              <Badge variant="neutral">Filtered</Badge>
+              <Badge variant="neutral">{t('Filtered')}</Badge>
             ) : null}
           </div>
         </CardContent>
@@ -208,17 +214,17 @@ export function AgentsPage() {
         <Card>
           <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
             <Spinner />
-            Loading agents...
+            {t('Loading agents...')}
           </CardContent>
         </Card>
       ) : agentsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
-          title="Agents could not be loaded"
-          description="Check the backend connection and retry this view."
+          title={t('Agents could not be loaded')}
+          description={t('Check the backend connection and retry this view.')}
           action={
             <Button variant="secondary" onClick={() => agentsQuery.refetch()}>
-              Retry
+              {t('Retry')}
             </Button>
           }
         />
@@ -230,15 +236,15 @@ export function AgentsPage() {
         </div>
       ) : (
         <EmptyState
-          title={agents.length ? 'No agents match this search' : 'No agents found'}
+          title={agents.length ? t('No agents match this search') : t('No agents found')}
           description={
             agents.length
-              ? 'Adjust the search or reset filters to widen the result set.'
-              : 'Approve pending machines or wait for an agent to register.'
+              ? t('Adjust the search or reset filters to widen the result set.')
+              : t('Approve pending machines or wait for an agent to register.')
           }
           action={agents.length && hasActiveFilters ? (
             <Button variant="secondary" onClick={resetFilters}>
-              Reset filters
+              {t('Reset filters')}
             </Button>
           ) : undefined}
         />
@@ -299,6 +305,7 @@ function AgentMetric({
 }
 
 function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] }) {
+  const { t } = useI18n()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const policyCount = policies.length
   const enabledPolicyCount = policies.filter((policy) => policy.isEnabled).length
@@ -315,38 +322,38 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
               <div className="min-w-0">
                 <CardTitle className="truncate text-lg">{agent.name}</CardTitle>
                 <CardDescription className="truncate">
-                  {agent.machineName ?? agent.osType ?? 'Machine details are not available yet'}
+                  {agent.machineName ?? agent.osType ?? t('Machine details are not available yet')}
                 </CardDescription>
               </div>
             </div>
-            <Badge variant={statusTone[agent.status]}>{agent.status}</Badge>
+            <Badge variant={statusTone[agent.status]}>{t(agent.status)}</Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <AgentDetail label="OS" value={agent.osType ?? 'Unknown'} />
-            <AgentDetail label="Version" value={agent.version ?? 'Unknown'} />
-            <AgentDetail label="Policies" value={`${enabledPolicyCount}/${policyCount} enabled`} />
+            <AgentDetail label={t('OS')} value={agent.osType ?? t('Unknown')} />
+            <AgentDetail label={t('Version')} value={agent.version ?? t('Unknown')} />
+            <AgentDetail label={t('Policies')} value={t('{enabled}/{total} enabled', { enabled: enabledPolicyCount, total: policyCount })} />
             <AgentDetail
-              label="Heartbeat"
-              value={agent.lastSeenAt ? formatRelativeTime(agent.lastSeenAt) : 'Never'}
+              label={t('Heartbeat')}
+              value={agent.lastSeenAt ? formatRelativeTime(agent.lastSeenAt) : t('Never')}
             />
           </div>
 
           <div className="rounded-lg border border-border bg-secondary/45 p-3">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Clock3 className="h-4 w-4 text-muted-foreground" />
-              Agent identifier
+              {t('Agent identifier')}
             </div>
             <p className="mt-2 truncate font-mono text-xs text-muted-foreground">{agent.id}</p>
           </div>
 
           <div className="flex gap-2">
             <Button asChild variant="primary" size="sm" className="flex-1">
-              <Link to="/policies">Policies</Link>
+              <Link to="/policies">{t('Policies')}</Link>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setDetailsOpen(true)}>
-              Details
+              {t('Details')}
             </Button>
           </div>
         </CardContent>
@@ -373,40 +380,41 @@ function AgentDetailsDialog({
   open: boolean
   onClose: () => void
 }) {
+  const { t } = useI18n()
   return (
     <Dialog
       open={open}
       title={agent.name}
-      description={agent.machineName ?? 'Registered RestoreMe agent'}
+      description={agent.machineName ?? t('Registered RestoreMe agent')}
       onClose={onClose}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('Close')}
           </Button>
           <Button asChild variant="primary">
-            <Link to="/policies">Manage policies</Link>
+            <Link to="/policies">{t('Manage policies')}</Link>
           </Button>
         </>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <AgentDetail label="Status" value={agent.status} />
-        <AgentDetail label="Heartbeat" value={agent.lastSeenAt ? formatRelativeTime(agent.lastSeenAt) : 'Never'} />
-        <AgentDetail label="OS" value={agent.osType ?? 'Unknown'} />
-        <AgentDetail label="Version" value={agent.version ?? 'Unknown'} />
+        <AgentDetail label={t('Status')} value={t(agent.status)} />
+        <AgentDetail label={t('Heartbeat')} value={agent.lastSeenAt ? formatRelativeTime(agent.lastSeenAt) : t('Never')} />
+        <AgentDetail label={t('OS')} value={agent.osType ?? t('Unknown')} />
+        <AgentDetail label={t('Version')} value={agent.version ?? t('Unknown')} />
       </div>
 
       <div className="rounded-lg border border-border bg-secondary/35 p-4">
-        <p className="text-sm font-medium text-foreground">Agent identifier</p>
+        <p className="text-sm font-medium text-foreground">{t('Agent identifier')}</p>
         <p className="mt-2 break-all font-mono text-xs text-muted-foreground">{agent.id}</p>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-foreground">Assigned policies</p>
+          <p className="text-sm font-medium text-foreground">{t('Assigned policies')}</p>
           <Badge variant={policies.length ? 'success' : 'neutral'}>
-            {policies.filter((policy) => policy.isEnabled).length}/{policies.length} enabled
+            {t('{enabled}/{total} enabled', { enabled: policies.filter((policy) => policy.isEnabled).length, total: policies.length })}
           </Badge>
         </div>
 
@@ -422,10 +430,10 @@ function AgentDetailsDialog({
                 </div>
                 <div className="text-left sm:text-right">
                   <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
-                    {policy.isEnabled ? 'enabled' : 'disabled'}
+                    {policy.isEnabled ? t('enabled') : t('disabled')}
                   </Badge>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Next {formatDateTime(policy.nextRunAt)}
+                    {t('Next')} {formatDateTime(policy.nextRunAt)}
                   </p>
                 </div>
               </div>
@@ -433,7 +441,7 @@ function AgentDetailsDialog({
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border bg-secondary/25 p-4 text-sm text-muted-foreground">
-            No policies are assigned to this agent yet.
+            {t('No policies are assigned to this agent yet.')}
           </div>
         )}
       </div>

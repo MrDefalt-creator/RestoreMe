@@ -12,13 +12,6 @@ export class ApiError extends Error {
   }
 }
 
-export class UnsupportedApiError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'UnsupportedApiError'
-  }
-}
-
 export function normalizeApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
     if (!error.response) {

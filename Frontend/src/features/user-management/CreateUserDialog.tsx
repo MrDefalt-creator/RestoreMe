@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { formatRoleLabel, useI18n } from '@/shared/i18n'
 
 const createUserSchema = z.object({
   username: z
@@ -33,6 +34,8 @@ type CreateUserDialogProps = {
 }
 
 export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
+  const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const form = useForm<CreateUserValues>({
     resolver: zodResolver(createUserSchema),
@@ -50,9 +53,9 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
         username: values.username,
         password: values.password,
         role: values.role as UserRole,
-      }),
+    }),
     onSuccess: () => {
-      toast.success('User created')
+      toast.success(t('User created'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
       form.reset({
         username: '',
@@ -62,7 +65,7 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
       onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to create user')
+      toast.error(error instanceof Error ? error.message : t('Unable to create user'))
     },
   })
 
@@ -70,53 +73,53 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
     <Dialog
       open={open}
       onClose={onClose}
-      title="Create platform user"
-      description="Add an operator, viewer or administrator account for the secure RestoreMe control plane."
+      title={t('Create platform user')}
+      description={t('Add an operator, viewer or administrator account for the secure RestoreMe control plane.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            Create user
+            {mutation.isPending ? t('Creating...') : t('Create user')}
           </Button>
         </>
       }
     >
       <div className="space-y-2">
         <label className="text-sm font-medium text-ink-900" htmlFor="create-user-username">
-          Username
+          {t('Username')}
         </label>
         <Input id="create-user-username" placeholder="backup-operator" {...form.register('username')} />
         {form.formState.errors.username ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.username.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.username.message)}</p>
         ) : null}
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-ink-900" htmlFor="create-user-password">
-          Password
+          {t('Password')}
         </label>
         <Input id="create-user-password" type="password" placeholder="StrongPass123!" {...form.register('password')} />
         {form.formState.errors.password ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.password.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.password.message)}</p>
         ) : null}
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-ink-900" htmlFor="create-user-role">
-          Role
+          {t('Role')}
         </label>
         <Select id="create-user-role" {...form.register('role')}>
-          <option value="viewer">Viewer</option>
-          <option value="operator">Operator</option>
-          <option value="admin">Admin</option>
+          <option value="viewer">{formatRoleLabel('viewer', t)}</option>
+          <option value="operator">{formatRoleLabel('operator', t)}</option>
+          <option value="admin">{formatRoleLabel('admin', t)}</option>
         </Select>
         {form.formState.errors.role ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.role.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.role.message)}</p>
         ) : null}
       </div>
     </Dialog>

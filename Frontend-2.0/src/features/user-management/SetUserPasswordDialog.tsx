@@ -8,6 +8,7 @@ import { setUserPassword, type User } from '@/shared/api/users'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
+import { useI18n } from '@/shared/i18n'
 
 const setPasswordSchema = z
   .object({
@@ -29,6 +30,8 @@ type SetUserPasswordDialogProps = {
 }
 
 export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUserPasswordDialogProps) {
+  const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const form = useForm<SetPasswordValues>({
     resolver: zodResolver(setPasswordSchema),
     mode: 'onChange',
@@ -46,12 +49,12 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
       return setUserPassword(user.id, values.newPassword)
     },
     onSuccess: () => {
-      toast.success('Password updated')
+      toast.success(t('Password updated'))
       form.reset()
       onSuccess()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update password')
+      toast.error(error instanceof Error ? error.message : t('Unable to update password'))
     },
   })
 
@@ -59,34 +62,34 @@ export function SetUserPasswordDialog({ open, user, onClose, onSuccess }: SetUse
     <Dialog
       open={open}
       onClose={onClose}
-      title="Change user password"
-      description={user ? `Set a new password for ${user.username}.` : 'Set a new password for the selected user.'}
+      title={t('Change user password')}
+      description={user ? t('Set a new password for {username}.', { username: user.username }) : t('Set a new password for the selected user.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            {mutation.isPending ? 'Saving...' : 'Save password'}
+            {mutation.isPending ? t('Saving...') : t('Save password')}
           </Button>
         </>
       }
     >
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">New password</label>
+        <label className="text-sm font-medium text-foreground">{t('New password')}</label>
         <Input type="password" placeholder="StrongPass123!" {...form.register('newPassword')} />
         {form.formState.errors.newPassword ? (
-          <p className="text-sm text-destructive">{form.formState.errors.newPassword.message}</p>
+          <p className="text-sm text-destructive">{formError(form.formState.errors.newPassword.message)}</p>
         ) : null}
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Confirm password</label>
-        <Input type="password" placeholder="Repeat the new password" {...form.register('confirmPassword')} />
+        <label className="text-sm font-medium text-foreground">{t('Confirm password')}</label>
+        <Input type="password" placeholder={t('Repeat the new password')} {...form.register('confirmPassword')} />
         {form.formState.errors.confirmPassword ? (
-          <p className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
+          <p className="text-sm text-destructive">{formError(form.formState.errors.confirmPassword.message)}</p>
         ) : null}
       </div>
     </Dialog>

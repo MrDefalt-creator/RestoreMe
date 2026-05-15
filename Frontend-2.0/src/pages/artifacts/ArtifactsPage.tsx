@@ -22,6 +22,8 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Spinner } from '@/shared/ui/Spinner'
+import { useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
 type ArtifactType = 'filesystem' | 'postgres' | 'mysql'
 type TypeFilter = 'all' | ArtifactType
@@ -29,6 +31,8 @@ type TypeFilter = 'all' | ArtifactType
 const EMPTY_ARTIFACTS: Artifact[] = []
 
 export function ArtifactsPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -36,6 +40,7 @@ export function ArtifactsPage() {
   const artifactsQuery = useQuery({
     queryKey: queryKeys.artifacts,
     queryFn: getArtifacts,
+    ...liveQueryOptions,
   })
 
   const downloadMutation = useMutation({
@@ -52,10 +57,10 @@ export function ArtifactsPage() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0)
     },
     onSuccess: (_, artifact) => {
-      toast.success(`${getArtifactDisplayName(artifact)} download started`)
+      toast.success(t('{name} download started', { name: getArtifactDisplayName(artifact) }))
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Artifact download failed')
+      toast.error(error instanceof Error ? error.message : t('Artifact download failed'))
     },
     onSettled: () => setDownloadingId(null),
   })
@@ -97,22 +102,22 @@ export function ArtifactsPage() {
   return (
     <div className="space-y-7">
       <SectionHeading
-        eyebrow="Recovery"
-        title="Backups"
-        description="A clean recovery shelf for every completed backup: inspect type, age, retention, and download the exact artifact you need."
+        eyebrow={t('Recovery')}
+        title={t('Backups')}
+        description={t('A clean recovery shelf for every completed backup: inspect type, age, retention, and download the exact artifact you need.')}
         action={
           <Button variant="secondary" onClick={() => artifactsQuery.refetch()} disabled={artifactsQuery.isFetching}>
             <RefreshCw className={artifactsQuery.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-            Refresh
+            {t('Refresh')}
           </Button>
         }
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <ArtifactMetric icon={<FileArchive />} label="Artifacts" value={stats.total.toString()} />
-        <ArtifactMetric icon={<HardDriveDownload />} label="Stored size" value={formatFileSize(stats.totalSize)} />
-        <ArtifactMetric icon={<FolderArchive />} label="Filesystem" value={stats.filesystem.toString()} />
-        <ArtifactMetric icon={<Database />} label="Database" value={stats.database.toString()} />
+        <ArtifactMetric icon={<FileArchive />} label={t('Artifacts')} value={stats.total.toString()} />
+        <ArtifactMetric icon={<HardDriveDownload />} label={t('Stored size')} value={formatFileSize(stats.totalSize)} />
+        <ArtifactMetric icon={<FolderArchive />} label={t('Filesystem')} value={stats.filesystem.toString()} />
+        <ArtifactMetric icon={<Database />} label={t('Database')} value={stats.database.toString()} />
       </div>
 
       <Card>
@@ -122,7 +127,7 @@ export function ArtifactsPage() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by artifact, filename, type, job, or id..."
+              placeholder={t('Search by artifact, filename, type, job, or id...')}
               className="pl-10"
             />
           </div>
@@ -138,7 +143,7 @@ export function ArtifactsPage() {
                     : 'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground'
                 }
               >
-                {type === 'all' ? 'all' : formatPolicyType(type)}
+                {type === 'all' ? t('all') : formatPolicyType(type)}
               </button>
             ))}
           </div>
@@ -149,17 +154,17 @@ export function ArtifactsPage() {
         <Card>
           <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
             <Spinner />
-            Loading artifacts...
+            {t('Loading artifacts...')}
           </CardContent>
         </Card>
       ) : artifactsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
-          title="Artifacts could not be loaded"
-          description="Check the backend and object storage containers, then retry this shelf."
+          title={t('Artifacts could not be loaded')}
+          description={t('Check the backend and object storage containers, then retry this shelf.')}
           action={
             <Button variant="secondary" onClick={() => artifactsQuery.refetch()}>
-              Retry
+              {t('Retry')}
             </Button>
           }
         />
@@ -173,6 +178,7 @@ export function ArtifactsPage() {
                   artifact={artifact}
                   isDownloading={downloadingId === artifact.id}
                   onDownload={() => downloadMutation.mutate(artifact)}
+                  t={t}
                 />
               ))}
             </div>
@@ -181,11 +187,11 @@ export function ArtifactsPage() {
       ) : (
         <EmptyState
           icon={<HardDriveDownload className="h-8 w-8 text-muted-foreground" />}
-          title={artifacts.length ? 'No artifacts match these filters' : 'No artifacts yet'}
+          title={artifacts.length ? t('No artifacts match these filters') : t('No artifacts yet')}
           description={
             artifacts.length
-              ? 'Clear the search or switch the artifact type.'
-              : 'Successful backups will appear here as downloadable recovery artifacts.'
+              ? t('Clear the search or switch the artifact type.')
+              : t('Successful backups will appear here as downloadable recovery artifacts.')
           }
         />
       )}
@@ -221,10 +227,12 @@ function ArtifactRow({
   artifact,
   isDownloading,
   onDownload,
+  t,
 }: {
   artifact: Artifact
   isDownloading: boolean
   onDownload: () => void
+  t: (key: string, params?: Record<string, string | number>) => string
 }) {
   const expiresAt = Date.parse(artifact.expiresAt ?? '')
   const hasExpiry = Boolean(artifact.expiresAt) && Number.isFinite(expiresAt)
@@ -253,16 +261,16 @@ function ArtifactRow({
             </Badge>
           </div>
           <p className="mt-1 truncate text-sm text-muted-foreground">
-            Created {formatRelativeTime(artifact.createdAt)} | {formatDateTime(artifact.createdAt)}
+            {t('Created')} {formatRelativeTime(artifact.createdAt)} | {formatDateTime(artifact.createdAt)}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <ArtifactFact label="Size" value={formatFileSize(artifact.size)} />
+        <ArtifactFact label={t('Size')} value={formatFileSize(artifact.size)} />
         <ArtifactFact
-          label={isExpired ? 'Expired' : 'Expires'}
-          value={hasExpiry ? (isExpired ? 'Unavailable soon' : formatRelativeTime(artifact.expiresAt as string)) : 'Retained'}
+          label={isExpired ? t('Expired') : t('Expires')}
+          value={hasExpiry ? (isExpired ? t('Unavailable soon') : formatRelativeTime(artifact.expiresAt as string)) : t('Retained')}
           warning={isExpired || expiresSoon}
         />
       </div>
@@ -271,7 +279,7 @@ function ArtifactRow({
         {isExpired || expiresSoon ? (
           <div className="hidden items-center gap-2 text-sm text-warning sm:flex">
             <CalendarClock className="h-4 w-4" />
-            {isExpired ? 'Expired' : 'Expiring'}
+            {isExpired ? t('Expired') : t('Expiring')}
           </div>
         ) : null}
         <Button
@@ -279,10 +287,10 @@ function ArtifactRow({
           size="sm"
           onClick={onDownload}
           disabled={isDownloading || isExpired}
-          title={isExpired ? 'This artifact is expired' : undefined}
+          title={isExpired ? t('This artifact is expired') : undefined}
         >
           <HardDriveDownload className="h-4 w-4" />
-          {isDownloading ? 'Downloading...' : 'Download'}
+          {isDownloading ? t('Downloading...') : t('Download')}
         </Button>
       </div>
     </div>

@@ -1,11 +1,20 @@
 import { format, formatDistanceToNowStrict } from 'date-fns'
+import { enUS, ru } from 'date-fns/locale'
+
+import { getStoredDateStyle, getStoredLanguage } from '@/shared/i18n'
+
+function getDateLocale() {
+  return getStoredLanguage() === 'ru' ? ru : enUS
+}
 
 export function formatDateTime(value?: string | null) {
   if (!value) {
     return 'Not available'
   }
 
-  return format(new Date(value), 'dd MMM yyyy, HH:mm')
+  const pattern = getStoredDateStyle() === 'compact' ? 'yyyy-MM-dd HH:mm' : 'dd MMM yyyy, HH:mm'
+
+  return format(new Date(value), pattern, { locale: getDateLocale() })
 }
 
 export function formatRelativeTime(value?: string | null) {
@@ -13,7 +22,7 @@ export function formatRelativeTime(value?: string | null) {
     return 'No heartbeat yet'
   }
 
-  return `${formatDistanceToNowStrict(new Date(value), { addSuffix: true })}`
+  return `${formatDistanceToNowStrict(new Date(value), { addSuffix: true, locale: getDateLocale() })}`
 }
 
 export function formatBytes(value: number) {

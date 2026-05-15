@@ -181,8 +181,8 @@ Recommended local values for the current stack:
 > Replace the enrollment token in backend and agent configuration before using agents on any shared network. The default token is public repository data.
 
 Important note:
-- the checked-in agent appsettings still contains an older placeholder base URL
-- before testing, point the agent to the actual backend URL you want to use
+- the checked-in agent appsettings already points to the local Compose backend at `http://localhost:8080/`
+- before testing against another host, point the agent to the actual backend URL you want it to use
 
 Agent state file:
 - `state/agent-state.json`

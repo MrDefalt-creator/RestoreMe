@@ -5,6 +5,7 @@ import { deleteUser } from '@/entities/user/api'
 import type { AdminUser } from '@/entities/user/model/types'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
+import { useI18n } from '@/shared/i18n'
 
 type DeleteUserDialogProps = {
   open: boolean
@@ -14,6 +15,7 @@ type DeleteUserDialogProps = {
 }
 
 export function DeleteUserDialog({ open, user, onClose, onSuccess }: DeleteUserDialogProps) {
+  const { t } = useI18n()
   const mutation = useMutation({
     mutationFn: () => {
       if (!user) {
@@ -23,11 +25,11 @@ export function DeleteUserDialog({ open, user, onClose, onSuccess }: DeleteUserD
       return deleteUser(user.id)
     },
     onSuccess: () => {
-      toast.success('User deleted')
+      toast.success(t('User deleted'))
       onSuccess()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to delete user')
+      toast.error(error instanceof Error ? error.message : t('Unable to delete user'))
     },
   })
 
@@ -35,21 +37,21 @@ export function DeleteUserDialog({ open, user, onClose, onSuccess }: DeleteUserD
     <Dialog
       open={open}
       onClose={onClose}
-      title="Delete user"
-      description={user ? `Delete ${user.username}. This removes their access to the RestoreMe control plane.` : 'Delete the selected user.'}
+      title={t('Delete user')}
+      description={user ? t('Delete {username}. This removes their RestoreMe access.', { username: user.username }) : t('Delete the selected user.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button variant="danger" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
-            Delete user
+            {t('Delete user')}
           </Button>
         </>
       }
     >
       <p className="text-sm text-ink-800">
-        Use deletion for accounts that should no longer exist at all. For temporary access suspension, prefer disabling the user instead.
+        {t('Use deletion for accounts that should no longer exist. For temporary suspension, disable the user instead.')}
       </p>
     </Dialog>
   )

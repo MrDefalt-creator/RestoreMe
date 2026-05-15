@@ -7,12 +7,14 @@ import {
   LogOut,
   Menu,
   Moon,
+  RefreshCw,
   ShieldCheck,
   Sun,
   UserRound,
   Users,
   Workflow,
 } from 'lucide-react'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuthStore } from '@/app/store/auth-store'
@@ -22,6 +24,7 @@ import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { cn } from '@/shared/lib/cn'
 import { normalizeAuthRole } from '@/shared/api/auth'
+import { formatRoleLabel, useI18n } from '@/shared/i18n'
 
 type NavItem = {
   to: string
@@ -42,20 +45,12 @@ const navigation: NavItem[] = [
   { to: '/account', label: 'Account', icon: KeyRound },
 ]
 
-function formatRole(role: string | undefined) {
-  switch (normalizeAuthRole(role)) {
-    case 'admin':
-      return 'Admin'
-    case 'operator':
-      return 'Operator'
-    default:
-      return 'Viewer'
-  }
-}
-
 export function AppShell() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { theme, setTheme } = useTheme()
+  const queryClient = useQueryClient()
+  const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
   const user = useAuthStore((state) => state.user)
@@ -84,7 +79,7 @@ export function AppShell() {
             <div className={cn('flex items-center gap-3', isExpanded ? 'justify-between' : 'justify-center')}>
               <BrandMark compact={!isExpanded} subtitle="RestoreMe" />
               {isExpanded ? (
-                <Button variant="ghost" size="icon" onClick={toggleSidebar} title="Collapse sidebar">
+                <Button variant="ghost" size="icon" onClick={toggleSidebar} title={t('Collapse sidebar')}>
                   <Menu className="h-4 w-4" />
                 </Button>
               ) : null}
@@ -96,7 +91,7 @@ export function AppShell() {
                 size="icon"
                 className="mx-auto"
                 onClick={toggleSidebar}
-                title="Expand sidebar"
+                title={t('Expand sidebar')}
               >
                 <Menu className="h-4 w-4" />
               </Button>
@@ -117,10 +112,10 @@ export function AppShell() {
                         : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
                     )
                   }
-                  title={isExpanded ? undefined : label}
+                  title={isExpanded ? undefined : t(label)}
                 >
                   <Icon className="h-4 w-4 shrink-0" strokeWidth={1.9} />
-                  {isExpanded ? <span className="truncate">{label}</span> : null}
+                  {isExpanded ? <span className="truncate">{t(label)}</span> : null}
                 </NavLink>
               ))}
             </nav>
@@ -131,10 +126,10 @@ export function AppShell() {
                 size={isExpanded ? 'md' : 'icon'}
                 className={cn('w-full', isExpanded ? 'justify-start' : '')}
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
               >
                 {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {isExpanded ? <span>{isDark ? 'Light' : 'Dark'} theme</span> : null}
+                {isExpanded ? <span>{isDark ? t('Light theme') : t('Dark theme')}</span> : null}
               </Button>
 
               {user ? (
@@ -146,7 +141,7 @@ export function AppShell() {
                     {isExpanded ? (
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{user.username}</p>
-                        <p className="text-xs text-muted-foreground">{formatRole(user.role)}</p>
+                        <p className="text-xs text-muted-foreground">{formatRoleLabel(normalizeAuthRole(user.role), t)}</p>
                       </div>
                     ) : null}
                   </div>
@@ -161,7 +156,7 @@ export function AppShell() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">RestoreMe</p>
-                <p className="text-xs text-muted-foreground">Calm backup operations console</p>
+                <p className="text-xs text-muted-foreground">{t('Calm backup operations console')}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -169,15 +164,24 @@ export function AppShell() {
                   size="icon"
                   className="md:hidden"
                   onClick={toggleSidebar}
-                  title="Toggle navigation"
+                  title={t('Toggle navigation')}
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="secondary"
                   size="icon"
+                  onClick={() => void queryClient.invalidateQueries()}
+                  disabled={isFetching > 0}
+                  title={t('Refresh data')}
+                >
+                  <RefreshCw className={cn('h-4 w-4', isFetching > 0 ? 'animate-spin' : '')} />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
                   onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                  title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                  title={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
                 >
                   {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
@@ -190,7 +194,7 @@ export function AppShell() {
                   }}
                 >
                   <LogOut className="h-4 w-4" />
-                  Sign out
+                  {t('Sign out')}
                 </Button>
               </div>
             </div>

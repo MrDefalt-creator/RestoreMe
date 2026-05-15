@@ -22,17 +22,8 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
-
-function formatRole(role: UserRole) {
-  switch (role) {
-    case 'admin':
-      return 'Admin'
-    case 'operator':
-      return 'Operator'
-    default:
-      return 'Viewer'
-  }
-}
+import { formatRoleLabel, useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
 function isSameUser(currentUser: { id?: string; username?: string } | null | undefined, user: User) {
   return Boolean(
@@ -42,6 +33,8 @@ function isSameUser(currentUser: { id?: string; username?: string } | null | und
 }
 
 export function UsersPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [passwordUser, setPasswordUser] = useState<User | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
@@ -51,6 +44,7 @@ export function UsersPage() {
   const usersQuery = useQuery({
     queryKey: queryKeys.users,
     queryFn: getUsers,
+    ...liveQueryOptions,
     enabled: isAdmin,
   })
 
@@ -58,11 +52,11 @@ export function UsersPage() {
     mutationFn: ({ userId, role }: { userId: string; role: UserRole }) =>
       updateUserRole(userId, role),
     onSuccess: () => {
-      toast.success('User role updated')
+      toast.success(t('User role updated'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update role')
+      toast.error(error instanceof Error ? error.message : t('Unable to update role'))
     },
   })
 
@@ -70,11 +64,11 @@ export function UsersPage() {
     mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) =>
       updateUserStatus(userId, isActive),
     onSuccess: () => {
-      toast.success('User status updated')
+      toast.success(t('User status updated'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update status')
+      toast.error(error instanceof Error ? error.message : t('Unable to update status'))
     },
   })
 
@@ -82,14 +76,14 @@ export function UsersPage() {
     return (
       <div className="space-y-8">
         <SectionHeading
-          eyebrow="Security"
-          title="User access"
-          description="Only administrators can create users, rotate passwords and change access roles."
+          eyebrow={t('Security')}
+          title={t('User access')}
+          description={t('Only administrators can create users, rotate passwords and change access roles.')}
         />
         <EmptyState
           icon={<Shield className="h-7 w-7 text-muted-foreground" />}
-          title="Administrator access required"
-          description="Sign in as an administrator to manage platform users."
+          title={t('Administrator access required')}
+          description={t('Sign in as an administrator to manage platform users.')}
         />
       </div>
     )
@@ -101,31 +95,31 @@ export function UsersPage() {
   return (
     <div className="space-y-8">
       <SectionHeading
-        eyebrow="Security"
-        title="User access"
-        description="Manage operator, viewer and administrator accounts without leaving the backup workspace."
-        action={<Button onClick={() => setIsCreateOpen(true)}>Create user</Button>}
+        eyebrow={t('Security')}
+        title={t('User access')}
+        description={t('Manage operator, viewer and administrator accounts without leaving the backup workspace.')}
+        action={<Button onClick={() => setIsCreateOpen(true)}>{t('Create user')}</Button>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-5">
-            <Metric icon={UserCog} label="Accounts" value={users.length} />
+            <Metric icon={UserCog} label={t('Accounts')} value={users.length} />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-5">
-            <Metric icon={Shield} label="Active users" value={users.filter((user) => user.isActive).length} />
+            <Metric icon={Shield} label={t('Active users')} value={users.filter((user) => user.isActive).length} />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-5">
             <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">Role model</p>
+              <p className="text-sm font-medium text-foreground">{t('Role model')}</p>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="warning">Admin</Badge>
-                <Badge variant="success">Operator</Badge>
-                <Badge variant="neutral">Viewer</Badge>
+                <Badge variant="warning">{t('Admin')}</Badge>
+                <Badge variant="success">{t('Operator')}</Badge>
+                <Badge variant="neutral">{t('Viewer')}</Badge>
               </div>
             </div>
           </CardContent>
@@ -140,7 +134,7 @@ export function UsersPage() {
                 <tr>
                   {['Username', 'Role', 'Status', 'Created', 'Actions'].map((label) => (
                     <th key={label} className="px-4 py-3 font-medium">
-                      {label}
+                      {t(label)}
                     </th>
                   ))}
                 </tr>
@@ -154,25 +148,25 @@ export function UsersPage() {
                       <td className="px-4 py-3 font-medium text-foreground">
                         <div className="flex items-center gap-2">
                           {user.username}
-                          {isCurrent ? <Badge variant="neutral">Current</Badge> : null}
+                          {isCurrent ? <Badge variant="neutral">{t('Current')}</Badge> : null}
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={user.role === 'admin' ? 'warning' : user.role === 'operator' ? 'success' : 'neutral'}>
-                          {formatRole(user.role)}
+                          {formatRoleLabel(user.role, t)}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={user.isActive ? 'success' : 'neutral'}>
-                          {user.isActive ? 'Active' : 'Disabled'}
+                          {user.isActive ? t('Active') : t('Disabled')}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {user.createdAtUtc ? formatDateTime(user.createdAtUtc) : 'Unknown'}
+                        {user.createdAtUtc ? formatDateTime(user.createdAtUtc) : t('Unknown')}
                       </td>
                       <td className="px-4 py-3">
                         {isCurrent ? (
-                          <span className="text-xs text-muted-foreground">Use Account to change your own password</span>
+                          <span className="text-xs text-muted-foreground">{t('Use Account to change your own password')}</span>
                         ) : (
                           <div className="flex flex-wrap items-center gap-2">
                             <Select
@@ -186,13 +180,13 @@ export function UsersPage() {
                               }
                               className="min-w-[136px]"
                             >
-                              <option value="viewer">Viewer</option>
-                              <option value="operator">Operator</option>
-                              <option value="admin">Admin</option>
+                              <option value="viewer">{t('Viewer')}</option>
+                              <option value="operator">{t('Operator')}</option>
+                              <option value="admin">{t('Admin')}</option>
                             </Select>
                             <Button size="sm" variant="secondary" onClick={() => setPasswordUser(user)}>
                               <KeyRound className="h-4 w-4" />
-                              Password
+                              {t('Password')}
                             </Button>
                             <Button
                               size="sm"
@@ -205,11 +199,11 @@ export function UsersPage() {
                                 })
                               }
                             >
-                              {user.isActive ? 'Disable' : 'Enable'}
+                              {user.isActive ? t('Disable') : t('Enable')}
                             </Button>
                             <Button size="sm" variant="danger" onClick={() => setDeletingUser(user)}>
                               <Trash2 className="h-4 w-4" />
-                              Delete
+                              {t('Delete')}
                             </Button>
                           </div>
                         )}
@@ -223,8 +217,8 @@ export function UsersPage() {
         </Card>
       ) : (
         <EmptyState
-          title="No user accounts found"
-          description="Create the first operator, viewer or administrator account."
+          title={t('No user accounts found')}
+          description={t('Create the first operator, viewer or administrator account.')}
         />
       )}
 

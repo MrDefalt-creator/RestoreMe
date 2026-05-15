@@ -6,6 +6,7 @@ import { Lock, Mail, ShieldCheck } from 'lucide-react'
 
 import { login } from '@/shared/api/auth'
 import { useAuthStore } from '@/app/store/auth-store'
+import { useI18n } from '@/shared/i18n'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
@@ -17,6 +18,7 @@ type LoginFormData = {
 }
 
 export function LoginPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const { setSession } = useAuthStore()
   const form = useForm<LoginFormData>({
@@ -41,11 +43,11 @@ export function LoginPage() {
     },
     onSuccess: (response) => {
       setSession(response.token, response.user)
-      toast.success(`Welcome, ${response.user.username}!`)
+      toast.success(t('Welcome, {username}!', { username: response.user.username }))
       navigate('/', { replace: true })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Sign in failed')
+      toast.error(error instanceof Error ? error.message : t('Sign in failed'))
     },
   })
 
@@ -56,18 +58,18 @@ export function LoginPage() {
           <BrandMark subtitle="RestoreMe" />
           <div className="max-w-xl space-y-4">
             <p className="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Calm backup confidence
+              {t('Calm backup confidence')}
             </p>
             <h1 className="text-5xl font-semibold leading-tight tracking-tight text-foreground">
-              Know your data is protected before you need it.
+              {t('Know your data is protected before you need it.')}
             </h1>
             <p className="text-base leading-7 text-muted-foreground">
-              A focused workspace for agents, policies, backup jobs and recovery artifacts.
+              {t('A focused workspace for agents, policies, backup jobs and recovery artifacts.')}
             </p>
           </div>
           <div className="inline-flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-[var(--shadow-md)]">
             <ShieldCheck className="h-4 w-4 text-success" />
-            Designed for quiet, deliberate backup operations.
+            {t('Designed for quiet, deliberate backup operations.')}
           </div>
         </section>
 
@@ -79,7 +81,7 @@ export function LoginPage() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">RestoreMe</p>
               <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-                Backup console
+                {t('Backup console')}
               </h1>
             </div>
           </div>
@@ -88,13 +90,13 @@ export function LoginPage() {
             <div className="space-y-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Sign in
+                  {t('Sign in')}
                 </p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
-                  Access the console
+                  {t('Access the console')}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Use your operator account to manage backup protection.
+                  {t('Use your operator account to manage backup protection.')}
                 </p>
               </div>
 
@@ -104,7 +106,7 @@ export function LoginPage() {
               >
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground" htmlFor="login-username">
-                    Username
+                    {t('Username')}
                   </label>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -112,7 +114,7 @@ export function LoginPage() {
                       id="login-username"
                       placeholder="admin"
                       className="pl-10"
-                      {...form.register('username', { required: 'Username is required' })}
+                      {...form.register('username', { required: t('Username is required') })}
                     />
                   </div>
                   {form.formState.errors.username && (
@@ -122,16 +124,16 @@ export function LoginPage() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground" htmlFor="login-password">
-                    Password
+                    {t('Password')}
                   </label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="login-password"
                       type="password"
-                      placeholder="Enter password"
+                      placeholder={t('Enter password')}
                       className="pl-10"
-                      {...form.register('password', { required: 'Password is required' })}
+                      {...form.register('password', { required: t('Password is required') })}
                     />
                   </div>
                   {form.formState.errors.password && (
@@ -146,7 +148,7 @@ export function LoginPage() {
                     checked={form.watch('rememberMe')}
                     onChange={(event) => form.setValue('rememberMe', event.target.checked)}
                   />
-                  <span>Remember me on this device</span>
+                  <span>{t('Remember me on this device')}</span>
                 </label>
 
                 <Button
@@ -154,7 +156,7 @@ export function LoginPage() {
                   className="h-11 w-full justify-center"
                   disabled={!form.formState.isValid || mutation.isPending}
                 >
-                  {mutation.isPending ? 'Signing in...' : 'Sign in'}
+                  {mutation.isPending ? t('Signing in...') : t('Sign in')}
                 </Button>
               </form>
             </div>

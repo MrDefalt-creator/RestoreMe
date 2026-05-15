@@ -1,9 +1,11 @@
-import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
+import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, RefreshCw, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuthStore, type AuthRole } from '@/app/store/auth-store'
 import { useUiStore } from '@/app/store/ui-store'
 import { env } from '@/shared/config/env'
+import { formatRoleLabel, useI18n } from '@/shared/i18n'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
@@ -28,19 +30,11 @@ const navigation: NavItem[] = [
   { to: '/users', label: 'Users', icon: Users, roles: ['admin'] },
 ]
 
-function formatRole(role: string | undefined) {
-  switch (role) {
-    case 'admin':
-      return 'Admin'
-    case 'operator':
-      return 'Operator'
-    default:
-      return 'Viewer'
-  }
-}
-
 export function AppShell() {
   const navigate = useNavigate()
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+  const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
   const user = useAuthStore((state) => state.user)
@@ -85,7 +79,7 @@ export function AppShell() {
               >
                 <BrandMark
                   compact={sidebarState !== 'expanded'}
-                  subtitle="Backup Console"
+                  subtitle={t('Backup Console')}
                   className={cn(
                     'overflow-hidden transition-all',
                     sidebarState === 'expanded' ? 'w-auto opacity-100' : 'w-12 opacity-100',
@@ -98,13 +92,15 @@ export function AppShell() {
                     sidebarState === 'expanded' ? 'h-11 w-11' : 'h-12 w-12',
                   )}
                   onClick={toggleSidebar}
+                  aria-label={sidebarState === 'expanded' ? t('Collapse sidebar') : t('Expand sidebar')}
+                  title={sidebarState === 'expanded' ? t('Collapse sidebar') : t('Expand sidebar')}
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
               </div>
               {sidebarState === 'expanded' ? (
                 <p className="max-w-[14rem] text-sm text-sky-100/72">
-                  Operational workspace for agents, policies and backup history.
+                  {t('Operational workspace for agents, policies and backup history.')}
                 </p>
               ) : null}
             </div>
@@ -161,7 +157,7 @@ export function AppShell() {
                           sidebarState === 'expanded' ? 'max-w-[140px] opacity-100' : 'max-w-0 opacity-0',
                         )}
                       >
-                        {label}
+                        {t(label)}
                       </span>
                     </>
                   )}
@@ -173,10 +169,10 @@ export function AppShell() {
               sidebarState === 'expanded' ? (
                 <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                   <div className="flex items-center gap-3">
-                    <Badge tone="warning">Local data mode</Badge>
+                    <Badge tone="warning">{t('Local data mode')}</Badge>
                   </div>
                   <p className="mt-3 text-sm text-sky-100/76">
-                    Showing local sample data until the live API connection is available.
+                    {t('Showing local sample data until the live API connection is available.')}
                   </p>
                 </div>
               ) : (
@@ -192,17 +188,26 @@ export function AppShell() {
           <header className="flex items-center justify-between gap-4 border-b border-surface-200/80 bg-[rgba(255,255,255,0.78)] px-5 py-4 md:px-8">
             <div>
               <p className="text-sm text-ink-800">
-                Secure operator console for RestoreMe backup operations.
+                {t('Secure operator console for RestoreMe backup operations.')}
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => void queryClient.invalidateQueries()}
+                disabled={isFetching > 0}
+                title={t('Refresh data')}
+              >
+                <RefreshCw className={cn('h-4 w-4', isFetching > 0 ? 'animate-spin' : '')} />
+                {t('Refresh')}
+              </Button>
               <div className="hidden items-center gap-3 rounded-2xl border border-surface-200 bg-white/80 px-3 py-2 md:flex">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-100 text-ink-900">
                   <UserRound className="h-4 w-4" />
                 </span>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-ink-950">{user?.username ?? 'Unknown user'}</p>
-                  <p className="text-xs text-ink-800/70">{formatRole(user?.role)}</p>
+                  <p className="text-sm font-medium text-ink-950">{user?.username ?? t('Unknown user')}</p>
+                  <p className="text-xs text-ink-800/70">{formatRoleLabel(user?.role, t)}</p>
                 </div>
               </div>
               <Button
@@ -213,7 +218,7 @@ export function AppShell() {
                 }}
               >
                 <LogOut className="h-4 w-4" />
-                Sign out
+                {t('Sign out')}
               </Button>
             </div>
           </header>

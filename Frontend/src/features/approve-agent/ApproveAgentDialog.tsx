@@ -11,6 +11,7 @@ import { queryKeys } from '@/shared/lib/query'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
+import { useI18n } from '@/shared/i18n'
 
 const approveSchema = z.object({
   name: z.string().trim().min(2, 'Name is required').max(80, 'Name is too long'),
@@ -29,6 +30,8 @@ export function ApproveAgentDialog({
   pendingAgent,
   onClose,
 }: ApproveAgentDialogProps) {
+  const { t } = useI18n()
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const form = useForm<ApproveAgentValues>({
     resolver: zodResolver(approveSchema),
@@ -56,14 +59,14 @@ export function ApproveAgentDialog({
       })
     },
     onSuccess: () => {
-      toast.success('Pending agent approved')
+      toast.success(t('Pending agent approved'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.pendingAgents })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
       onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Approval failed')
+      toast.error(error instanceof Error ? error.message : t('Approval failed'))
     },
   })
 
@@ -71,29 +74,29 @@ export function ApproveAgentDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Approve pending agent"
-      description="Assign the machine a readable agent name before it becomes visible in the operational workspace."
+      title={t('Approve pending agent')}
+      description={t('Assign the machine a readable agent name before it becomes visible in the operational workspace.')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             disabled={!form.formState.isValid || mutation.isPending}
             onClick={form.handleSubmit((values) => mutation.mutate(values))}
           >
-            Approve agent
+            {mutation.isPending ? t('Approving...') : t('Approve agent')}
           </Button>
         </>
       }
     >
       <div className="space-y-2">
         <label className="text-sm font-medium text-ink-900" htmlFor="approve-name">
-          Agent name
+          {t('Agent name')}
         </label>
-        <Input id="approve-name" placeholder="Accounting workstation" {...form.register('name')} />
+        <Input id="approve-name" placeholder={t('Accounting workstation')} {...form.register('name')} />
         {form.formState.errors.name ? (
-          <p className="text-sm text-danger-500">{form.formState.errors.name.message}</p>
+          <p className="text-sm text-danger-500">{formError(form.formState.errors.name.message)}</p>
         ) : null}
       </div>
     </Dialog>

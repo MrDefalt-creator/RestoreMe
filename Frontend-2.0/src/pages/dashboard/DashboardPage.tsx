@@ -22,6 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useI18n, type Language } from '@/shared/i18n'
 
 type AttentionItem = {
   title: string
@@ -30,25 +32,32 @@ type AttentionItem = {
 }
 
 export function DashboardPage() {
+  const { language, t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
+    ...liveQueryOptions,
   })
   const pendingAgentsQuery = useQuery({
     queryKey: queryKeys.pendingAgents,
     queryFn: getPendingAgents,
+    ...liveQueryOptions,
   })
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
     queryFn: getPolicies,
+    ...liveQueryOptions,
   })
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs,
     queryFn: getJobs,
+    ...liveQueryOptions,
   })
   const artifactsQuery = useQuery({
     queryKey: queryKeys.artifacts,
     queryFn: getArtifacts,
+    ...liveQueryOptions,
   })
 
   const agents = agentsQuery.data ?? []
@@ -76,58 +85,58 @@ export function DashboardPage() {
   const attentionItems: AttentionItem[] = [
     ...(hasApiIssue
       ? [{
-          title: 'API connection needs attention',
-          detail: 'Some live data could not be loaded. Check backend availability.',
+          title: t('API connection needs attention'),
+          detail: t('Some live data could not be loaded. Check backend availability.'),
           tone: 'destructive' as const,
         }]
       : []),
     ...(pendingAgents.length
       ? [{
-          title: `${pendingAgents.length} agent request${pendingAgents.length === 1 ? '' : 's'} waiting`,
-          detail: 'Review pending machines before they can run backup policies.',
+          title: t('{count} agent request{plural} waiting', { count: pendingAgents.length, plural: pendingAgents.length === 1 ? '' : 's' }),
+          detail: t('Review pending machines before they can run backup policies.'),
           tone: 'warning' as const,
         }]
       : []),
     ...(offlineAgents || staleAgents
       ? [{
-          title: `${offlineAgents + staleAgents} agent${offlineAgents + staleAgents === 1 ? '' : 's'} not fully healthy`,
-          detail: `${offlineAgents} offline / ${staleAgents} stale`,
+          title: t('{count} agent{plural} not fully healthy', { count: offlineAgents + staleAgents, plural: offlineAgents + staleAgents === 1 ? '' : 's' }),
+          detail: t('{offline} offline / {stale} stale', { offline: offlineAgents, stale: staleAgents }),
           tone: 'warning' as const,
         }]
       : []),
     ...(unresolvedFailedJobs.length
       ? [{
-          title: `${unresolvedFailedJobs.length} active backup issue${unresolvedFailedJobs.length === 1 ? '' : 's'}`,
-          detail: unresolvedFailedJobs[0]?.errorMessage ?? 'Open Jobs to inspect the latest unresolved failure.',
+          title: t('{count} active backup issue{plural}', { count: unresolvedFailedJobs.length, plural: unresolvedFailedJobs.length === 1 ? '' : 's' }),
+          detail: unresolvedFailedJobs[0]?.errorMessage ?? t('Open Jobs to inspect the latest unresolved failure.'),
           tone: 'destructive' as const,
         }]
       : []),
   ]
 
   const protectionState = hasApiIssue
-    ? 'Needs connection'
+    ? t('Needs connection')
     : attentionItems.length
-      ? 'Needs attention'
+      ? t('Needs attention')
       : agents.length || activePolicies
-        ? 'Protected'
-        : 'Ready to set up'
+        ? t('Protected')
+        : t('Ready to set up')
 
   const jobStatusRows = [
-    { label: 'Completed', value: jobs.filter((job) => job.status === 'completed').length, tone: 'success' as const },
-    { label: 'Running', value: runningJobs, tone: 'accent' as const },
-    { label: 'Failed', value: failedJobs.length, tone: 'destructive' as const },
+    { label: t('Completed'), value: jobs.filter((job) => job.status === 'completed').length, tone: 'success' as const },
+    { label: t('Running'), value: runningJobs, tone: 'accent' as const },
+    { label: t('Failed'), value: failedJobs.length, tone: 'destructive' as const },
   ]
   const agentHealthRows = [
-    { label: 'Online', value: onlineAgents, tone: 'success' as const },
-    { label: 'Stale', value: staleAgents, tone: 'warning' as const },
-    { label: 'Offline', value: offlineAgents, tone: 'neutral' as const },
+    { label: t('Online'), value: onlineAgents, tone: 'success' as const },
+    { label: t('Stale'), value: staleAgents, tone: 'warning' as const },
+    { label: t('Offline'), value: offlineAgents, tone: 'neutral' as const },
   ]
   const policyRows = [
-    { label: 'Filesystem', value: policies.filter((policy) => policy.type === 'filesystem').length, tone: 'accent' as const },
+    { label: t('Filesystem'), value: policies.filter((policy) => policy.type === 'filesystem').length, tone: 'accent' as const },
     { label: 'PostgreSQL', value: policies.filter((policy) => policy.type === 'postgres').length, tone: 'success' as const },
     { label: 'MySQL', value: policies.filter((policy) => policy.type === 'mysql').length, tone: 'warning' as const },
   ]
-  const backupTrend = buildSevenDayTrend(jobs)
+  const backupTrend = buildSevenDayTrend(jobs, language)
   const agentsById = new Map(agents.map((agent) => [agent.id, agent]))
   const policiesById = new Map(policies.map((policy) => [policy.id, policy]))
   const latestJobs = [...jobs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)).slice(0, 5)
@@ -145,10 +154,10 @@ export function DashboardPage() {
                 </Badge>
                 <div>
                   <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                    Backup protection, at a glance.
+                    {t('Backup protection, at a glance.')}
                   </h1>
                   <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
-                    RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.
+                    {t('RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.')}
                   </p>
                 </div>
               </div>
@@ -158,17 +167,17 @@ export function DashboardPage() {
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric icon={Server} label="Agents online" value={`${onlineAgents}/${agents.length}`} detail={`${offlineAgents} offline`} />
-              <Metric icon={ShieldCheck} label="Active policies" value={activePolicies} detail={`${policies.length} total`} />
-              <Metric icon={Clock3} label="Running jobs" value={runningJobs} detail={`${jobs.length} recorded`} />
-              <Metric icon={Archive} label="Artifacts" value={artifacts.length} detail={artifacts.length ? formatFileSize(totalArtifactSize) : 'None yet'} />
+              <Metric icon={Server} label={t('Agents online')} value={`${onlineAgents}/${agents.length}`} detail={t('{count} offline', { count: offlineAgents })} />
+              <Metric icon={ShieldCheck} label={t('Active policies')} value={activePolicies} detail={t('{count} total', { count: policies.length })} />
+              <Metric icon={Clock3} label={t('Running jobs')} value={runningJobs} detail={t('{count} recorded', { count: jobs.length })} />
+              <Metric icon={Archive} label={t('Artifacts')} value={artifacts.length} detail={artifacts.length ? formatFileSize(totalArtifactSize) : t('None yet')} />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Needs attention</CardTitle>
+            <CardTitle>{t('Needs attention')}</CardTitle>
           </CardHeader>
           <CardContent>
             {attentionItems.length ? (
@@ -188,8 +197,8 @@ export function DashboardPage() {
             ) : (
               <EmptyState
                 icon={<CheckCircle2 className="h-7 w-7 text-success" />}
-                title="Everything looks calm"
-                description="No visible issues require operator attention right now."
+                title={t('Everything looks calm')}
+                description={t('No visible issues require operator attention right now.')}
               />
             )}
           </CardContent>
@@ -200,7 +209,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Backup activity trend</CardTitle>
+              <CardTitle>{t('Backup activity trend')}</CardTitle>
               <CalendarDays className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardHeader>
@@ -212,9 +221,9 @@ export function DashboardPage() {
                 ))}
               </div>
               <div className="grid gap-3">
-                <InsightTile icon={Activity} label="Recorded runs" value={jobs.length} detail="Across all known policies" />
-                <InsightTile icon={CheckCircle2} label="Success ratio" value={formatPercent(jobStatusRows[0].value, jobs.length)} detail="Completed jobs" />
-                <InsightTile icon={Database} label="Stored data" value={formatFileSize(totalArtifactSize)} detail={`${artifacts.length} artifacts`} />
+                <InsightTile icon={Activity} label={t('Recorded runs')} value={jobs.length} detail={t('Across all known policies')} />
+                <InsightTile icon={CheckCircle2} label={t('Success ratio')} value={formatPercent(jobStatusRows[0].value, jobs.length)} detail={t('Completed jobs')} />
+                <InsightTile icon={Database} label={t('Stored data')} value={formatFileSize(totalArtifactSize)} detail={t('{count} artifacts', { count: artifacts.length })} />
               </div>
             </div>
           </CardContent>
@@ -223,14 +232,14 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Protection mix</CardTitle>
+              <CardTitle>{t('Protection mix')}</CardTitle>
               <PieChart className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
-            <ProgressGroup title="Agent health" total={agents.length} rows={agentHealthRows} />
-            <ProgressGroup title="Job outcomes" total={jobs.length} rows={jobStatusRows} />
-            <ProgressGroup title="Policy types" total={policies.length} rows={policyRows} />
+            <ProgressGroup title={t('Agent health')} total={agents.length} rows={agentHealthRows} totalLabel={t('{count} total', { count: agents.length })} />
+            <ProgressGroup title={t('Job outcomes')} total={jobs.length} rows={jobStatusRows} totalLabel={t('{count} total', { count: jobs.length })} />
+            <ProgressGroup title={t('Policy types')} total={policies.length} rows={policyRows} totalLabel={t('{count} total', { count: policies.length })} />
           </CardContent>
         </Card>
       </section>
@@ -238,7 +247,7 @@ export function DashboardPage() {
       <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Latest activity</CardTitle>
+            <CardTitle>{t('Latest activity')}</CardTitle>
           </CardHeader>
           <CardContent>
             {jobs.length ? (
@@ -257,7 +266,7 @@ export function DashboardPage() {
                     </div>
                     <div className="shrink-0 text-right">
                       <Badge variant={job.status === 'completed' ? 'success' : job.status === 'failed' ? 'destructive' : 'accent'}>
-                        {job.status}
+                        {t(job.status)}
                       </Badge>
                       <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(job.startedAt)}</p>
                     </div>
@@ -267,8 +276,8 @@ export function DashboardPage() {
               </div>
             ) : (
               <EmptyState
-                title="No jobs yet"
-                description="Backup activity will appear here after policies start running."
+                title={t('No jobs yet')}
+                description={t('Backup activity will appear here after policies start running.')}
                 className="min-h-52"
               />
             )}
@@ -277,7 +286,7 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recoverable backups</CardTitle>
+            <CardTitle>{t('Recoverable backups')}</CardTitle>
           </CardHeader>
           <CardContent>
             {artifacts.length ? (
@@ -305,8 +314,8 @@ export function DashboardPage() {
               </div>
             ) : (
               <EmptyState
-                title="No artifacts yet"
-                description="Completed backups will appear here as recoverable artifacts."
+                title={t('No artifacts yet')}
+                description={t('Completed backups will appear here as recoverable artifacts.')}
                 className="min-h-52"
               />
             )}
@@ -350,14 +359,14 @@ type ProgressRow = {
   tone: ProgressTone
 }
 
-function buildSevenDayTrend(jobs: { startedAt: string }[]) {
+function buildSevenDayTrend(jobs: { startedAt: string }[], language: Language) {
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date()
     date.setHours(0, 0, 0, 0)
     date.setDate(date.getDate() - (6 - index))
     return {
       key: toLocalDateKey(date),
-      label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+      label: date.toLocaleDateString(language === 'ru' ? 'ru-RU' : undefined, { weekday: 'short' }),
       value: 0,
     }
   })
@@ -460,16 +469,18 @@ function ProgressGroup({
   title,
   total,
   rows,
+  totalLabel,
 }: {
   title: string
   total: number
   rows: ProgressRow[]
+  totalLabel: string
 }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{total} total</p>
+        <p className="text-xs text-muted-foreground">{totalLabel}</p>
       </div>
       <div className="space-y-2">
         {rows.map((row) => (

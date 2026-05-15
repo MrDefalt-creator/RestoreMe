@@ -23,6 +23,8 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Spinner } from '@/shared/ui/Spinner'
+import { useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
 type StatusFilter = 'all' | Job['status']
 type AgentLookup = Awaited<ReturnType<typeof getAgents>>[number]
@@ -40,20 +42,24 @@ const EMPTY_AGENTS: AgentLookup[] = []
 const EMPTY_POLICIES: PolicyLookup[] = []
 
 export function JobsPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs,
     queryFn: getJobs,
-    refetchInterval: 10_000,
+    ...liveQueryOptions,
   })
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
+    ...liveQueryOptions,
   })
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
     queryFn: getPolicies,
+    ...liveQueryOptions,
   })
 
   const jobs = jobsQuery.data ?? EMPTY_JOBS
@@ -101,22 +107,22 @@ export function JobsPage() {
   return (
     <div className="space-y-7">
       <SectionHeading
-        eyebrow="Execution"
-        title="Jobs"
-        description="Track backup runs as a timeline: what started, what finished, what failed, and where attention is needed."
+        eyebrow={t('Execution')}
+        title={t('Jobs')}
+        description={t('Track backup runs as a timeline: what started, what finished, what failed, and where attention is needed.')}
         action={
           <Button variant="secondary" onClick={() => jobsQuery.refetch()} disabled={jobsQuery.isFetching}>
             <RefreshCw className={jobsQuery.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-            Refresh
+            {t('Refresh')}
           </Button>
         }
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <JobMetric icon={<Activity />} label="Total runs" value={stats.total} />
-        <JobMetric icon={<CheckCircle2 />} label="Completed" value={stats.completed} tone="success" />
-        <JobMetric icon={<XCircle />} label="Failed" value={stats.failed} tone="danger" />
-        <JobMetric icon={<TimerReset />} label="Running" value={stats.running} tone="accent" />
+        <JobMetric icon={<Activity />} label={t('Total runs')} value={stats.total} />
+        <JobMetric icon={<CheckCircle2 />} label={t('Completed')} value={stats.completed} tone="success" />
+        <JobMetric icon={<XCircle />} label={t('Failed')} value={stats.failed} tone="danger" />
+        <JobMetric icon={<TimerReset />} label={t('Running')} value={stats.running} tone="accent" />
       </div>
 
       <Card>
@@ -126,7 +132,7 @@ export function JobsPage() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by job, policy, agent, status, or error..."
+              placeholder={t('Search by job, policy, agent, status, or error...')}
               className="pl-10"
             />
           </div>
@@ -142,7 +148,7 @@ export function JobsPage() {
                     : 'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground'
                 }
               >
-                {status}
+                {t(status)}
               </button>
             ))}
           </div>
@@ -153,17 +159,17 @@ export function JobsPage() {
         <Card>
           <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
             <Spinner />
-            Loading jobs...
+            {t('Loading jobs...')}
           </CardContent>
         </Card>
       ) : jobsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
-          title="Jobs could not be loaded"
-          description="Check the API container and retry the execution timeline."
+          title={t('Jobs could not be loaded')}
+          description={t('Check the API container and retry the execution timeline.')}
           action={
             <Button variant="secondary" onClick={() => jobsQuery.refetch()}>
-              Retry
+              {t('Retry')}
             </Button>
           }
         />
@@ -177,6 +183,7 @@ export function JobsPage() {
                   job={job}
                   agentLabel={formatAgentLabel(job, agentsById)}
                   title={formatJobTitle(job, policiesById)}
+                  t={t}
                 />
               ))}
             </div>
@@ -184,11 +191,11 @@ export function JobsPage() {
         </Card>
       ) : (
         <EmptyState
-          title={jobs.length ? 'No jobs match these filters' : 'No jobs yet'}
+          title={jobs.length ? t('No jobs match these filters') : t('No jobs yet')}
           description={
             jobs.length
-              ? 'Clear the search or switch the status filter.'
-              : 'Execution history will appear here after policies run.'
+              ? t('Clear the search or switch the status filter.')
+              : t('Execution history will appear here after policies run.')
           }
         />
       )}
@@ -235,10 +242,12 @@ function JobRow({
   job,
   title,
   agentLabel,
+  t,
 }: {
   job: Job
   title: string
   agentLabel: string
+  t: (key: string) => string
 }) {
   const hasDuration = job.completedAt && job.startedAt
   const durationSeconds = hasDuration
@@ -250,7 +259,7 @@ function JobRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-medium text-foreground">{title}</p>
-          <Badge variant={statusVariant[job.status]}>{job.status}</Badge>
+          <Badge variant={statusVariant[job.status]}>{t(job.status)}</Badge>
         </div>
         <p className="mt-1 truncate text-sm text-muted-foreground">
           {agentLabel}
@@ -258,10 +267,10 @@ function JobRow({
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <JobFact label="Started" value={formatRelativeTime(job.startedAt)} />
+        <JobFact label={t('Started')} value={formatRelativeTime(job.startedAt)} />
         <JobFact
-          label="Duration"
-          value={durationSeconds === null ? (job.status === 'running' ? 'Running now' : 'Unknown') : formatDurationSeconds(durationSeconds)}
+          label={t('Duration')}
+          value={durationSeconds === null ? (job.status === 'running' ? t('Running now') : t('Unknown')) : formatDurationSeconds(durationSeconds)}
         />
       </div>
 

@@ -10,6 +10,8 @@ import { getAgents } from '@/entities/agent/api'
 import { getPolicies, togglePolicy } from '@/entities/policy/api'
 import type { BackupPolicy } from '@/entities/policy/model/types'
 import { formatDateTime, formatDurationSeconds } from '@/shared/lib/format'
+import { useI18n } from '@/shared/i18n'
+import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -19,14 +21,14 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
 
-function formatPolicyType(type: BackupPolicy['type']) {
+function formatPolicyType(type: BackupPolicy['type'], t: (key: string) => string) {
   switch (type) {
     case 'postgres':
-      return 'PostgreSQL dump'
+      return t('PostgreSQL dump')
     case 'mysql':
-      return 'MySQL dump'
+      return t('MySQL dump')
     default:
-      return 'Filesystem'
+      return t('Filesystem')
   }
 }
 
@@ -41,6 +43,8 @@ function formatPolicyTarget(policy: BackupPolicy) {
 }
 
 export function PoliciesPage() {
+  const { t } = useI18n()
+  const liveQueryOptions = useLiveQueryOptions()
   const [search, setSearch] = useState('')
   const [editingPolicy, setEditingPolicy] = useState<BackupPolicy | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -54,21 +58,23 @@ export function PoliciesPage() {
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
+    ...liveQueryOptions,
   })
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
     queryFn: getPolicies,
+    ...liveQueryOptions,
   })
 
   const toggleMutation = useMutation({
     mutationFn: togglePolicy,
     onSuccess: () => {
-      toast.success('Policy state updated')
+      toast.success(t('Policy state updated'))
       void queryClient.invalidateQueries({ queryKey: queryKeys.policies })
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to toggle policy')
+      toast.error(error instanceof Error ? error.message : t('Unable to toggle policy'))
     },
   })
 
@@ -85,7 +91,7 @@ export function PoliciesPage() {
       [
         policy.name,
         formatPolicyTarget(policy),
-        formatPolicyType(policy.type),
+        formatPolicyType(policy.type, t),
         policy.databaseSettings?.databaseName ?? '',
         policy.databaseSettings?.host ?? '',
         agentNameMap.get(policy.agentId) ?? '',
@@ -100,9 +106,9 @@ export function PoliciesPage() {
   return (
     <div className="space-y-8">
       <SectionHeading
-        eyebrow="Policies"
-        title="Backup scheduling rules"
-        description="Create filesystem backup schedules or logical database dump policies without losing visibility into the target agent and next execution window."
+        eyebrow={t('Policies')}
+        title={t('Backup scheduling rules')}
+        description={t('Create filesystem backup schedules or logical database dump policies without losing visibility into the target agent and next execution window.')}
         action={
           canWrite ? (
             <Button
@@ -111,7 +117,7 @@ export function PoliciesPage() {
                 setIsDialogOpen(true)
               }}
             >
-              Create policy
+              {t('Create policy')}
             </Button>
           ) : null
         }
@@ -123,14 +129,14 @@ export function PoliciesPage() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search policy, target, type or agent"
+            placeholder={t('Search policy, target, type or agent')}
             className="pl-10"
           />
         </div>
         <Select value={policyFilter} onChange={(event) => setPolicyFilter(event.target.value as typeof policyFilter)}>
-          <option value="all">All policies</option>
-          <option value="enabled">Enabled only</option>
-          <option value="disabled">Disabled only</option>
+          <option value="all">{t('All policies')}</option>
+          <option value="enabled">{t('Enabled only')}</option>
+          <option value="disabled">{t('Disabled only')}</option>
         </Select>
       </Card>
 
@@ -142,7 +148,7 @@ export function PoliciesPage() {
                 <tr>
                   {['Policy', 'Type', 'Agent', 'Target', 'Interval', 'Next run', 'Last run', 'State', 'Actions'].map((label) => (
                     <th key={label} className="px-4 py-3 font-medium">
-                      {label}
+                      {t(label)}
                     </th>
                   ))}
                 </tr>
@@ -151,15 +157,15 @@ export function PoliciesPage() {
                 {filteredPolicies.map((policy) => (
                   <tr key={policy.id} className="border-t border-surface-200">
                     <td className="px-4 py-3 font-medium text-ink-950">{policy.name}</td>
-                    <td className="px-4 py-3 text-ink-800">{formatPolicyType(policy.type)}</td>
-                    <td className="px-4 py-3 text-ink-800">{agentNameMap.get(policy.agentId) ?? 'Unknown agent'}</td>
+                    <td className="px-4 py-3 text-ink-800">{formatPolicyType(policy.type, t)}</td>
+                    <td className="px-4 py-3 text-ink-800">{agentNameMap.get(policy.agentId) ?? t('Unknown agent')}</td>
                     <td className="px-4 py-3 text-ink-800">{formatPolicyTarget(policy)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDurationSeconds(policy.intervalSeconds)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDateTime(policy.nextRunAt)}</td>
                     <td className="px-4 py-3 text-ink-800">{formatDateTime(policy.lastRunAt)}</td>
                     <td className="px-4 py-3">
                       <Badge tone={policy.isEnabled ? 'success' : 'neutral'}>
-                        {policy.isEnabled ? 'enabled' : 'disabled'}
+                        {policy.isEnabled ? t('enabled') : t('disabled')}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
@@ -173,19 +179,19 @@ export function PoliciesPage() {
                               setIsDialogOpen(true)
                             }}
                           >
-                            Edit
+                            {t('Edit')}
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => toggleMutation.mutate(policy.id)}
                           >
-                            Toggle
+                            {t('Toggle')}
                           </Button>
                         </div>
                       ) : (
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-ink-800/55">
-                          Read only
+                          {t('Read only')}
                         </span>
                       )}
                     </td>
@@ -196,7 +202,7 @@ export function PoliciesPage() {
           </div>
         </Card>
       ) : (
-        <EmptyState title="No policies found" description="Adjust the filter or create the first filesystem or database backup policy for an approved agent." />
+        <EmptyState title={t('No policies found')} description={t('Adjust the filter or create the first filesystem or database backup policy for an approved agent.')} />
       )}
 
       <PolicyFormDialog

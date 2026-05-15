@@ -6,11 +6,22 @@ import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { changeOwnPassword } from '@/entities/auth/api'
+import {
+  availableLanguages,
+  availableRefreshIntervals,
+  formatRoleLabel,
+  useI18n,
+  type DateStyle,
+  type Language,
+  type RefreshInterval,
+} from '@/shared/i18n'
+import { env } from '@/shared/config/env'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
+import { Select } from '@/shared/ui/Select'
 
 const accountPasswordSchema = z
   .object({
@@ -25,19 +36,11 @@ const accountPasswordSchema = z
 
 type AccountPasswordValues = z.infer<typeof accountPasswordSchema>
 
-function formatRole(role: string | undefined) {
-  switch (role) {
-    case 'admin':
-      return 'Admin'
-    case 'operator':
-      return 'Operator'
-    default:
-      return 'Viewer'
-  }
-}
-
 export function AccountPage() {
+  const { dateStyle, language, refreshInterval, setDateStyle, setLanguage, setRefreshInterval, t } = useI18n()
   const user = useAuthStore((state) => state.user)
+  const isLive = env.apiMode === 'live'
+  const formError = (message?: string) => (message ? t(message) : undefined)
   const form = useForm<AccountPasswordValues>({
     resolver: zodResolver(accountPasswordSchema),
     mode: 'onChange',
@@ -51,7 +54,7 @@ export function AccountPage() {
   const mutation = useMutation({
     mutationFn: (values: AccountPasswordValues) => changeOwnPassword(values.currentPassword, values.newPassword),
     onSuccess: () => {
-      toast.success('Password updated')
+      toast.success(t('Password updated'))
       form.reset({
         currentPassword: '',
         newPassword: '',
@@ -59,77 +62,140 @@ export function AccountPage() {
       })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to update password')
+      toast.error(error instanceof Error ? error.message : t('Unable to update password'))
     },
   })
 
   return (
     <div className="space-y-8">
       <SectionHeading
-        eyebrow="Account"
-        title="Identity and password"
-        description="Review the active console identity and change the current password without involving another administrator."
+        eyebrow={t('Account')}
+        title={t('Identity and password')}
+        description={t('Review the active console identity and change the current password without involving another administrator.')}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_360px]">
         <Card className="space-y-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">Current session</p>
-            <h2 className="mt-3 text-2xl font-semibold text-ink-950">{user?.username ?? 'Unknown user'}</h2>
+            <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Current session')}</p>
+            <h2 className="mt-3 text-2xl font-semibold text-ink-950">{user?.username ?? t('Unknown user')}</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="neutral">Signed in</Badge>
+            <Badge tone="neutral">{t('Signed in')}</Badge>
             <Badge tone={user?.role === 'admin' ? 'warning' : user?.role === 'operator' ? 'success' : 'neutral'}>
-              {formatRole(user?.role)}
+              {formatRoleLabel(user?.role, t)}
             </Badge>
           </div>
           <p className="text-sm text-ink-800/75">
-            This view is available to administrators, operators and viewers. Only the current password is accepted for self-service password rotation.
+            {t('This view is available to administrators, operators and viewers. Only the current password is accepted for self-service password rotation.')}
           </p>
         </Card>
 
         <Card className="space-y-5">
           <div>
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">Password</p>
-            <h3 className="mt-3 text-2xl font-semibold text-ink-950">Change your password</h3>
+            <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Password')}</p>
+            <h3 className="mt-3 text-2xl font-semibold text-ink-950">{t('Change your password')}</h3>
           </div>
 
           <form className="space-y-5" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="account-current-password">
-                Current password
+                {t('Current password')}
               </label>
-              <Input id="account-current-password" type="password" placeholder="Enter current password" {...form.register('currentPassword')} />
+              <Input id="account-current-password" type="password" placeholder={t('Enter current password')} {...form.register('currentPassword')} />
               {form.formState.errors.currentPassword ? (
-                <p className="text-sm text-danger-500">{form.formState.errors.currentPassword.message}</p>
+                <p className="text-sm text-danger-500">{formError(form.formState.errors.currentPassword.message)}</p>
               ) : null}
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="account-new-password">
-                New password
+                {t('New password')}
               </label>
-              <Input id="account-new-password" type="password" placeholder="Choose a stronger password" {...form.register('newPassword')} />
+              <Input id="account-new-password" type="password" placeholder={t('Choose a stronger password')} {...form.register('newPassword')} />
               {form.formState.errors.newPassword ? (
-                <p className="text-sm text-danger-500">{form.formState.errors.newPassword.message}</p>
+                <p className="text-sm text-danger-500">{formError(form.formState.errors.newPassword.message)}</p>
               ) : null}
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-900" htmlFor="account-confirm-password">
-                Confirm new password
+                {t('Confirm new password')}
               </label>
-              <Input id="account-confirm-password" type="password" placeholder="Repeat the new password" {...form.register('confirmPassword')} />
+              <Input id="account-confirm-password" type="password" placeholder={t('Repeat the new password')} {...form.register('confirmPassword')} />
               {form.formState.errors.confirmPassword ? (
-                <p className="text-sm text-danger-500">{form.formState.errors.confirmPassword.message}</p>
+                <p className="text-sm text-danger-500">{formError(form.formState.errors.confirmPassword.message)}</p>
               ) : null}
             </div>
 
             <Button type="submit" disabled={!form.formState.isValid || mutation.isPending}>
-              Update password
+              {mutation.isPending ? t('Updating...') : t('Update password')}
             </Button>
           </form>
         </Card>
+
+        <div className="space-y-4">
+          <Card className="space-y-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Interface preferences')}</p>
+              <h3 className="mt-3 text-2xl font-semibold text-ink-950">{t('Language settings')}</h3>
+              <p className="mt-2 text-sm text-ink-800/75">
+                {t('Tune the console to the way you read operational data.')}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block space-y-2 text-sm font-medium text-ink-900">
+                <span>{t('Language')}</span>
+                <Select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
+                  {availableLanguages.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              <label className="block space-y-2 text-sm font-medium text-ink-900">
+                <span>{t('Date and time format')}</span>
+                <Select value={dateStyle} onChange={(event) => setDateStyle(event.target.value as DateStyle)}>
+                  <option value="regional">{t('Regional format')}</option>
+                  <option value="compact">{t('Compact format')}</option>
+                </Select>
+              </label>
+            </div>
+          </Card>
+
+          <Card className="space-y-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.18em] text-ink-800/65">{t('Data refresh')}</p>
+              <h3 className="mt-3 text-xl font-semibold text-ink-950">{t('Auto-refresh cadence')}</h3>
+              <p className="mt-2 text-sm text-ink-800/75">
+                {t('Choose how often live pages ask the API for fresh data.')}
+              </p>
+            </div>
+            <label className="block space-y-2 text-sm font-medium text-ink-900">
+              <span>{t('Auto-refresh cadence')}</span>
+              <Select
+                value={refreshInterval}
+                onChange={(event) => setRefreshInterval(event.target.value as RefreshInterval)}
+                disabled={!isLive}
+              >
+                {availableRefreshIntervals.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <div className="mt-2 rounded-2xl border border-slate-200/80 bg-white/70 p-4 text-sm text-ink-800/75">
+              <p>{t('Applies to dashboard, agents, approvals, policies, jobs, and backups.')}</p>
+              <p className="mt-3 font-semibold text-ink-950">
+                {isLive ? t('Live data') : t('Demo data')}
+              </p>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   )
