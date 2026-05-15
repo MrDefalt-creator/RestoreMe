@@ -5,13 +5,17 @@ import { useI18n } from '@/shared/i18n'
 
 export function useLiveQueryOptions() {
   const { refreshIntervalMs } = useI18n()
+  const isManual = refreshIntervalMs === false
 
   return useMemo(
     () => ({
-      staleTime: refreshIntervalMs === false ? 60_000 : 10_000,
+      staleTime: isManual ? Number.POSITIVE_INFINITY : 10_000,
       refetchInterval: env.apiMode === 'live' ? refreshIntervalMs : false,
       refetchIntervalInBackground: false,
+      refetchOnMount: !isManual,
+      refetchOnReconnect: !isManual,
+      refetchOnWindowFocus: !isManual,
     }),
-    [refreshIntervalMs],
+    [isManual, refreshIntervalMs],
   )
 }

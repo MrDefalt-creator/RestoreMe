@@ -7,14 +7,17 @@ export function getLiveRefetchInterval() {
   return env.apiMode === 'live' ? getRefreshIntervalMs() : false
 }
 
+const initialRefetchInterval = getLiveRefetchInterval()
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 10_000,
-      refetchInterval: getLiveRefetchInterval(),
+      staleTime: initialRefetchInterval === false ? Number.POSITIVE_INFINITY : 10_000,
+      refetchInterval: initialRefetchInterval,
       refetchIntervalInBackground: false,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
+      refetchOnMount: initialRefetchInterval !== false,
+      refetchOnWindowFocus: initialRefetchInterval !== false,
+      refetchOnReconnect: initialRefetchInterval !== false,
       retry: 1,
     },
     mutations: {

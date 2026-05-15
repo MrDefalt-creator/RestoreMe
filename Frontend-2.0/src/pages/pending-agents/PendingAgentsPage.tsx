@@ -14,10 +14,13 @@ import { formatDateTime } from '@/shared/lib/format'
 import { toast } from 'sonner'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useAuthStore } from '@/app/store/auth-store'
 
 export function PendingAgentsPage() {
   const { t } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
+  const role = useAuthStore((state) => state.user?.role)
+  const canApprove = role === 'admin' || role === 'operator'
   const [selectedAgent, setSelectedAgent] = useState<PendingAgent | null>(null)
   const [rejectingAgent, setRejectingAgent] = useState<PendingAgent | null>(null)
   const [agentName, setAgentName] = useState('')
@@ -98,27 +101,33 @@ export function PendingAgentsPage() {
                   <PendingDetail label={t('Status')} value={t(agent.status)} />
                 </div>
 
-                <div className="flex gap-3">
-                  <Button
-                    variant="success"
-                    onClick={() => {
-                      setSelectedAgent(agent)
-                      setAgentName(agent.machineName)
-                    }}
-                    disabled={approveMutation.isPending || rejectMutation.isPending}
-                    className="flex-1"
-                  >
-                    {approveMutation.isPending ? t('Approving...') : t('Approve')}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    className="flex-1"
-                    onClick={() => setRejectingAgent(agent)}
-                    disabled={approveMutation.isPending || rejectMutation.isPending}
-                  >
-                    {rejectMutation.isPending ? t('Rejecting...') : t('Reject')}
-                  </Button>
-                </div>
+                {canApprove ? (
+                  <div className="flex gap-3">
+                    <Button
+                      variant="success"
+                      onClick={() => {
+                        setSelectedAgent(agent)
+                        setAgentName(agent.machineName)
+                      }}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                      className="flex-1"
+                    >
+                      {approveMutation.isPending ? t('Approving...') : t('Approve')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="flex-1"
+                      onClick={() => setRejectingAgent(agent)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                    >
+                      {rejectMutation.isPending ? t('Rejecting...') : t('Reject')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border bg-secondary p-3 text-sm text-muted-foreground">
+                    {t('Read only')}
+                  </div>
+                )}
 
                 {(approveMutation.error || rejectMutation.error) && (
                   <div className="rounded-lg border border-destructive/20 bg-destructive/8 p-3 text-sm text-destructive">
@@ -137,7 +146,7 @@ export function PendingAgentsPage() {
         )}
       </div>
       <Dialog
-        open={Boolean(selectedAgent)}
+        open={canApprove && Boolean(selectedAgent)}
         onClose={() => setSelectedAgent(null)}
         title={t('Approve pending agent')}
         description={t('Assign a readable name before this machine becomes available for backup policies.')}
@@ -176,7 +185,7 @@ export function PendingAgentsPage() {
         </div>
       </Dialog>
       <Dialog
-        open={Boolean(rejectingAgent)}
+        open={canApprove && Boolean(rejectingAgent)}
         onClose={() => setRejectingAgent(null)}
         title={t('Reject pending agent')}
         description={t('The agent will be told that this registration request was rejected and will stop waiting for approval.')}

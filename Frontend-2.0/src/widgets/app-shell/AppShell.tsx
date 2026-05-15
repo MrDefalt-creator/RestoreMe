@@ -7,12 +7,14 @@ import {
   LogOut,
   Menu,
   Moon,
+  RefreshCw,
   ShieldCheck,
   Sun,
   UserRound,
   Users,
   Workflow,
 } from 'lucide-react'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuthStore } from '@/app/store/auth-store'
@@ -47,6 +49,8 @@ export function AppShell() {
   const navigate = useNavigate()
   const { t } = useI18n()
   const { theme, setTheme } = useTheme()
+  const queryClient = useQueryClient()
+  const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
   const user = useAuthStore((state) => state.user)
@@ -163,6 +167,15 @@ export function AppShell() {
                   title={t('Toggle navigation')}
                 >
                   <Menu className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => void queryClient.invalidateQueries()}
+                  disabled={isFetching > 0}
+                  title={t('Refresh data')}
+                >
+                  <RefreshCw className={cn('h-4 w-4', isFetching > 0 ? 'animate-spin' : '')} />
                 </Button>
                 <Button
                   variant="secondary"

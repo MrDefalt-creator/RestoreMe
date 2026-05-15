@@ -8,15 +8,17 @@ import { router } from '@/app/router/router'
 import { env } from '@/shared/config/env'
 import { getRefreshIntervalMs, I18nProvider, useI18n } from '@/shared/i18n'
 
+const initialRefetchInterval = import.meta.env.VITE_API_MODE === 'live' ? getRefreshIntervalMs() : false
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: import.meta.env.VITE_API_MODE === 'live' ? 5_000 : 60_000,
-      refetchInterval: import.meta.env.VITE_API_MODE === 'live' ? getRefreshIntervalMs() : false,
+      staleTime: initialRefetchInterval === false ? Number.POSITIVE_INFINITY : 5_000,
+      refetchInterval: initialRefetchInterval,
       refetchIntervalInBackground: false,
-      refetchOnMount: import.meta.env.VITE_API_MODE === 'live' ? 'always' : true,
-      refetchOnReconnect: true,
-      refetchOnWindowFocus: true,
+      refetchOnMount: initialRefetchInterval !== false,
+      refetchOnReconnect: initialRefetchInterval !== false,
+      refetchOnWindowFocus: initialRefetchInterval !== false,
       retry: 1,
     },
   },
@@ -41,13 +43,17 @@ function QueryRefreshPreferences() {
   const { refreshIntervalMs } = useI18n()
 
   useEffect(() => {
+    const isManual = refreshIntervalMs === false
     const defaults = client.getDefaultOptions()
     client.setDefaultOptions({
       ...defaults,
       queries: {
         ...defaults.queries,
-        staleTime: refreshIntervalMs === false ? 60_000 : 5_000,
+        staleTime: isManual ? Number.POSITIVE_INFINITY : 5_000,
         refetchInterval: env.isLive ? refreshIntervalMs : false,
+        refetchOnMount: !isManual,
+        refetchOnReconnect: !isManual,
+        refetchOnWindowFocus: !isManual,
       },
     })
   }, [client, refreshIntervalMs])

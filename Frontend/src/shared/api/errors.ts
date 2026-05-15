@@ -26,7 +26,8 @@ export function normalizeApiError(error: unknown): ApiError {
     }
 
     const status = error.response.status ?? null
-    return new ApiError(readResponseMessage(error.response.data) ?? messageForStatus(status), status, error.response.data)
+    const responseMessage = readResponseMessage(error.response.data)
+    return new ApiError(responseMessage ? localizeServerMessage(responseMessage) : messageForStatus(status), status, error.response.data)
   }
 
   if (error instanceof Error) {
@@ -104,8 +105,78 @@ function messageForStatus(status: number | null): string {
 }
 
 function messageFor(key: keyof typeof messages.en): string {
-  const language = typeof window !== 'undefined' && window.localStorage.getItem('restoreme-language') === 'ru' ? 'ru' : 'en'
+  const language = getCurrentLanguage()
   return messages[language][key]
+}
+
+function getCurrentLanguage(): keyof typeof messages {
+  return typeof window !== 'undefined' && window.localStorage.getItem('restoreme-language') === 'ru' ? 'ru' : 'en'
+}
+
+function localizeServerMessage(message: string): string {
+  if (getCurrentLanguage() !== 'ru') {
+    return message
+  }
+
+  const exactMessage = serverMessagesRu[message]
+  if (exactMessage) {
+    return exactMessage
+  }
+
+  if (/^Job with id .+ does not exist$/i.test(message)) {
+    return 'Задание не найдено.'
+  }
+
+  if (/^Agent with id .+ does not exist$/i.test(message)) {
+    return 'Агент не найден.'
+  }
+
+  if (/^Policy with id .+ does not exist$/i.test(message)) {
+    return 'Политика не найдена.'
+  }
+
+  if (/^Artifact with id .+ does not exist$/i.test(message)) {
+    return 'Артефакт не найден.'
+  }
+
+  if (/^Unsupported user role/i.test(message)) {
+    return 'Эта роль пользователя не поддерживается.'
+  }
+
+  if (/^Unsupported policy type/i.test(message)) {
+    return 'Этот тип политики не поддерживается.'
+  }
+
+  return message
+}
+
+const serverMessagesRu: Record<string, string> = {
+  'Invalid username or password.': 'Неверный логин или пароль.',
+  'Current password is incorrect.': 'Текущий пароль указан неверно.',
+  'User with the same username already exists.': 'Пользователь с таким логином уже существует.',
+  'User not found.': 'Пользователь не найден.',
+  'At least one active administrator must remain in the system.': 'В системе должен остаться хотя бы один активный администратор.',
+  'You cannot change the role of the current signed-in account.': 'Нельзя изменить роль текущей учетной записи.',
+  'You cannot change the status of the current signed-in account.': 'Нельзя изменить статус текущей учетной записи.',
+  'You cannot delete the current signed-in account.': 'Нельзя удалить текущую учетную запись.',
+  'Agent already exists': 'Агент уже существует.',
+  'Agent not found': 'Агент не найден.',
+  'Pending agent not found': 'Заявка агента не найдена.',
+  "This agent doesn't exist": 'Агент не найден.',
+  'Approved agent requests cannot be rejected.': 'Уже подтвержденную заявку агента нельзя отклонить.',
+  'Policy with the same name already exists for this agent.': 'У этого агента уже есть политика с таким названием.',
+  'Policy not found': 'Политика не найдена.',
+  'Source path is required for filesystem policies.': 'Для файловой политики нужно указать исходный путь.',
+  'Database settings are required for logical database backup policies.': 'Для политики дампа базы данных нужно заполнить настройки базы.',
+  'Database name is required for logical database backup policies.': 'Для политики дампа базы данных нужно указать имя базы.',
+  'MySQL logical backups currently require credentials authentication mode.': 'Для MySQL-дампов сейчас требуется режим логина и пароля.',
+  'Username is required when credentials authentication mode is selected.': 'Для выбранного режима авторизации нужно указать логин.',
+  'Password is required when credentials authentication mode is selected.': 'Для выбранного режима авторизации нужно указать пароль.',
+  'PostgreSQL policy type requires PostgreSQL database settings.': 'Для PostgreSQL-политики нужны настройки PostgreSQL.',
+  'MySQL policy type requires MySQL database settings.': 'Для MySQL-политики нужны настройки MySQL.',
+  'Backup job not found.': 'Задание резервного копирования не найдено.',
+  'Backup job does not belong to policy.': 'Задание не относится к этой политике.',
+  'Backup job is not running.': 'Задание сейчас не выполняется.',
 }
 
 const messages = {

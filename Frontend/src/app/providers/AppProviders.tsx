@@ -34,13 +34,17 @@ function QueryRefreshPreferences() {
   const { refreshIntervalMs } = useI18n()
 
   useEffect(() => {
+    const isManual = refreshIntervalMs === false
     const defaults = client.getDefaultOptions()
     client.setDefaultOptions({
       ...defaults,
       queries: {
         ...defaults.queries,
-        staleTime: refreshIntervalMs === false ? 60_000 : 10_000,
+        staleTime: isManual ? Number.POSITIVE_INFINITY : 10_000,
         refetchInterval: env.apiMode === 'live' ? refreshIntervalMs : false,
+        refetchOnMount: !isManual,
+        refetchOnReconnect: !isManual,
+        refetchOnWindowFocus: !isManual,
       },
     })
   }, [client, refreshIntervalMs])

@@ -53,6 +53,7 @@ export function PoliciesPage() {
   })
 
   const policies = policiesQuery.data ?? []
+  const agentNameMap = new Map((agentsQuery.data ?? []).map((agent) => [agent.id, agent.name]))
   const searchValue = search.trim().toLowerCase()
   const filteredPolicies = policies.filter((policy) => {
     const matchesFilter =
@@ -61,7 +62,14 @@ export function PoliciesPage() {
 
     const matchesSearch =
       !searchValue ||
-      [policy.name, policy.type, policy.sourcePath].join(' ').toLowerCase().includes(searchValue)
+      [
+        policy.name,
+        formatPolicyType(policy.type, t),
+        formatPolicyTarget(policy),
+        policy.databaseSettings?.databaseName ?? '',
+        policy.databaseSettings?.host ?? '',
+        agentNameMap.get(policy.agentId) ?? '',
+      ].join(' ').toLowerCase().includes(searchValue)
 
     return matchesFilter && matchesSearch
   })
@@ -141,8 +149,8 @@ export function PoliciesPage() {
                     <tr key={policy.id} className="hover:bg-secondary/35">
                       <Td>{policy.name}</Td>
                       <Td className="uppercase tracking-wider">{formatPolicyType(policy.type, t)}</Td>
-                      <Td className="max-w-[150px] truncate">
-                        {policy.sourcePath || t('N/A')}
+                      <Td className="max-w-[220px] truncate">
+                        {formatPolicyTarget(policy) || t('N/A')}
                       </Td>
                       <Td>{formatDurationSeconds(policy.intervalSeconds)}</Td>
                       <Td className="text-muted-foreground">
@@ -230,4 +238,14 @@ function formatPolicyType(type: string, t: (key: string) => string): string {
     default:
       return t('Filesystem')
   }
+}
+
+function formatPolicyTarget(policy: BackupPolicy): string {
+  if (policy.type === 'filesystem') {
+    return policy.sourcePath
+  }
+
+  const databaseName = policy.databaseSettings?.databaseName ?? 'unknown-db'
+  const host = policy.databaseSettings?.host || 'local'
+  return `${databaseName} @ ${host}`
 }

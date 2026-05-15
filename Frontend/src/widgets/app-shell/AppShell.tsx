@@ -1,4 +1,5 @@
-import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
+import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, RefreshCw, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuthStore, type AuthRole } from '@/app/store/auth-store'
@@ -32,6 +33,8 @@ const navigation: NavItem[] = [
 export function AppShell() {
   const navigate = useNavigate()
   const { t } = useI18n()
+  const queryClient = useQueryClient()
+  const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
   const user = useAuthStore((state) => state.user)
@@ -89,6 +92,8 @@ export function AppShell() {
                     sidebarState === 'expanded' ? 'h-11 w-11' : 'h-12 w-12',
                   )}
                   onClick={toggleSidebar}
+                  aria-label={sidebarState === 'expanded' ? t('Collapse sidebar') : t('Expand sidebar')}
+                  title={sidebarState === 'expanded' ? t('Collapse sidebar') : t('Expand sidebar')}
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
@@ -187,6 +192,15 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => void queryClient.invalidateQueries()}
+                disabled={isFetching > 0}
+                title={t('Refresh data')}
+              >
+                <RefreshCw className={cn('h-4 w-4', isFetching > 0 ? 'animate-spin' : '')} />
+                {t('Refresh')}
+              </Button>
               <div className="hidden items-center gap-3 rounded-2xl border border-surface-200 bg-white/80 px-3 py-2 md:flex">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-100 text-ink-900">
                   <UserRound className="h-4 w-4" />
