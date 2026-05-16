@@ -89,6 +89,12 @@ public class BackupJobsService
             throw new ApplicationException($"Job with id {jobId} does not exist");
         }
 
+        var artifacts = await _backupArtifactRepository.GetArtifactsByJobIdAsync(jobId);
+        if (artifacts.Count == 0)
+        {
+            throw new InvalidOperationException("Backup job cannot be completed before a verified artifact is registered.");
+        }
+
         job.Status = BackupJobStatus.Completed;
         job.CompletedAt = DateTime.UtcNow;
         job.ErrorMessage = null;
@@ -114,12 +120,40 @@ public class BackupJobsService
         await _backupJobRepository.SaveChangesAsync();
     }
 
-    public async Task AddArtifact(Guid jobId, string fileName, string objectKey, long size, string checksum)
+    public async Task AddArtifact(
+        Guid jobId,
+        string fileName,
+        string objectKey,
+        long size,
+        string checksum,
+        CancellationToken cancellationToken = default)
     {
         var job = await _backupJobRepository.GetBackupJob(jobId);
         if (job == null)
         {
             throw new ApplicationException($"Job with id {jobId} does not exist");
+        }
+
+        if (job.Status != BackupJobStatus.Running)
+        {
+            throw new InvalidOperationException("Backup job is not running.");
+        }
+
+        var expectedObjectPrefix = $"{job.AgentId}/{job.PolicyId}/{job.Id}/";
+        if (!objectKey.StartsWith(expectedObjectPrefix, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Artifact object key does not belong to this backup job.");
+        }
+
+        if (size <= 0)
+        {
+            throw new InvalidOperationException("Artifact size must be greater than zero bytes.");
+        }
+
+        var objectInfo = await _storageAccessService.GetObjectInfoAsync(objectKey, cancellationToken);
+        if (objectInfo.SizeBytes != size)
+        {
+            throw new InvalidOperationException("Artifact size does not match the uploaded object.");
         }
 
         var backupArtifact = new BackupArtifact

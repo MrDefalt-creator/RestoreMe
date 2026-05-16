@@ -24,6 +24,7 @@ public class PoliciesService
         name = name.Trim();
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
+        ValidateInterval(interval);
 
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
 
@@ -94,6 +95,7 @@ public class PoliciesService
         
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
+        ValidateInterval(intervalSeconds);
         
         policy.AgentId = agentId;
         policy.Type = policyType;
@@ -102,7 +104,7 @@ public class PoliciesService
         policy.IntervalSeconds = intervalSeconds;
         policy.IsEnabled = isEnabled;
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
-        policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id);
+        policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id, policy.DatabaseSettings);
         
         await _policyRepository.UpdatePolicy(policy);
         await _policyRepository.SaveChangesAsync();
@@ -181,7 +183,8 @@ public class PoliciesService
     private static BackupPolicyDatabaseSettings? BuildDatabaseSettings(
         BackupPolicyType policyType,
         BackupPolicyDatabaseSettingsDto? dto,
-        Guid policyId)
+        Guid policyId,
+        BackupPolicyDatabaseSettings? existingSettings = null)
     {
         if (policyType == BackupPolicyType.FileSystem)
         {
@@ -200,7 +203,7 @@ public class PoliciesService
         var host = string.IsNullOrWhiteSpace(dto.Host) ? null : dto.Host.Trim();
         var databaseName = dto.DatabaseName?.Trim();
         var username = string.IsNullOrWhiteSpace(dto.Username) ? null : dto.Username.Trim();
-        var password = string.IsNullOrWhiteSpace(dto.Password) ? null : dto.Password;
+        var password = string.IsNullOrWhiteSpace(dto.Password) ? existingSettings?.Password : dto.Password;
 
         if (string.IsNullOrWhiteSpace(databaseName))
         {
@@ -223,6 +226,10 @@ public class PoliciesService
             {
                 throw new InvalidOperationException("Password is required when credentials authentication mode is selected.");
             }
+        }
+        else
+        {
+            password = null;
         }
 
         return new BackupPolicyDatabaseSettings
@@ -268,6 +275,14 @@ public class PoliciesService
         if (policyType == BackupPolicyType.MySqlDump && engine != DatabaseEngine.MySql)
         {
             throw new InvalidOperationException("MySQL policy type requires MySQL database settings.");
+        }
+    }
+
+    private static void ValidateInterval(int intervalSeconds)
+    {
+        if (intervalSeconds <= 0)
+        {
+            throw new InvalidOperationException("Policy interval must be greater than zero seconds.");
         }
     }
 }

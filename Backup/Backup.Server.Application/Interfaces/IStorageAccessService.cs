@@ -16,4 +16,10 @@ public interface IStorageAccessService
     Task<Stream> OpenDownloadStreamAsync(
         string objectKey,
         CancellationToken cancellationToken);
+
+    Task<StorageObjectInfo> GetObjectInfoAsync(
+        string objectKey,
+        CancellationToken cancellationToken);
 }
+
+public sealed record StorageObjectInfo(long SizeBytes);

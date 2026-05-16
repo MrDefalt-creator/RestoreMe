@@ -102,15 +102,23 @@ public class PoliciesController : ControllerBase
     [HttpPut("{policyId:guid}")]
     public async Task<IActionResult> UpdatePolicy([FromRoute] Guid policyId, [FromBody] UpdateBackupPolicyRequest request)
     {
-        var policy = await _policiesService.UpdatePolicy(
-            policyId,
-            request.AgentId,
-            request.Type,
-            request.Name,
-            request.SourcePath,
-            request.IntervalSeconds,
-            request.IsEnabled,
-            request.DatabaseSettings);
+        BackupPolicy policy;
+        try
+        {
+            policy = await _policiesService.UpdatePolicy(
+                policyId,
+                request.AgentId,
+                request.Type,
+                request.Name,
+                request.SourcePath,
+                request.IntervalSeconds,
+                request.IsEnabled,
+                request.DatabaseSettings);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
 
         return Ok(MapPolicy(policy));
     }
@@ -156,7 +164,7 @@ public class PoliciesController : ControllerBase
             policy.CreatedAt,
             policy.NextRunAt,
             policy.LastRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings));
+            MapDatabaseSettings(policy.DatabaseSettings, includePassword: false));
     }
 
     private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)
@@ -168,7 +176,7 @@ public class PoliciesController : ControllerBase
             policy.SourcePath,
             policy.IsEnabled,
             policy.NextRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings));
+            MapDatabaseSettings(policy.DatabaseSettings, includePassword: true));
     }
 
     private static string MapPolicyType(BackupPolicyType type)
@@ -182,7 +190,9 @@ public class PoliciesController : ControllerBase
         };
     }
 
-    private static BackupPolicyDatabaseSettingsDto? MapDatabaseSettings(BackupPolicyDatabaseSettings? settings)
+    private static BackupPolicyDatabaseSettingsDto? MapDatabaseSettings(
+        BackupPolicyDatabaseSettings? settings,
+        bool includePassword)
     {
         if (settings == null)
         {
@@ -206,6 +216,6 @@ public class PoliciesController : ControllerBase
             settings.Port,
             settings.DatabaseName,
             settings.Username,
-            settings.Password);
+            includePassword ? settings.Password : null);
     }
 }

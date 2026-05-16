@@ -91,6 +91,7 @@ builder.Services.AddScoped<IBackupJobRepository, BackupJobRepository>();
 builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
@@ -246,6 +247,34 @@ static bool IsAllowedDevelopmentOrigin(
     }
 
     return IPAddress.TryParse(uri.Host, out var address) && IPAddress.IsLoopback(address);
+}
+
+static void ValidateProductionConfiguration(
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    JwtOptions jwtOptions)
+{
+    if (environment.IsDevelopment())
+    {
+        return;
+    }
+
+    if (string.Equals(
+            jwtOptions.SigningKey,
+            "ChangeMe-This-Is-Not-A-Secure-Production-Key",
+            StringComparison.Ordinal) ||
+        jwtOptions.SigningKey.Length < 32)
+    {
+        throw new InvalidOperationException("Production JWT signing key must be configured with a strong secret.");
+    }
+
+    var enrollmentToken = configuration["AgentEnrollment:EnrollmentToken"];
+    if (string.IsNullOrWhiteSpace(enrollmentToken) ||
+        string.Equals(enrollmentToken, "change-me-enrollment-token", StringComparison.Ordinal) ||
+        string.Equals(enrollmentToken, "restoreme-agent-enrollment-dev-token", StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException("Production agent enrollment token must be configured with a non-default secret.");
+    }
 }
 
 static async Task ApplyMigrationsAsync(WebApplication app)

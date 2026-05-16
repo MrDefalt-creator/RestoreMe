@@ -81,7 +81,15 @@ public class BackupJobsController : ControllerBase
             return Forbid();
         }
 
-        await _service.Complete(jobId);
+        try
+        {
+            await _service.Complete(jobId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+
         return Ok();
     }
 
@@ -107,7 +115,21 @@ public class BackupJobsController : ControllerBase
             return Forbid();
         }
 
-        await _service.AddArtifact(request.JobId, request.FileName, request.ObjectKey, request.Size, request.Checksum);
+        try
+        {
+            await _service.AddArtifact(
+                request.JobId,
+                request.FileName,
+                request.ObjectKey,
+                request.Size,
+                request.Checksum,
+                HttpContext.RequestAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+
         return Ok();
     }
 

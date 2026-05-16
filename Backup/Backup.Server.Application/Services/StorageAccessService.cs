@@ -93,6 +93,19 @@ public class StorageAccessService : IStorageAccessService
         return stream;
     }
 
+    public async Task<StorageObjectInfo> GetObjectInfoAsync(
+        string objectKey,
+        CancellationToken cancellationToken)
+    {
+        var objectStat = await _minioClient.StatObjectAsync(
+            new StatObjectArgs()
+                .WithBucket(_storageOptions.BucketName)
+                .WithObject(objectKey),
+            cancellationToken);
+
+        return new StorageObjectInfo(objectStat.Size);
+    }
+
     private static string? ResolvePublicEndpoint(
         string? configuredPublicEndpoint,
         string? publicServerBaseUrl,
