@@ -161,6 +161,9 @@ public class PoliciesService
         while (path.Contains("//"))
             path = path.Replace("//", "/");
 
+        if (path.Split('/').Any(segment => segment == ".."))
+            throw new InvalidOperationException("Source path must not contain directory traversal sequences.");
+
         return path;
     }
 

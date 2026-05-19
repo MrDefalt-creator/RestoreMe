@@ -259,11 +259,9 @@ static void ValidateProductionConfiguration(
         return;
     }
 
-    if (string.Equals(
-            jwtOptions.SigningKey,
-            "ChangeMe-This-Is-Not-A-Secure-Production-Key",
-            StringComparison.Ordinal) ||
-        jwtOptions.SigningKey.Length < 32)
+    if (string.Equals(jwtOptions.SigningKey, "ChangeMe-This-Is-Not-A-Secure-Production-Key", StringComparison.Ordinal) ||
+        string.Equals(jwtOptions.SigningKey, "RestoreMe-Development-Only-Replace-Before-Production-12345", StringComparison.Ordinal) ||
+        Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32)
     {
         throw new InvalidOperationException("Production JWT signing key must be configured with a strong secret.");
     }

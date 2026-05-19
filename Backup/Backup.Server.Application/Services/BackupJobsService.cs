@@ -139,6 +139,11 @@ public class BackupJobsService
             throw new InvalidOperationException("Backup job is not running.");
         }
 
+        if (string.IsNullOrWhiteSpace(fileName) || Path.GetFileName(fileName) != fileName)
+        {
+            throw new InvalidOperationException("Artifact file name must not contain directory path components.");
+        }
+
         var expectedObjectPrefix = $"{job.AgentId}/{job.PolicyId}/{job.Id}/";
         if (!objectKey.StartsWith(expectedObjectPrefix, StringComparison.Ordinal))
         {
