@@ -36,13 +36,10 @@ export function LoginPage() {
         username: data.username,
         password: data.password,
       })
-      if (data.rememberMe) {
-        localStorage.setItem('remember-me', 'true')
-      }
-      return response
+      return { ...response, rememberMe: data.rememberMe }
     },
     onSuccess: (response) => {
-      setSession(response.token, response.user)
+      setSession(response.token, response.user, response.rememberMe)
       toast.success(t('Welcome, {username}!', { username: response.user.username }))
       navigate('/', { replace: true })
     },

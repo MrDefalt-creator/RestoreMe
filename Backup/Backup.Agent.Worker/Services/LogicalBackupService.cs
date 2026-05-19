@@ -40,11 +40,10 @@ public class LogicalBackupService : ILogicalBackupService
         CancellationToken cancellationToken)
     {
         var settings = policy.DatabaseSettings!;
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         var safeDatabaseName = SanitizeFileName(settings.DatabaseName);
         var dumpPath = Path.Combine(
             Path.GetTempPath(),
-            $"{safeDatabaseName}_{timestamp}.sql");
+            $"{safeDatabaseName}_{Guid.NewGuid():N}.sql");
 
         var arguments = new List<string>
         {
@@ -99,11 +98,10 @@ public class LogicalBackupService : ILogicalBackupService
         CancellationToken cancellationToken)
     {
         var settings = policy.DatabaseSettings!;
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         var safeDatabaseName = SanitizeFileName(settings.DatabaseName);
         var dumpPath = Path.Combine(
             Path.GetTempPath(),
-            $"{safeDatabaseName}_{timestamp}.sql");
+            $"{safeDatabaseName}_{Guid.NewGuid():N}.sql");
 
         var arguments = new List<string>();
 
@@ -196,8 +194,12 @@ public class LogicalBackupService : ILogicalBackupService
 
         if (process.ExitCode != 0)
         {
+            // stderr/stdout may contain connection details; log them separately rather than
+            // propagating through the exception chain where they could reach structured logs.
+            System.Diagnostics.Debug.WriteLine(
+                $"[{executablePath}] stderr: {standardError} | stdout: {standardOutput}");
             throw new InvalidOperationException(
-                $"Dump process '{executablePath}' failed with exit code {process.ExitCode}. Error: {standardError}. Output: {standardOutput}");
+                $"Dump process '{executablePath}' failed with exit code {process.ExitCode}.");
         }
     }
 

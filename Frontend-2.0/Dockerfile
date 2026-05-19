@@ -20,6 +20,8 @@ RUN sed -i 's/^#LoadModule rewrite_module modules\/mod_rewrite.so/LoadModule rew
     && printf "<LocationMatch \"^/assets/.*\\.(js|css|svg|png|jpg|jpeg|gif|webp|ico|woff2?)$\">\n    Header set Cache-Control \"public, max-age=31536000, immutable\"\n</LocationMatch>\n<LocationMatch \"^/(index\\.html)?$\">\n    Header set Cache-Control \"no-cache, no-store, must-revalidate\"\n</LocationMatch>\n" > /usr/local/apache2/conf/extra/cache-control.conf \
     && echo "Include conf/extra/servername.conf" >> /usr/local/apache2/conf/httpd.conf \
     && echo "Include conf/extra/spa-routing.conf" >> /usr/local/apache2/conf/httpd.conf \
-    && echo "Include conf/extra/cache-control.conf" >> /usr/local/apache2/conf/httpd.conf
+    && echo "Include conf/extra/cache-control.conf" >> /usr/local/apache2/conf/httpd.conf \
+    && printf "Header always set X-Content-Type-Options \"nosniff\"\nHeader always set X-Frame-Options \"DENY\"\nHeader always set Referrer-Policy \"strict-origin-when-cross-origin\"\nHeader always set Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src *; font-src 'self';\"\n" > /usr/local/apache2/conf/extra/security-headers.conf \
+    && echo "Include conf/extra/security-headers.conf" >> /usr/local/apache2/conf/httpd.conf
 
 COPY --from=build /app/dist/ /usr/local/apache2/htdocs/

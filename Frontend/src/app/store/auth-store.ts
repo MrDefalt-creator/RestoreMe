@@ -70,7 +70,7 @@ export const useAuthStore = create<AuthStore>()(
     (set) => ({
       accessToken: null,
       user: null,
-      rememberMe: true,
+      rememberMe: false,
       setSession: (accessToken, user, rememberMe) => set({ accessToken, user, rememberMe }),
       clearSession: () => set({ accessToken: null, user: null, rememberMe: true }),
     }),

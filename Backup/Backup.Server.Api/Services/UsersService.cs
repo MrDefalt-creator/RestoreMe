@@ -35,6 +35,7 @@ public class UsersService
             throw new InvalidOperationException("User with the same username already exists.");
         }
 
+        ValidatePassword(request.Password);
         var role = ParseRole(request.Role);
         var user = new AppUser
         {
@@ -78,6 +79,7 @@ public class UsersService
 
     public async Task SetPasswordAsync(Guid userId, string newPassword)
     {
+        ValidatePassword(newPassword);
         var user = await GetUserByIdAsync(userId);
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
         await _appUserRepository.UpdateAsync(user);
@@ -135,6 +137,16 @@ public class UsersService
             "admin" => AppUserRole.Admin,
             _ => throw new InvalidOperationException($"Unsupported user role '{value}'.")
         };
+    }
+
+    private static void ValidatePassword(string password)
+    {
+        if (password.Length < 8)
+            throw new InvalidOperationException("Password must be at least 8 characters long.");
+        if (!password.Any(char.IsUpper))
+            throw new InvalidOperationException("Password must contain at least one uppercase letter.");
+        if (!password.Any(char.IsDigit))
+            throw new InvalidOperationException("Password must contain at least one digit.");
     }
 
     private static AdminUserDto MapUser(AppUser user)
