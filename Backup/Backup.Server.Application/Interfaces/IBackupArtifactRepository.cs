@@ -11,6 +11,10 @@ public interface IBackupArtifactRepository
     public Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId);
     
     public Task AddArtifact(BackupArtifact artifact);
-    
+
+    public Task<List<BackupArtifact>> GetExpiredArtifactsAsync(CancellationToken cancellationToken);
+
+    public Task DeleteArtifactAsync(Guid id, CancellationToken cancellationToken);
+
     public Task SaveChanges();
 }

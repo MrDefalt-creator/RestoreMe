@@ -23,5 +23,7 @@ public class BackupPolicy
     public Agent Agent { get; set; } = null!;
     public BackupPolicyDatabaseSettings? DatabaseSettings { get; set; }
 
+    public int? RetentionDays { get; set; }
+
     public ICollection<BackupJob> Jobs { get; set; } = new List<BackupJob>();
 }

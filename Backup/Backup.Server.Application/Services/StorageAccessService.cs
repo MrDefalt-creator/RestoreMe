@@ -109,6 +109,15 @@ public class StorageAccessService : IStorageAccessService
                 .WithExpiry(expirySeconds));
     }
 
+    public async Task DeleteObjectAsync(string objectKey, CancellationToken cancellationToken)
+    {
+        await _minioClient.RemoveObjectAsync(
+            new RemoveObjectArgs()
+                .WithBucket(_storageOptions.BucketName)
+                .WithObject(objectKey),
+            cancellationToken);
+    }
+
     public async Task<StorageObjectInfo> GetObjectInfoAsync(
         string objectKey,
         CancellationToken cancellationToken)

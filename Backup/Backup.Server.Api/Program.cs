@@ -99,6 +99,7 @@ builder.Services
     .Bind(builder.Configuration.GetSection(NotificationOptions.SectionName));
 builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
+builder.Services.AddHostedService<RetentionCleanupService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));

@@ -24,6 +24,8 @@ public interface IStorageAccessService
     Task<string> CreateDownloadTicketAsync(
         string objectKey,
         CancellationToken cancellationToken);
+
+    Task DeleteObjectAsync(string objectKey, CancellationToken cancellationToken);
 }
 
 public sealed record StorageObjectInfo(long SizeBytes);
