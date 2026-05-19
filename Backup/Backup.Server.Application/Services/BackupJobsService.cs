@@ -12,15 +12,23 @@ public class BackupJobsService
     private readonly IAgentRepository _agentRepository;
     private readonly IBackupJobRepository _backupJobRepository;
     private readonly IBackupArtifactRepository _backupArtifactRepository;
-    private readonly IStorageAccessService  _storageAccessService; 
-    
-    public BackupJobsService(IPolicyRepository policyRepository, IAgentRepository agentRepository, IBackupJobRepository backupJobRepository, IBackupArtifactRepository backupArtifactRepository, IStorageAccessService storageAccessService)
+    private readonly IStorageAccessService _storageAccessService;
+    private readonly INotificationService _notificationService;
+
+    public BackupJobsService(
+        IPolicyRepository policyRepository,
+        IAgentRepository agentRepository,
+        IBackupJobRepository backupJobRepository,
+        IBackupArtifactRepository backupArtifactRepository,
+        IStorageAccessService storageAccessService,
+        INotificationService notificationService)
     {
         _policyRepository = policyRepository;
         _agentRepository = agentRepository;
         _backupJobRepository = backupJobRepository;
         _backupArtifactRepository = backupArtifactRepository;
         _storageAccessService = storageAccessService;
+        _notificationService = notificationService;
     }
     
     public async Task<List<BackupJob>> GetAllJobs()
@@ -115,9 +123,11 @@ public class BackupJobsService
         job.CompletedAt = DateTime.UtcNow;
         job.Status = BackupJobStatus.Failed;
         job.ErrorMessage = errorMessage;
-        
+
         await _backupJobRepository.UpdateBackupJob(job);
         await _backupJobRepository.SaveChangesAsync();
+
+        await _notificationService.NotifyBackupFailedAsync(jobId, job.PolicyId, job.AgentId, errorMessage);
     }
 
     public async Task AddArtifact(

@@ -93,6 +93,11 @@ builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>(
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IRestoreJobRepository, RestoreJobRepository>();
 builder.Services.AddScoped<RestoreJobsService>();
+
+builder.Services
+    .AddOptions<NotificationOptions>()
+    .Bind(builder.Configuration.GetSection(NotificationOptions.SectionName));
+builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions);
