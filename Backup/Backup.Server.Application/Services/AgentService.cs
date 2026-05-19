@@ -11,12 +11,18 @@ public class AgentService
 
     private readonly IAgentRepository _agentRepository;
     private readonly IPendingAgentsRepository _pendingAgentsRepository;
-    public AgentService(IAgentRepository agentRepository, IPendingAgentsRepository pendingAgentsRepository)
+    private readonly IAuditLogRepository _auditLogRepository;
+
+    public AgentService(
+        IAgentRepository agentRepository,
+        IPendingAgentsRepository pendingAgentsRepository,
+        IAuditLogRepository auditLogRepository)
     {
         _agentRepository = agentRepository;
         _pendingAgentsRepository = pendingAgentsRepository;
+        _auditLogRepository = auditLogRepository;
     }
-    
+
     public async Task<Guid> RegisterPending(string machineName, string os, string version)
     {
         var existingAgent = await _agentRepository.GetByMachineNameAsync(machineName);
@@ -25,7 +31,7 @@ public class AgentService
         {
             throw new Exception("Agent already exists");
         }
-    
+
         var existingPending = await _pendingAgentsRepository.GetByMachineNameAsync(machineName);
         if (existingPending != null)
         {
@@ -54,10 +60,10 @@ public class AgentService
             Status = PendingAgentStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
-    
+
         await _pendingAgentsRepository.AddAsync(pendingAgent);
         await _pendingAgentsRepository.SaveChangesAsync();
-    
+
         return pendingAgent.Id;
     }
 
@@ -69,15 +75,15 @@ public class AgentService
         {
             throw new Exception("Agent not found");
         }
-        
+
         return agent;
     }
-    
+
     public async Task<List<Agent>> GetAllAgents()
     {
         return await _agentRepository.GetAllAgentsAsync();
     }
-    
+
     public async Task<Agent> GetAgentById(Guid agentId)
     {
         var agent = await _agentRepository.GetAgentByIdAsync(agentId);
@@ -88,13 +94,13 @@ public class AgentService
 
         return agent;
     }
-    
+
     public async Task<List<PendingAgent>> GetPendingAgents()
     {
         return await _pendingAgentsRepository.GetPendingAgentsAsync();
     }
 
-    public async Task<Guid> ApproveAgent(Guid pendingId, string name)
+    public async Task<Guid> ApproveAgent(Guid pendingId, string name, Guid actorId)
     {
         var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId);
 
@@ -116,6 +122,7 @@ public class AgentService
             pendingAgent.ApprovedAt = DateTime.UtcNow;
 
             await _pendingAgentsRepository.UpdateAsync(pendingAgent);
+            await _auditLogRepository.AddAsync(Audit(actorId, "agent.approve", existingAgent.Id, $"machine={pendingAgent.MachineName}"));
             await _pendingAgentsRepository.SaveChangesAsync();
 
             return existingAgent.Id;
@@ -141,12 +148,13 @@ public class AgentService
         pendingAgent.ApprovedAt = DateTime.UtcNow;
 
         await _pendingAgentsRepository.UpdateAsync(pendingAgent);
+        await _auditLogRepository.AddAsync(Audit(actorId, "agent.approve", agent.Id, $"machine={pendingAgent.MachineName} name={name}"));
         await _pendingAgentsRepository.SaveChangesAsync();
 
         return agent.Id;
     }
 
-    public async Task RejectAgent(Guid pendingId)
+    public async Task RejectAgent(Guid pendingId, Guid actorId)
     {
         var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId);
 
@@ -165,9 +173,9 @@ public class AgentService
         pendingAgent.ApprovedAt = null;
 
         await _pendingAgentsRepository.UpdateAsync(pendingAgent);
+        await _auditLogRepository.AddAsync(Audit(actorId, "agent.reject", pendingAgent.Id, $"machine={pendingAgent.MachineName}"));
         await _pendingAgentsRepository.SaveChangesAsync();
     }
-
 
     public async Task Heartbeat(Guid agentId)
     {
@@ -177,10 +185,10 @@ public class AgentService
         {
             throw new Exception("This agent doesn't exist");
         }
-        
+
         agent.LastSeenAt = DateTime.UtcNow;
         agent.Status = AgentStatus.Online;
-        
+
         await _agentRepository.UpdateAgent(agent);
         await _agentRepository.SaveChangesAsync();
     }
@@ -206,4 +214,15 @@ public class AgentService
 
         return "offline";
     }
+
+    private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = action,
+            TargetId = targetId,
+            Details = details,
+            OccurredAt = DateTime.UtcNow
+        };
 }

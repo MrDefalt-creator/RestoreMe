@@ -11,13 +11,16 @@ public class UsersService
 {
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
+    private readonly IAuditLogRepository _auditLogRepository;
 
     public UsersService(
         IAppUserRepository appUserRepository,
-        IPasswordHasher<AppUser> passwordHasher)
+        IPasswordHasher<AppUser> passwordHasher,
+        IAuditLogRepository auditLogRepository)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
+        _auditLogRepository = auditLogRepository;
     }
 
     public async Task<List<AdminUserDto>> GetUsersAsync()
@@ -26,7 +29,7 @@ public class UsersService
         return users.Select(MapUser).ToList();
     }
 
-    public async Task<AdminUserDto> CreateUserAsync(CreateUserRequest request)
+    public async Task<AdminUserDto> CreateUserAsync(Guid actorId, CreateUserRequest request)
     {
         var normalizedUsername = AuthService.NormalizeUsername(request.Username);
         var existing = await _appUserRepository.GetByNormalizedUsernameAsync(normalizedUsername);
@@ -49,6 +52,7 @@ public class UsersService
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
         await _appUserRepository.AddAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorId, "user.create", user.Id, $"username={user.Username} role={request.Role}"));
         await _appUserRepository.SaveChangesAsync();
 
         return MapUser(user);
@@ -62,6 +66,7 @@ public class UsersService
         await EnsureAdminAvailabilityAsync(user, user.IsActive && parsedRole != AppUserRole.Admin);
         user.Role = parsedRole;
         await _appUserRepository.UpdateAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "user.role_change", userId, $"new_role={role}"));
         await _appUserRepository.SaveChangesAsync();
         return MapUser(user);
     }
@@ -73,16 +78,18 @@ public class UsersService
         await EnsureAdminAvailabilityAsync(user, user.Role == AppUserRole.Admin && user.IsActive && !isActive);
         user.IsActive = isActive;
         await _appUserRepository.UpdateAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "user.status_change", userId, $"is_active={isActive}"));
         await _appUserRepository.SaveChangesAsync();
         return MapUser(user);
     }
 
-    public async Task SetPasswordAsync(Guid userId, string newPassword)
+    public async Task SetPasswordAsync(Guid actorId, Guid userId, string newPassword)
     {
         ValidatePassword(newPassword);
         var user = await GetUserByIdAsync(userId);
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
         await _appUserRepository.UpdateAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorId, "user.password_reset", userId));
         await _appUserRepository.SaveChangesAsync();
     }
 
@@ -92,6 +99,7 @@ public class UsersService
         var user = await GetUserByIdAsync(userId);
         await EnsureAdminAvailabilityAsync(user, user.Role == AppUserRole.Admin && user.IsActive);
         await _appUserRepository.DeleteAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "user.delete", userId, $"username={user.Username}"));
         await _appUserRepository.SaveChangesAsync();
     }
 
@@ -148,6 +156,17 @@ public class UsersService
         if (!password.Any(char.IsDigit))
             throw new InvalidOperationException("Password must contain at least one digit.");
     }
+
+    private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = action,
+            TargetId = targetId,
+            Details = details,
+            OccurredAt = DateTime.UtcNow
+        };
 
     private static AdminUserDto MapUser(AppUser user)
     {

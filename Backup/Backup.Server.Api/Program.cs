@@ -90,6 +90,7 @@ builder.Services.AddScoped<IPolicyRepository, PolicyRepository>();
 builder.Services.AddScoped<IPendingAgentsRepository, PendingAgentsRepository>();
 builder.Services.AddScoped<IBackupJobRepository, BackupJobRepository>();
 builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions);

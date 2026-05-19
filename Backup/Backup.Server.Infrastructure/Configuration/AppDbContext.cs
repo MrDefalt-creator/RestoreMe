@@ -12,7 +12,8 @@ public class AppDbContext : DbContext
     public DbSet<BackupPolicyDatabaseSettings> BackupPolicyDatabaseSettings { get; set; }
     public DbSet<BackupArtifact> BackupArtifacts { get; set; }
     
-    public DbSet<PendingAgent>  PendingAgents { get; set; }
+    public DbSet<PendingAgent> PendingAgents { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {

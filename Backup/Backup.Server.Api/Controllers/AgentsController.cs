@@ -81,7 +81,13 @@ public class AgentsController : ControllerBase
     [HttpPost("approve/{pendingId:guid}")]
     public async Task<IActionResult> Approve([FromRoute] Guid pendingId, [FromBody] ApproveRequest request)
     {
-        var agentId = await _agentService.ApproveAgent(pendingId, request.Name);
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var agentId = await _agentService.ApproveAgent(pendingId, request.Name, actorUserId.Value);
         return Ok(agentId);
     }
 
@@ -89,7 +95,13 @@ public class AgentsController : ControllerBase
     [HttpPost("reject/{pendingId:guid}")]
     public async Task<IActionResult> Reject([FromRoute] Guid pendingId)
     {
-        await _agentService.RejectAgent(pendingId);
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        await _agentService.RejectAgent(pendingId, actorUserId.Value);
         return NoContent();
     }
 
