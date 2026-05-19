@@ -7,12 +7,13 @@ import {
   FileArchive,
   FolderArchive,
   HardDriveDownload,
+  RotateCcw,
   RefreshCw,
   Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { downloadArtifact, getArtifacts, type Artifact } from '@/shared/api/artifacts'
+import { downloadArtifact, getArtifacts, requestRestore, type Artifact } from '@/shared/api/artifacts'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
@@ -36,6 +37,7 @@ export function ArtifactsPage() {
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const artifactsQuery = useQuery({
     queryKey: queryKeys.artifacts,
@@ -63,6 +65,20 @@ export function ArtifactsPage() {
       toast.error(error instanceof Error ? error.message : t('Artifact download failed'))
     },
     onSettled: () => setDownloadingId(null),
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: async (artifact: Artifact) => {
+      setRestoringId(artifact.id)
+      await requestRestore(artifact.id)
+    },
+    onSuccess: (_, artifact) => {
+      toast.success(t('Restore job queued for {name}', { name: getArtifactDisplayName(artifact) }))
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Restore request failed'))
+    },
+    onSettled: () => setRestoringId(null),
   })
 
   const artifacts = artifactsQuery.data ?? EMPTY_ARTIFACTS
@@ -177,7 +193,9 @@ export function ArtifactsPage() {
                   key={artifact.id}
                   artifact={artifact}
                   isDownloading={downloadingId === artifact.id}
+                  isRestoring={restoringId === artifact.id}
                   onDownload={() => downloadMutation.mutate(artifact)}
+                  onRestore={() => restoreMutation.mutate(artifact)}
                   t={t}
                 />
               ))}
@@ -226,12 +244,16 @@ function ArtifactMetric({
 function ArtifactRow({
   artifact,
   isDownloading,
+  isRestoring,
   onDownload,
+  onRestore,
   t,
 }: {
   artifact: Artifact
   isDownloading: boolean
+  isRestoring: boolean
   onDownload: () => void
+  onRestore: () => void
   t: (key: string, params?: Record<string, string | number>) => string
 }) {
   const expiresAt = Date.parse(artifact.expiresAt ?? '')
@@ -282,6 +304,16 @@ function ArtifactRow({
             {isExpired ? t('Expired') : t('Expiring')}
           </div>
         ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onRestore}
+          disabled={isRestoring || isExpired}
+          title={isExpired ? t('This artifact is expired') : t('Queue a restore job on the originating agent')}
+        >
+          <RotateCcw className="h-4 w-4" />
+          {isRestoring ? t('Queuing...') : t('Restore')}
+        </Button>
         <Button
           variant={isExpired ? 'secondary' : 'primary'}
           size="sm"

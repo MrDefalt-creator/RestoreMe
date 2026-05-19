@@ -1,9 +1,9 @@
 import { useDeferredValue, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Download, Search } from 'lucide-react'
+import { Download, RotateCcw, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { downloadArtifact, getArtifacts } from '@/entities/artifact/api'
+import { downloadArtifact, getArtifacts, requestRestore } from '@/entities/artifact/api'
 import type { BackupArtifact } from '@/entities/artifact/model/types'
 import { getJobs } from '@/entities/job/api'
 import { formatBytes, formatDateTime } from '@/shared/lib/format'
@@ -21,6 +21,7 @@ export function ArtifactsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [search, setSearch] = useState('')
   const [downloadingArtifactId, setDownloadingArtifactId] = useState<string | null>(null)
+  const [restoringArtifactId, setRestoringArtifactId] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
 
   const artifactsQuery = useQuery({
@@ -49,6 +50,22 @@ export function ArtifactsPage() {
     },
     onSettled: () => {
       setDownloadingArtifactId(null)
+    },
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: async (artifact: BackupArtifact) => {
+      setRestoringArtifactId(artifact.id)
+      await requestRestore(artifact.id)
+    },
+    onSuccess: () => {
+      toast.success(t('Restore job queued'))
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Restore request failed'))
+    },
+    onSettled: () => {
+      setRestoringArtifactId(null)
     },
   })
   const searchValue = deferredSearch.trim().toLowerCase()
@@ -106,17 +123,30 @@ export function ArtifactsPage() {
                       {jobMap.get(artifact.jobId)?.id.slice(0, 8) ?? artifact.jobId.slice(0, 8)}
                     </td>
                     <td className="px-4 py-3">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={downloadMutation.isPending && downloadingArtifactId === artifact.id}
-                        onClick={() => downloadMutation.mutate(artifact)}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        {downloadMutation.isPending && downloadingArtifactId === artifact.id
-                          ? t('Preparing')
-                          : t('Download')}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={restoreMutation.isPending && restoringArtifactId === artifact.id}
+                          onClick={() => restoreMutation.mutate(artifact)}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          {restoreMutation.isPending && restoringArtifactId === artifact.id
+                            ? t('Queuing')
+                            : t('Restore')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={downloadMutation.isPending && downloadingArtifactId === artifact.id}
+                          onClick={() => downloadMutation.mutate(artifact)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {downloadMutation.isPending && downloadingArtifactId === artifact.id
+                            ? t('Preparing')
+                            : t('Download')}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

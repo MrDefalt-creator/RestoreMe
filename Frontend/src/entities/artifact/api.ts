@@ -26,6 +26,10 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url)
 }
 
+export async function requestRestore(artifactId: string) {
+  await http.post(`/api/restore?artifactId=${artifactId}`)
+}
+
 export async function downloadArtifact(artifact: BackupArtifact) {
   if (env.apiMode === 'mock') {
     const blob = new Blob(

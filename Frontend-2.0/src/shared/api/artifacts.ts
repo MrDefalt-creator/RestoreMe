@@ -35,3 +35,7 @@ export async function downloadArtifact(artifactId: string): Promise<Blob> {
   })
   return response.data
 }
+
+export async function requestRestore(artifactId: string): Promise<void> {
+  await apiClient.post(`/api/restore?artifactId=${artifactId}`)
+}
