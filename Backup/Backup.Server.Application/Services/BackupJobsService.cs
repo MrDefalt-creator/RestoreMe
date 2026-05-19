@@ -193,17 +193,17 @@ public class BackupJobsService
         var job = await _backupJobRepository.GetBackupJob(request.BackupJobId);
         if (job == null)
         {
-            throw new Exception("Backup job not found.");
+            throw new KeyNotFoundException("Backup job not found.");
         }
 
         if (job.PolicyId != request.PolicyId)
         {
-            throw new Exception("Backup job does not belong to policy.");
+            throw new InvalidOperationException("Backup job does not belong to policy.");
         }
 
         if (job.Status != BackupJobStatus.Running)
         {
-            throw new Exception("Backup job is not running.");
+            throw new InvalidOperationException("Backup job is not running.");
         }
 
         return await _storageAccessService.CreateUploadTicketAsync(

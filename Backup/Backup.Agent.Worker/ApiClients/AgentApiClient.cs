@@ -29,14 +29,14 @@ public class AgentApiClient : IAgentApiClient
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new Exception($"RegisterPending request failed with status code {response.StatusCode}");
+            throw new HttpRequestException($"RegisterPending failed with status {response.StatusCode}", null, response.StatusCode);
         }
-        
+
         var result =  await response.Content.ReadFromJsonAsync<PendingAgentRegisterResponse>(cancellationToken);
 
         if (result == null)
         {
-            throw new Exception("RegisterPending request is Empty");
+            throw new InvalidOperationException("RegisterPending response is empty.");
         }
 
         return result.PendingId;
@@ -53,7 +53,7 @@ public class AgentApiClient : IAgentApiClient
         var result = await response.Content.ReadFromJsonAsync<IssueAgentAccessTokenResponse>(cancellationToken);
         if (result == null || string.IsNullOrWhiteSpace(result.AccessToken))
         {
-            throw new Exception("IssueAccessToken response is empty.");
+            throw new InvalidOperationException("IssueAccessToken response is empty.");
         }
 
         return result.AccessToken;
@@ -90,7 +90,7 @@ public class AgentApiClient : IAgentApiClient
 
         if (result == null)
         {
-            throw new Exception("GetPending request is Empty");
+            throw new InvalidOperationException("GetPending response is empty.");
         }
         
         return result;

@@ -51,4 +51,33 @@ public class WebhookNotificationService : INotificationService
             _logger.LogWarning(ex, "Failed to send backup failure webhook notification for job {JobId}", jobId);
         }
     }
+
+    public async Task NotifyRestoreFailedAsync(
+        Guid jobId, Guid agentId, string errorMessage,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.FailureWebhookUrl)) return;
+
+        try
+        {
+            var payload = new
+            {
+                event_type = "restore_failed",
+                job_id = jobId,
+                agent_id = agentId,
+                error_message = errorMessage,
+                failed_at = DateTime.UtcNow
+            };
+
+            using var response = await _httpClient.PostAsJsonAsync(_options.FailureWebhookUrl, payload, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Webhook notification returned {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send restore failure webhook notification for job {JobId}", jobId);
+        }
+    }
 }

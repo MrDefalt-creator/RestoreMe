@@ -29,7 +29,7 @@ public class AgentService
 
         if (existingAgent != null)
         {
-            throw new Exception("Agent already exists");
+            throw new InvalidOperationException("Agent already exists");
         }
 
         var existingPending = await _pendingAgentsRepository.GetByMachineNameAsync(machineName);
@@ -70,13 +70,7 @@ public class AgentService
     public async Task<PendingAgent> GetStatus(Guid pendingId)
     {
         var agent = await _pendingAgentsRepository.GetByIdAsync(pendingId);
-
-        if (agent == null)
-        {
-            throw new Exception("Agent not found");
-        }
-
-        return agent;
+        return agent ?? throw new KeyNotFoundException($"Pending agent {pendingId} not found.");
     }
 
     public async Task<List<Agent>> GetAllAgents()
@@ -87,12 +81,7 @@ public class AgentService
     public async Task<Agent> GetAgentById(Guid agentId)
     {
         var agent = await _agentRepository.GetAgentByIdAsync(agentId);
-        if (agent == null)
-        {
-            throw new Exception("Agent not found");
-        }
-
-        return agent;
+        return agent ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
     }
 
     public async Task<List<PendingAgent>> GetPendingAgents()
@@ -102,12 +91,8 @@ public class AgentService
 
     public async Task<Guid> ApproveAgent(Guid pendingId, string name, Guid actorId)
     {
-        var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId);
-
-        if (pendingAgent == null)
-        {
-            throw new Exception("Pending agent not found");
-        }
+        var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId)
+            ?? throw new KeyNotFoundException($"Pending agent {pendingId} not found.");
 
         if (pendingAgent.Status == PendingAgentStatus.Approved && pendingAgent.ApprovedAgentId.HasValue)
         {
@@ -156,12 +141,8 @@ public class AgentService
 
     public async Task RejectAgent(Guid pendingId, Guid actorId)
     {
-        var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId);
-
-        if (pendingAgent == null)
-        {
-            throw new Exception("Pending agent not found");
-        }
+        var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId)
+            ?? throw new KeyNotFoundException($"Pending agent {pendingId} not found.");
 
         if (pendingAgent.Status == PendingAgentStatus.Approved)
         {
@@ -179,15 +160,10 @@ public class AgentService
 
     public async Task Heartbeat(Guid agentId)
     {
-        var agent = await _agentRepository.GetAgentByIdAsync(agentId);
-
-        if (agent == null)
-        {
-            throw new Exception("This agent doesn't exist");
-        }
+        var agent = await _agentRepository.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
 
         agent.LastSeenAt = DateTime.UtcNow;
-        agent.Status = AgentStatus.Online;
 
         await _agentRepository.UpdateAgent(agent);
         await _agentRepository.SaveChangesAsync();

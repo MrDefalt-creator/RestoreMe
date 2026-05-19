@@ -32,7 +32,7 @@ public class RestoreApiClient : IRestoreApiClient
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<DownloadTicketResponse>(cancellationToken: cancellationToken);
-        return result?.DownloadUrl ?? throw new Exception("Download ticket response is empty.");
+        return result?.DownloadUrl ?? throw new InvalidOperationException("Download ticket response is empty.");
     }
 
     public async Task CompleteRestoreJobAsync(Guid jobId, CancellationToken cancellationToken)

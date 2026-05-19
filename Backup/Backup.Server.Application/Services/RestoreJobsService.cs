@@ -12,17 +12,20 @@ public class RestoreJobsService
     private readonly IBackupArtifactRepository _artifactRepository;
     private readonly IBackupJobRepository _backupJobRepository;
     private readonly IStorageAccessService _storageAccessService;
+    private readonly INotificationService _notificationService;
 
     public RestoreJobsService(
         IRestoreJobRepository restoreJobRepository,
         IBackupArtifactRepository artifactRepository,
         IBackupJobRepository backupJobRepository,
-        IStorageAccessService storageAccessService)
+        IStorageAccessService storageAccessService,
+        INotificationService notificationService)
     {
         _restoreJobRepository = restoreJobRepository;
         _artifactRepository = artifactRepository;
         _backupJobRepository = backupJobRepository;
         _storageAccessService = storageAccessService;
+        _notificationService = notificationService;
     }
 
     public async Task<Guid> CreateRestoreAsync(Guid artifactId, CancellationToken cancellationToken = default)
@@ -109,6 +112,7 @@ public class RestoreJobsService
         job.ErrorMessage = errorMessage;
         await _restoreJobRepository.UpdateAsync(job);
         await _restoreJobRepository.SaveChangesAsync();
+        await _notificationService.NotifyRestoreFailedAsync(jobId, agentId, errorMessage);
     }
 
     private async Task<RestoreJob> GetOwnedJobAsync(Guid jobId, Guid agentId)

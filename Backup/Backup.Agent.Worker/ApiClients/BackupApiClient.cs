@@ -32,7 +32,7 @@ public class BackupApiClient : IBackupApiClient
 
         if (result == null)
         {
-            throw new Exception("StartBackupJobResponse is null");
+            throw new InvalidOperationException("StartBackupJobResponse is null.");
         }
         
         _logger.LogInformation("Backup job started");
@@ -116,7 +116,7 @@ public class BackupApiClient : IBackupApiClient
 
         if (result == null)
         {
-            throw new Exception("Upload ticket response is empty.");
+            throw new InvalidOperationException("Upload ticket response is empty.");
         }
 
         return result;
