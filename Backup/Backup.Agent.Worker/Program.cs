@@ -11,6 +11,8 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddOptions<ApiOptions>().Bind(builder.Configuration.GetSection(ApiOptions.SectionName));
 builder.Services.AddOptions<AgentOptions>().Bind(builder.Configuration.GetSection(AgentOptions.SectionName));
 
+builder.Services.AddDataProtection();
+
 builder.Services.AddSingleton<IAgentState, FileAgentStore>();
 builder.Services.AddSingleton<IApiEndpointResolver, ApiEndpointResolver>();
 builder.Services.AddTransient<AgentAccessTokenHandler>();
