@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Backup.Server.Api.Security;
 using Backup.Server.Api.Services;
@@ -172,6 +173,30 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
         .Build();
 });
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 10,
+                SegmentsPerWindow = 6,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { message = "Too many login attempts. Please try again later." },
+            cancellationToken);
+    };
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -182,6 +207,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("FrontendClient");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
