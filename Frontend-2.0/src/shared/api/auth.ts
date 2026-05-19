@@ -13,7 +13,6 @@ export interface User {
 }
 
 export interface AuthResponse {
-  token: string
   user: User
 }
 
@@ -39,10 +38,9 @@ export function normalizeAuthUser(user: ApiUser): User {
   }
 }
 
-export async function login(data: LoginRequest): Promise<AuthResponse> {
-  const response = await apiClient.post<{ accessToken: string; token?: string; user: ApiUser }>('/api/auth/login', data)
+export async function login(data: LoginRequest & { rememberMe?: boolean }): Promise<AuthResponse> {
+  const response = await apiClient.post<{ user: ApiUser }>('/api/auth/login', data)
   return {
-    token: response.data.accessToken ?? response.data.token ?? '',
     user: normalizeAuthUser(response.data.user),
   }
 }
@@ -53,7 +51,7 @@ export async function getAuthUser(): Promise<User> {
 }
 
 export async function logout(): Promise<void> {
-  await Promise.resolve()
+  await apiClient.post('/api/auth/logout')
 }
 
 export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {

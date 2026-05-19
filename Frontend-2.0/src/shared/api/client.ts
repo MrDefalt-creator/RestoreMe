@@ -6,23 +6,12 @@ import { normalizeApiError } from '@/shared/api/errors'
 const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Request interceptor for auth token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = useAuthStore.getState().accessToken
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-)
-
-// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {

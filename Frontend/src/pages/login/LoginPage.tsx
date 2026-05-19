@@ -24,7 +24,7 @@ type LoginValues = z.infer<typeof loginSchema>
 export function LoginPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
-  const accessToken = useAuthStore((state) => state.accessToken)
+  const user = useAuthStore((state) => state.user)
   const setSession = useAuthStore((state) => state.setSession)
   const rememberMe = useAuthStore((state) => state.rememberMe)
   const form = useForm<LoginValues>({
@@ -38,9 +38,9 @@ export function LoginPage() {
   })
 
   const mutation = useMutation({
-    mutationFn: (values: LoginValues) => login(values.username, values.password),
+    mutationFn: (values: LoginValues) => login(values.username, values.password, values.rememberMe),
     onSuccess: (result, variables) => {
-      setSession(result.accessToken, result.user, variables.rememberMe)
+      setSession(result.user, variables.rememberMe)
       toast.success(t('Signed in successfully'))
       navigate('/', { replace: true })
     },
@@ -49,7 +49,7 @@ export function LoginPage() {
     },
   })
 
-  if (accessToken) {
+  if (user) {
     return <Navigate to="/" replace />
   }
 

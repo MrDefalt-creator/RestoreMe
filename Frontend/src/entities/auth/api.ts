@@ -3,8 +3,6 @@ import type { AuthUser } from '@/app/store/auth-store'
 import { toAuthUser } from '@/app/store/auth-store'
 
 type LoginResponse = {
-  accessToken: string
-  expiresAtUtc: string
   user: {
     id: string
     username: string
@@ -12,16 +10,24 @@ type LoginResponse = {
   }
 }
 
-export async function login(username: string, password: string): Promise<{ accessToken: string; user: AuthUser }> {
+export async function login(
+  username: string,
+  password: string,
+  rememberMe: boolean,
+): Promise<{ user: AuthUser }> {
   const response = await http.post<LoginResponse>('/api/auth/login', {
     username,
     password,
+    rememberMe,
   })
 
   return {
-    accessToken: response.data.accessToken,
     user: toAuthUser(response.data.user),
   }
+}
+
+export async function logout(): Promise<void> {
+  await http.post('/api/auth/logout')
 }
 
 export async function changeOwnPassword(currentPassword: string, newPassword: string) {

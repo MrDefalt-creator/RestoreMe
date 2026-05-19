@@ -35,11 +35,12 @@ export function LoginPage() {
       const response = await login({
         username: data.username,
         password: data.password,
+        rememberMe: data.rememberMe,
       })
       return { ...response, rememberMe: data.rememberMe }
     },
     onSuccess: (response) => {
-      setSession(response.token, response.user, response.rememberMe)
+      setSession(response.user, response.rememberMe)
       toast.success(t('Welcome, {username}!', { username: response.user.username }))
       navigate('/', { replace: true })
     },

@@ -12,10 +12,12 @@ namespace Backup.Server.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(AuthService authService)
+    public AuthController(AuthService authService, IWebHostEnvironment env)
     {
         _authService = authService;
+        _env = env;
     }
 
     [AllowAnonymous]
@@ -26,12 +28,35 @@ public class AuthController : ControllerBase
         try
         {
             var result = await _authService.LoginAsync(request.Username, request.Password);
-            return Ok(result);
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !_env.IsDevelopment(),
+                SameSite = SameSiteMode.Strict,
+            };
+
+            if (request.RememberMe)
+            {
+                cookieOptions.Expires = result.ExpiresAtUtc;
+            }
+
+            Response.Cookies.Append("access_token", result.AccessToken, cookieOptions);
+
+            return Ok(new { user = result.User });
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { message = ex.Message });
         }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete("access_token");
+        return NoContent();
     }
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]

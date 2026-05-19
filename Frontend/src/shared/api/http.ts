@@ -7,16 +7,7 @@ import { normalizeApiError } from '@/shared/api/errors'
 export const http = axios.create({
   baseURL: env.apiBaseUrl,
   timeout: 10_000,
-})
-
-http.interceptors.request.use((config) => {
-  const accessToken = useAuthStore.getState().accessToken
-
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`
-  }
-
-  return config
+  withCredentials: true,
 })
 
 http.interceptors.response.use(

@@ -23,7 +23,7 @@ import { useUiStore } from '@/app/store/ui-store'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { cn } from '@/shared/lib/cn'
-import { normalizeAuthRole } from '@/shared/api/auth'
+import { normalizeAuthRole, logout } from '@/shared/api/auth'
 import { formatRoleLabel, useI18n } from '@/shared/i18n'
 
 type NavItem = {
@@ -188,7 +188,8 @@ export function AppShell() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
+                    try { await logout() } catch { /* ignore */ }
                     clearSession()
                     navigate('/login', { replace: true })
                   }}

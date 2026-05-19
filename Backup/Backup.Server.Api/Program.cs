@@ -123,6 +123,18 @@ builder.Services
             IssuerSigningKey = signingKey,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrEmpty(context.Token) &&
+                    context.Request.Cookies.TryGetValue("access_token", out var cookieToken))
+                {
+                    context.Token = cookieToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     })
     .AddScheme<AuthenticationSchemeOptions, AgentEnrollmentAuthenticationHandler>(
         AuthConstants.AgentEnrollmentScheme,

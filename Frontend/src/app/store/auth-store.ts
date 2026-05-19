@@ -10,10 +10,9 @@ export type AuthUser = {
 }
 
 type AuthStore = {
-  accessToken: string | null
   user: AuthUser | null
   rememberMe: boolean
-  setSession: (accessToken: string, user: AuthUser, rememberMe: boolean) => void
+  setSession: (user: AuthUser, rememberMe: boolean) => void
   clearSession: () => void
 }
 
@@ -68,11 +67,10 @@ export function toAuthUser(user: { id: string; username: string; role: string })
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
-      accessToken: null,
       user: null,
       rememberMe: false,
-      setSession: (accessToken, user, rememberMe) => set({ accessToken, user, rememberMe }),
-      clearSession: () => set({ accessToken: null, user: null, rememberMe: true }),
+      setSession: (user, rememberMe) => set({ user, rememberMe }),
+      clearSession: () => set({ user: null, rememberMe: true }),
     }),
     {
       name: storageKey,

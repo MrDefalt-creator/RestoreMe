@@ -3,6 +3,7 @@ import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuthStore, type AuthRole } from '@/app/store/auth-store'
+import { logout } from '@/entities/auth/api'
 import { useUiStore } from '@/app/store/ui-store'
 import { env } from '@/shared/config/env'
 import { formatRoleLabel, useI18n } from '@/shared/i18n'
@@ -212,7 +213,8 @@ export function AppShell() {
               </div>
               <Button
                 variant="secondary"
-                onClick={() => {
+                onClick={async () => {
+                  try { await logout() } catch { /* ignore */ }
                   clearSession()
                   navigate('/login', { replace: true })
                 }}
