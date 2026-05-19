@@ -35,6 +35,17 @@ builder.Services.AddSingleton<IArchiveService, ArchiveService>();
 builder.Services.AddSingleton<IChecksumService, ChecksumService>();
 builder.Services.AddSingleton<ILogicalBackupService, LogicalBackupService>();
 builder.Services.AddTransient<IBackupExecutor, BackupExecuter>();
+builder.Services.AddSingleton<LogicalRestoreService>();
+builder.Services.AddTransient<IRestoreExecutor, RestoreExecuter>();
+
+builder.Services.AddHttpClient<IRestoreApiClient, RestoreApiClient>((sp, client) =>
+    {
+        var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
+        var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
+        client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
+    })
+    .AddHttpMessageHandler<AgentAccessTokenHandler>();
+
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

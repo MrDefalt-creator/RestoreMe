@@ -18,12 +18,14 @@ public class Worker : BackgroundService
     private readonly IAgentState _agentState;
     private readonly IApiEndpointResolver _apiEndpointResolver;
     private readonly IBackupExecutor _backupExecutor;
+    private readonly IRestoreExecutor _restoreExecutor;
 
-    public Worker(ILogger<Worker> logger, 
-        IAgentApiClient apiClient, 
-        IOptions<AgentOptions> agentOptions, 
-        IAgentState agentState, 
+    public Worker(ILogger<Worker> logger,
+        IAgentApiClient apiClient,
+        IOptions<AgentOptions> agentOptions,
+        IAgentState agentState,
         IBackupExecutor backupExecutor,
+        IRestoreExecutor restoreExecutor,
         IBackupApiClient backupClient,
         IApiEndpointResolver apiEndpointResolver)
     {
@@ -31,6 +33,7 @@ public class Worker : BackgroundService
         _apiClient = apiClient;
         _agentState = agentState;
         _backupExecutor = backupExecutor;
+        _restoreExecutor = restoreExecutor;
         _backupClient = backupClient;
         _apiEndpointResolver = apiEndpointResolver;
         _agentOptions = agentOptions.Value;
@@ -221,8 +224,9 @@ public class Worker : BackgroundService
                     
                     await _backupExecutor.ExecutePolicyAsync(policy, cancellationToken);
                     await _backupClient.MarkPolicyExecutedAsync(policy.Id, cancellationToken);
-                    
                 }
+
+                await _restoreExecutor.ExecutePendingAsync(agentId, cancellationToken);
 
                 return DateTime.UtcNow.Add(policySyncInterval);
 

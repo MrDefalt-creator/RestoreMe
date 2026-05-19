@@ -9,4 +9,6 @@ public sealed record AgentOptions
     public int PolicySyncIntervalSeconds { get; init; } = 60;
     public string PostgreSqlDumpCommand { get; init; } = "pg_dump";
     public string MySqlDumpCommand { get; init; } = "mysqldump";
+    public string PostgreSqlRestoreCommand { get; init; } = "psql";
+    public string MySqlRestoreCommand { get; init; } = "mysql";
 }

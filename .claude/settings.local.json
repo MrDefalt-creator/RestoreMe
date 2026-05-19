@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn typecheck *)",
+      "Bash(yarn build *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\projects\\\\RestorMe\\\\presentation\\\\src\" -Recurse)",
+      "Bash(Select-Object FullName)",
+      "Bash(git checkout *)",
+      "Bash(dotnet build *)",
+      "Bash(git add *)",
+      "Bash(git *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\projects\\\\RestorMe\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"D:\\\\projects\\\\RestorMe\\\\Backup\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName)",
+      "Bash(dotnet ef *)"
+    ]
+  },
+  "spinnerTipsEnabled": true
+}

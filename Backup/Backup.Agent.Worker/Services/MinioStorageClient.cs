@@ -57,5 +57,16 @@ public class MinioStorageClient : IMinioStorageClient
         
         return new UploadObjectResult(fileInfo.Length, checksum);
     }
-    
+
+    public async Task DownloadFileAsync(
+        string downloadUrl,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var fileStream = File.Create(destinationPath);
+        await response.Content.CopyToAsync(fileStream, cancellationToken);
+    }
 }

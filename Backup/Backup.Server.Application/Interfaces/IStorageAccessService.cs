@@ -20,6 +20,10 @@ public interface IStorageAccessService
     Task<StorageObjectInfo> GetObjectInfoAsync(
         string objectKey,
         CancellationToken cancellationToken);
+
+    Task<string> CreateDownloadTicketAsync(
+        string objectKey,
+        CancellationToken cancellationToken);
 }
 
 public sealed record StorageObjectInfo(long SizeBytes);

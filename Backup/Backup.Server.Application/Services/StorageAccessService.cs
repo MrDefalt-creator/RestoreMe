@@ -93,6 +93,22 @@ public class StorageAccessService : IStorageAccessService
         return stream;
     }
 
+    public async Task<string> CreateDownloadTicketAsync(
+        string objectKey,
+        CancellationToken cancellationToken)
+    {
+        var expirySeconds = _storageOptions.UploadUrlExpirySeconds;
+        var signingClient = CreateSigningClient(
+            _storageOptions.Endpoint,
+            _storageOptions.UseSsl);
+
+        return await signingClient.PresignedGetObjectAsync(
+            new PresignedGetObjectArgs()
+                .WithBucket(_storageOptions.BucketName)
+                .WithObject(objectKey)
+                .WithExpiry(expirySeconds));
+    }
+
     public async Task<StorageObjectInfo> GetObjectInfoAsync(
         string objectKey,
         CancellationToken cancellationToken)
