@@ -1,0 +1,31 @@
+# Reference systemd unit for the RestoreMe agent.
+#
+# install-agent.sh renders an equivalent unit at /etc/systemd/system/restoreme-agent.service
+# with @PLACEHOLDERS@ substituted. This file is here for operators who want
+# to install the agent manually without running the script. Drop the
+# substituted version into /etc/systemd/system/ and `systemctl daemon-reload`.
+#
+# Placeholders:
+#   @SERVICE_USER@  e.g. root  (use root for filesystem backups of arbitrary paths)
+#   @CONFIG_FILE@   e.g. /etc/restoreme-agent/config.env
+#   @BIN_PATH@      e.g. /opt/restoreme-agent/restoreme-agent
+#   @STATE_DIR@     e.g. /var/lib/restoreme-agent/state
+#   @REPO_URL@      e.g. https://github.com/MrDefalt-creator/RestorMe
+
+[Unit]
+Description=RestoreMe Agent
+Documentation=@REPO_URL@
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+EnvironmentFile=@CONFIG_FILE@
+ExecStart=@BIN_PATH@
+Restart=always
+RestartSec=10
+WorkingDirectory=@STATE_DIR@
+
+[Install]
+WantedBy=multi-user.target
