@@ -243,6 +243,15 @@ public class Worker : BackgroundService
             {
                 return nextPolicySyncAtUtc;
             }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Cannot reach RestoreMe backend. Verify the URL, then restart the agent with: " +
+                    "BackupAgent --server <url> [--reset-state]. " +
+                    "Current server address is read from CLI/ENV override, local state, or appsettings.json (in that order).");
+                return nextPolicySyncAtUtc;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled error in worker iteration.");
