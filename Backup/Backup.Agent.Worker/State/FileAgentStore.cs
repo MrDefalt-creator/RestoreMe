@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Backup.Agent.Worker.Startup;
 using Microsoft.AspNetCore.DataProtection;
 
 namespace Backup.Agent.Worker.State;
@@ -9,14 +10,12 @@ public class FileAgentStore : IAgentState
     private readonly string _fileName;
     private readonly IDataProtector _protector;
 
-    public FileAgentStore(IDataProtectionProvider dataProtectionProvider)
+    public FileAgentStore(IDataProtectionProvider dataProtectionProvider, AgentStateLocation location)
     {
         _protector = dataProtectionProvider.CreateProtector("AgentState.v1");
 
-        var stateDir = Path.Combine(AppContext.BaseDirectory, "state");
-        Directory.CreateDirectory(stateDir);
-
-        _fileName = Path.Combine(stateDir, "agent-state.json");
+        Directory.CreateDirectory(location.Directory);
+        _fileName = location.StateFilePath;
     }
 
     private async Task<AgentState?> LoadStateAsync(CancellationToken cancellationToken)

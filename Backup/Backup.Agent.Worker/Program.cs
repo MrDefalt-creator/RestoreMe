@@ -11,25 +11,28 @@ using Microsoft.Extensions.Options;
 var startup = AgentStartupOptions.Build(args);
 
 // State directory layout:
-//   <base>/state/agent-state.json — encrypted access token + agent id
-//   <base>/state/keys/            — DataProtection key ring
+//   <state-dir>/agent-state.json — encrypted access token + agent id
+//   <state-dir>/keys/            — DataProtection key ring
+// `--state-dir` / RESTOREME_STATE_DIR overrides the location; otherwise we
+// pick an OS-appropriate default (writable check ensures dev `dotnet run`
+// from a checkout falls back to AppContext.BaseDirectory).
 // `--reset-state` or RESTOREME_RESET_STATE=1 wipes both before DI starts so
 // the agent comes back as a clean slate (next enrollment cycle).
-var stateDir = Path.Combine(AppContext.BaseDirectory, "state");
-var stateFile = Path.Combine(stateDir, "agent-state.json");
-var agentKeysDir = Path.Combine(stateDir, "keys");
+var stateLocation = StateDirectoryResolver.Resolve(startup);
+Console.WriteLine(
+    $"[restoreme-agent] state directory: {stateLocation.Directory} (source: {stateLocation.Source})");
 
 if (startup.ResetState)
 {
-    if (File.Exists(stateFile))
+    if (File.Exists(stateLocation.StateFilePath))
     {
-        File.Delete(stateFile);
-        Console.WriteLine($"[restoreme-agent] reset-state: removed {stateFile}");
+        File.Delete(stateLocation.StateFilePath);
+        Console.WriteLine($"[restoreme-agent] reset-state: removed {stateLocation.StateFilePath}");
     }
-    if (Directory.Exists(agentKeysDir))
+    if (Directory.Exists(stateLocation.KeyRingDirectory))
     {
-        Directory.Delete(agentKeysDir, recursive: true);
-        Console.WriteLine($"[restoreme-agent] reset-state: removed {agentKeysDir}");
+        Directory.Delete(stateLocation.KeyRingDirectory, recursive: true);
+        Console.WriteLine($"[restoreme-agent] reset-state: removed {stateLocation.KeyRingDirectory}");
     }
 }
 
@@ -53,6 +56,7 @@ if (overrides.Count > 0)
 }
 
 builder.Services.AddSingleton(startup);
+builder.Services.AddSingleton(stateLocation);
 
 builder.Services.AddOptions<ApiOptions>().Bind(builder.Configuration.GetSection(ApiOptions.SectionName));
 builder.Services.AddOptions<AgentOptions>().Bind(builder.Configuration.GetSection(AgentOptions.SectionName));
@@ -61,9 +65,9 @@ builder.Services.AddOptions<AgentOptions>().Bind(builder.Configuration.GetSectio
 // agent-state.json survives container recreation or a different host
 // user. SetApplicationName isolates the key ring from any other
 // RestoreMe component sharing the same directory.
-Directory.CreateDirectory(agentKeysDir);
+Directory.CreateDirectory(stateLocation.KeyRingDirectory);
 builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(agentKeysDir))
+    .PersistKeysToFileSystem(new DirectoryInfo(stateLocation.KeyRingDirectory))
     .SetApplicationName("RestoreMe.Agent");
 
 builder.Services.AddSingleton<IAgentState, FileAgentStore>();

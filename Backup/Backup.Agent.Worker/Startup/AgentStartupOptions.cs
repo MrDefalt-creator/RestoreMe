@@ -9,9 +9,11 @@ public sealed class AgentStartupOptions
 {
     public string? ExplicitServerUrl { get; init; }
     public string? ExplicitEnrollmentToken { get; init; }
+    public string? ExplicitStateDirectory { get; init; }
     public bool ResetState { get; init; }
 
     public string? ExplicitServerSource { get; init; }
+    public string? ExplicitStateDirectorySource { get; init; }
 
     public static AgentStartupOptions Build(string[] args)
     {
@@ -25,6 +27,14 @@ public sealed class AgentStartupOptions
         var explicitToken = ReadFlag(args, "--enrollment-token")
             ?? Environment.GetEnvironmentVariable("RESTOREME_ENROLLMENT_TOKEN");
 
+        var explicitStateDir = ReadFlag(args, "--state-dir")
+            ?? Environment.GetEnvironmentVariable("RESTOREME_STATE_DIR");
+        var explicitStateDirSource = ReadFlag(args, "--state-dir") != null
+            ? "command line (--state-dir)"
+            : Environment.GetEnvironmentVariable("RESTOREME_STATE_DIR") != null
+                ? "environment (RESTOREME_STATE_DIR)"
+                : null;
+
         var resetState = args.Any(a => string.Equals(a, "--reset-state", StringComparison.OrdinalIgnoreCase))
             || string.Equals(Environment.GetEnvironmentVariable("RESTOREME_RESET_STATE"), "1", StringComparison.Ordinal);
 
@@ -33,6 +43,8 @@ public sealed class AgentStartupOptions
             ExplicitServerUrl = string.IsNullOrWhiteSpace(explicitServer) ? null : explicitServer.Trim(),
             ExplicitServerSource = explicitServerSource,
             ExplicitEnrollmentToken = string.IsNullOrWhiteSpace(explicitToken) ? null : explicitToken.Trim(),
+            ExplicitStateDirectory = string.IsNullOrWhiteSpace(explicitStateDir) ? null : explicitStateDir.Trim(),
+            ExplicitStateDirectorySource = explicitStateDirSource,
             ResetState = resetState,
         };
     }
