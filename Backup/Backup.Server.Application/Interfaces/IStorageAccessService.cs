@@ -13,8 +13,9 @@ public interface IStorageAccessService
         string? publicServerBaseUrl,
         CancellationToken cancellationToken);
 
-    Task<Stream> OpenDownloadStreamAsync(
+    Task WriteObjectToAsync(
         string objectKey,
+        Stream destination,
         CancellationToken cancellationToken);
 
     Task<StorageObjectInfo> GetObjectInfoAsync(

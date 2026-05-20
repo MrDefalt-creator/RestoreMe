@@ -26,23 +26,25 @@ public class BackupArtifactsService
         return await _backupArtifactRepository.GetArtifactsByJobIdAsync(jobId);
     }
 
-    public async Task<ArtifactDownloadResult> DownloadArtifact(Guid artifactId, CancellationToken cancellationToken)
+    public async Task<BackupArtifact> GetArtifactForDownloadAsync(Guid artifactId)
     {
         var artifact = await _backupArtifactRepository.GetArtifactByIdAsync(artifactId);
         if (artifact == null)
         {
-            throw new ApplicationException($"Artifact with id {artifactId} does not exist");
+            throw new KeyNotFoundException($"Artifact with id {artifactId} does not exist");
         }
 
-        var stream = await _storageAccessService.OpenDownloadStreamAsync(
-            artifact.ObjectKey,
-            cancellationToken);
+        return artifact;
+    }
 
-        return new ArtifactDownloadResult(stream, artifact.FileName, "application/octet-stream");
+    public Task StreamArtifactToAsync(
+        BackupArtifact artifact,
+        Stream destination,
+        CancellationToken cancellationToken)
+    {
+        return _storageAccessService.WriteObjectToAsync(
+            artifact.ObjectKey,
+            destination,
+            cancellationToken);
     }
 }
-
-public sealed record ArtifactDownloadResult(
-    Stream Content,
-    string FileName,
-    string ContentType);

@@ -64,24 +64,23 @@ public class StorageAccessService : IStorageAccessService
             expiresAtUtc);
     }
 
-    public async Task<Stream> OpenDownloadStreamAsync(
+    public async Task WriteObjectToAsync(
         string objectKey,
+        Stream destination,
         CancellationToken cancellationToken)
     {
-        var stream = new MemoryStream();
-
+        // Streams directly from MinIO into the destination (e.g. HTTP response
+        // body) without buffering — multi-GB artifacts must not be loaded into
+        // the backend's memory.
         await _minioClient.GetObjectAsync(
             new GetObjectArgs()
                 .WithBucket(_storageOptions.BucketName)
                 .WithObject(objectKey)
-                .WithCallbackStream(sourceStream =>
+                .WithCallbackStream(async (sourceStream, callbackCt) =>
                 {
-                    sourceStream.CopyTo(stream);
+                    await sourceStream.CopyToAsync(destination, callbackCt);
                 }),
             cancellationToken);
-
-        stream.Position = 0;
-        return stream;
     }
 
     public async Task<string> CreateDownloadTicketAsync(

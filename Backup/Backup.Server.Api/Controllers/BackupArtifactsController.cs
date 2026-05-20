@@ -34,10 +34,22 @@ public class BackupArtifactsController : ControllerBase
     }
 
     [HttpGet("{artifactId:guid}/download")]
-    public async Task<IActionResult> DownloadArtifact([FromRoute] Guid artifactId, CancellationToken cancellationToken)
+    public async Task DownloadArtifact([FromRoute] Guid artifactId, CancellationToken cancellationToken)
     {
-        var artifact = await _backupArtifactsService.DownloadArtifact(artifactId, cancellationToken);
-        return File(artifact.Content, artifact.ContentType, artifact.FileName);
+        var artifact = await _backupArtifactsService.GetArtifactForDownloadAsync(artifactId);
+
+        Response.ContentType = "application/octet-stream";
+        Response.Headers.ContentDisposition =
+            $"attachment; filename=\"{Uri.EscapeDataString(artifact.FileName)}\"";
+        if (artifact.SizeBytes > 0)
+        {
+            Response.ContentLength = artifact.SizeBytes;
+        }
+
+        await _backupArtifactsService.StreamArtifactToAsync(
+            artifact,
+            Response.Body,
+            cancellationToken);
     }
 
     private static BackupArtifactDto MapArtifact(BackupArtifact artifact)
