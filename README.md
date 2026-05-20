@@ -106,6 +106,17 @@ cd docker-compose
 docker compose up --build
 ```
 
+`docker-compose.override.yml` is auto-loaded for local dev (sets `ASPNETCORE_ENVIRONMENT=Development`, exposes the MinIO admin console). For production-style deployments use the prod overlay:
+
+```powershell
+cd docker-compose
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+Required env (or `.env.prod` next to the compose files):
+- `CORS_ORIGIN` — public origin of the frontend (e.g. `https://restoreme.example.com`)
+- `API_PUBLIC_URL` — public backend URL baked into the Vite bundle and used in the CSP `connect-src` of both frontends
+
 Default published addresses:
 - frontend v1: `http://localhost:5173`
 - frontend 2.0: `http://localhost:5174`
@@ -215,27 +226,77 @@ Meaning:
 Main backend config file:
 - [Backup/Backup.Server.Api/appsettings.json](Backup/Backup.Server.Api/appsettings.json)
 
+A fully-annotated reference with every key and placeholder is available at:
+- [Backup/Backup.Server.Api/appsettings.example.json](Backup/Backup.Server.Api/appsettings.example.json)
+
 Important sections:
-- `ConnectionStrings:DefaultConnection`
-- `ConnectionStrings:DefaultConnection_FILE`
-- `Storage:Endpoint`
-- `Storage:PublicEndpoint`
-- `Storage:AccessKey`
-- `Storage:AccessKey_FILE`
-- `Storage:SecretKey`
-- `Storage:SecretKey_FILE`
-- `Storage:BucketName`
-- `Storage:UseSsl`
-- `Storage:UploadUrlExpirySeconds`
-- `Jwt:Issuer`
-- `Jwt:Audience`
-- `Jwt:SigningKey`
+- `ConnectionStrings:DefaultConnection` / `ConnectionStrings:DefaultConnection_FILE`
+- `Storage:Endpoint` (internal MinIO address used by backend)
+- `Storage:PublicEndpoint` (external MinIO host baked into agent URLs)
+- `Storage:AccessKey` / `Storage:AccessKey_FILE`
+- `Storage:SecretKey` / `Storage:SecretKey_FILE`
+- `Storage:BucketName`, `Storage:UseSsl`
+- `Storage:UseAdaptiveExpiry`, `Storage:AdaptiveBaseSeconds`, `Storage:AdaptivePerGbSeconds` — adaptive presigned URL lifetime (see below)
+- `Storage:UploadUrlExpirySeconds`, `Storage:DownloadUrlExpirySeconds` — static expiry fallbacks
+- `Jwt:Issuer`, `Jwt:Audience`
+- `Jwt:SigningKey` — user-token signing key
+- `Jwt:AgentSigningKey` — optional dedicated key for agent JWTs; rotating it does not invalidate user sessions
 - `AgentEnrollment:EnrollmentToken`
+- `Notifications:FailureWebhookUrl`, `Notifications:WebhookSecret` — backup/restore failure webhook (HMAC-SHA256 signing when secret is set)
+- `Cors:AllowedOrigins` — required in Production; backend refuses to start when empty or loopback-only
 
 ### Production-minded note
 
 For local deployment, file-based Docker secrets are a good improvement over plain YAML values.
 For real production, a dedicated secret manager or platform secret store is still preferable.
+
+### Production startup guardrails
+
+When the backend starts under `ASPNETCORE_ENVIRONMENT=Production`, it refuses to come up if any of the following holds:
+- `Jwt:SigningKey` is a known dev default or shorter than 32 bytes
+- `Jwt:AgentSigningKey` is configured but duplicates `Jwt:SigningKey` or is shorter than 32 bytes
+- `AgentEnrollment:EnrollmentToken` is empty or a known dev default
+- `Cors:AllowedOrigins` is empty
+- `Cors:AllowedOrigins` contains any loopback host (localhost / 127.0.0.1 / ::1)
+
+These guards are intentional — they keep dev defaults from silently shipping to a real environment.
+
+### Adaptive presigned URL expiry
+
+Agents talk to MinIO over presigned URLs. The lifetime of each URL is sized to the payload by default so small jobs get short windows (safer) and large jobs get hours-or-days (still works):
+
+```
+expiry = AdaptiveBaseSeconds + sizeGB * AdaptivePerGbSeconds   (capped at 7 days)
+```
+
+Defaults — `AdaptiveBaseSeconds=600`, `AdaptivePerGbSeconds=300`:
+
+| Payload | URL lifetime |
+|---|---|
+| 1 GB | ~15 minutes |
+| 10 GB | ~1 hour |
+| 100 GB | ~8.5 hours |
+| 1 TB | ~3.6 days |
+
+Set `Storage:UseAdaptiveExpiry: false` to fall back to the static `Storage:UploadUrlExpirySeconds`. Set `Storage:DownloadUrlExpirySeconds` (positive integer) to override the restore-download window independently.
+
+### Failure webhook
+
+When `Notifications:FailureWebhookUrl` is set the backend POSTs a JSON body to it on every failed backup or restore job. Pair with `Notifications:WebhookSecret` to enable HMAC-SHA256 signing:
+
+```
+X-RestoreMe-Signature: sha256=<hex of HMAC-SHA256(body, WebhookSecret)>
+```
+
+Receivers should constant-time compare against the same digest computed over the raw bytes of the request body. The webhook HTTP client has a 10-second timeout; slow receivers will not block the failure-reporting path.
+
+### Health endpoint
+
+`GET /health` returns `200` only when:
+- the backend can reach PostgreSQL (`AddDbContextCheck`)
+- the backend can reach MinIO (custom probe via `BucketExistsAsync`)
+
+Docker Compose uses the same endpoint for container healthchecks; the backend waits for both `db` and `minio` to be `service_healthy` before it starts.
 
 ## Authentication and Roles
 
@@ -246,8 +307,9 @@ In `Development`, the system seeds exactly one initial administrator if the user
 Current dev credentials:
 - `admin / Admin123!`
 
-> [!WARNING]
-> Change the bootstrap administrator password immediately after the first login. The checked-in value is public development bootstrap data, not a secret.
+The seeded admin is created with `MustChangePassword=true`. On the very first sign-in, both frontends will redirect to the Account page and lock the rest of the workspace until the operator picks their own password. The API enforces this server-side too: every request other than `/api/auth/me`, `/api/auth/change-password`, `/api/auth/logout` returns `403 { "code": "must_change_password" }` while the flag is set.
+
+The same flag is set whenever an admin resets another user's password — the target user signs in once with the temporary value and is forced to rotate.
 
 Source:
 - [Backup/Backup.Server.Api/appsettings.Development.json](Backup/Backup.Server.Api/appsettings.Development.json)
@@ -273,12 +335,30 @@ Implemented safeguards:
 - every signed-in user can change their own password on the `Account` page
 - only administrators can create users, change other users' passwords, disable users and delete users
 
+### Session token storage
+
+The access JWT lives in an HTTP-only `access_token` cookie set by the backend. JavaScript on the frontend never sees the token, so an XSS payload cannot exfiltrate it. The cookie is `SameSite=Strict` and gets `Secure` automatically outside Development. Both frontends are configured with `withCredentials: true`.
+
+A small profile of the current user (id, username, role, `mustChangePassword` flag) is stored on the frontend so the UI can render the right pages.
+
 ### Remember me behavior
 
 The login page allows the user to choose session persistence:
-- if `Remember me` is enabled, the session is stored in `localStorage`
-- if `Remember me` is disabled, the session lives only in `sessionStorage`
-- a non-persistent session disappears when the browser session ends
+- if `Remember me` is enabled, the cookie carries an explicit `Expires` matching the JWT lifetime
+- if `Remember me` is disabled, the cookie is session-only and disappears when the browser closes
+- the cached frontend profile follows the same persistence choice (localStorage vs sessionStorage)
+
+### Password and session invalidation
+
+Every user JWT carries a `stamp` claim bound to `AppUser.SecurityStamp`. Whenever the password is changed (self-change, admin reset) the stamp is regenerated server-side; any token issued before the change immediately fails validation on its next call. The check is cached in-memory for 30 seconds to keep it cheap.
+
+### Agent revocation
+
+Admins can revoke an individual agent from the Agents page in either frontend (only visible to `admin` users). The backend bumps `Agent.TokenVersion`; the agent's JWT carries the previous version as `tokver` and fails on the next call. The agent will need to re-enroll using the enrollment token to get a fresh access token. The action is recorded in the audit log as `agent.revoke`.
+
+### Audit log
+
+The backend writes audit entries for every critical action: user create / delete / status change / role change / password reset, agent approve / reject / revoke. Admin-only `GET /api/audit-logs` returns paginated entries with actor username joined server-side. Both frontends expose a read-only `/audit-log` page (admin-only) with filtering by action.
 
 ## Agent Security Model
 
@@ -319,7 +399,8 @@ Important note:
 ### Agent local state
 
 The agent stores local state in:
-- `state/agent-state.json`
+- `state/agent-state.json` — encrypted with ASP.NET Core DataProtection
+- `state/keys/` — DataProtection key ring (persisted across restarts via `PersistKeysToFileSystem` + `SetApplicationName("RestoreMe.Agent")`)
 
 That state can contain:
 - `AgentId`
@@ -330,6 +411,15 @@ Behavior:
 - if a saved `ServerAddress` exists, it has priority over config `Api:BaseUrl`
 - if an agent already has `AgentId` but no access token, it can recover a new token through enrollment flow
 - if the agent still connects to an old backend after changing config, update or delete `state/agent-state.json`
+- when running the agent in Docker, mount `state/` (including `state/keys/`) on a volume so the encrypted state survives container recreation
+
+### Agent resilience
+
+The agent's HTTP clients use the .NET standard resilience handler — retry with exponential backoff, circuit breaker, per-attempt and total timeouts. Transient network blips no longer drop heartbeats or sync attempts permanently.
+
+### Restore safety
+
+Before overwriting any filesystem restore target the agent renames the existing path to `{path}.pre-restore-{utcTimestamp}` so a bad restore can be rolled back manually. ZIP archives are extracted with a per-entry path check (zip-slip guard) — a malicious or corrupted artifact with entries like `../../etc/shadow` is rejected before any file is written.
 
 ## Storage Addressing Model
 

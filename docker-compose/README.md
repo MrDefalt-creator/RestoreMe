@@ -6,9 +6,11 @@ This folder is the single local entry point for starting the full RestoreMe stac
 > Read this file before running the stack. The repository includes `.env` and starter files in `secrets/` for convenience, but the values are public development defaults and must be replaced before any shared, demo or production-like deployment.
 
 Contents:
-- `docker-compose.yml` - full stack definition
+- `docker-compose.yml` - full stack definition (neutral baseline; no environment)
+- `docker-compose.override.yml` - **auto-loaded** for local dev; sets `ASPNETCORE_ENVIRONMENT=Development` and exposes the MinIO admin console
+- `docker-compose.prod.yml` - opt-in overlay for production-style deploys
 - `.env` - non-secret ports and frontend mode
-- `secrets/` - local secret files mounted into containers
+- `secrets/` - local secret files mounted into containers (`*.example.txt` templates are tracked, real `*.txt` are git-ignored by default)
 
 ## Services
 
@@ -49,7 +51,7 @@ Important behavior:
 
 ## Start and Stop
 
-Start the stack:
+Start the stack (development — uses the auto-loaded override):
 ```powershell
 cd docker-compose
 docker compose up --build
@@ -59,6 +61,18 @@ Run in background:
 ```powershell
 docker compose up -d --build
 ```
+
+Production-style startup (skips the dev override, adds prod overlay):
+```powershell
+cd docker-compose
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+Required env (export or place in `.env.prod` next to the files):
+- `CORS_ORIGIN` — public origin of the frontend, e.g. `https://restoreme.example.com`
+- `API_PUBLIC_URL` — public backend URL baked into the Vite bundle and into the frontends' CSP `connect-src`
+
+The backend will refuse to start in Production when `Cors:AllowedOrigins` is empty or only contains loopback hosts — make sure `CORS_ORIGIN` is set before bringing the stack up.
 
 Stop the stack:
 ```powershell
@@ -84,6 +98,8 @@ Expected secret files in [secrets](secrets):
 - `postgres-connection.txt`
 - `minio-access-key.txt`
 - `minio-secret-key.txt`
+
+Each one has a matching `*.example.txt` template in the same folder. The current `.txt` files ship with dev-default values to make first-time `docker compose up` work without any setup step; the `.gitignore` rule blocks any *new* `.txt` you drop into `secrets/` so real production secrets cannot be accidentally committed.
 
 > [!WARNING]
 > Do not reuse the checked-in starter values for a deployed instance. Replace PostgreSQL password, PostgreSQL connection string, MinIO access key and MinIO secret key together before exposing the stack.
@@ -138,13 +154,15 @@ This means the backend does not need hardcoded database or MinIO secrets in `doc
 
 ## Important Compose Behavior
 
-- frontend API URLs are derived from `API_PORT` during the frontend image builds
-- backend CORS in `Development` accepts localhost and loopback origins on any port
+- frontend API URLs are derived from `API_PORT` during the frontend image builds (override via `API_PUBLIC_URL` in prod)
+- backend CORS in `Development` accepts localhost and loopback origins on any port; in Production the backend refuses to start without an explicit non-loopback `Cors:AllowedOrigins`
 - backend runs EF Core migrations automatically on startup
 - backend talks to MinIO internally via `minio:9000`
-- backend returns public upload URLs based on `Storage__PublicEndpoint` or the incoming backend host
+- backend returns public upload/download URLs based on `Storage__PublicEndpoint` or the incoming backend host
 - agents usually need only the backend address in simple deployments
 - local Docker PostgreSQL is best tested through `credentials` mode for logical dump policies
+- the backend persists ASP.NET Core DataProtection keys to a named `backend_keys` volume so cookie-bound JWTs survive `docker compose up --build`
+- `/health` is wired into the backend healthcheck and requires both PostgreSQL and MinIO to be reachable
 
 ## Storage Addressing in Compose
 
