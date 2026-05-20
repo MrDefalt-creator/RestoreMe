@@ -8,6 +8,7 @@ import {
   Menu,
   Moon,
   RefreshCw,
+  ScrollText,
   ShieldCheck,
   Sun,
   UserRound,
@@ -42,6 +43,7 @@ const navigation: NavItem[] = [
   { to: '/jobs', label: 'Jobs', icon: History },
   { to: '/backups', label: 'Backups', icon: Archive },
   { to: '/users', label: 'Users', icon: Users, roles: ['admin'] },
+  { to: '/audit-log', label: 'Audit log', icon: ScrollText, roles: ['admin'] },
   { to: '/account', label: 'Account', icon: KeyRound },
 ]
 

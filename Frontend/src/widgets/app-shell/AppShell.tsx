@@ -1,4 +1,4 @@
-import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, RefreshCw, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
+import { Archive, HardDriveDownload, History, KeyRound, LayoutDashboard, LogOut, Menu, RefreshCw, ScrollText, ShieldCheck, UserRound, Users, Workflow } from 'lucide-react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
@@ -29,6 +29,7 @@ const navigation: NavItem[] = [
   { to: '/jobs', label: 'Jobs', icon: History },
   { to: '/artifacts', label: 'Artifacts', icon: Archive },
   { to: '/users', label: 'Users', icon: Users, roles: ['admin'] },
+  { to: '/audit-log', label: 'Audit log', icon: ScrollText, roles: ['admin'] },
 ]
 
 export function AppShell() {

@@ -6,4 +6,6 @@ export const queryKeys = {
   jobs: ['jobs'] as const,
   artifacts: ['artifacts'] as const,
   users: ['users'] as const,
+  auditLogs: (page: number, pageSize: number, action?: string) =>
+    ['audit-logs', page, pageSize, action ?? null] as const,
 }

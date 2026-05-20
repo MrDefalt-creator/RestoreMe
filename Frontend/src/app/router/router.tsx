@@ -44,6 +44,11 @@ const UsersPage = lazy(() =>
     default: module.UsersPage,
   })),
 )
+const AuditLogPage = lazy(() =>
+  import('@/pages/audit-log/AuditLogPage').then((module) => ({
+    default: module.AuditLogPage,
+  })),
+)
 
 function withSuspense(node: ReactNode) {
   return (
@@ -82,6 +87,7 @@ export const router = createBrowserRouter([
       { path: 'jobs', element: withSuspense(<JobsPage />) },
       { path: 'artifacts', element: withSuspense(<ArtifactsPage />) },
       { path: 'users', element: withSuspense(<UsersPage />) },
+      { path: 'audit-log', element: withSuspense(<AuditLogPage />) },
       { path: '*', element: <NotFoundPage compact /> },
     ],
   },
