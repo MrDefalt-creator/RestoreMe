@@ -54,7 +54,12 @@ public class RestoreController : ControllerBase
 
         try
         {
-            var downloadUrl = await _service.GetDownloadTicketAsync(jobId, agentId.Value, HttpContext.RequestAborted);
+            var publicServerBaseUrl = $"{Request.Scheme}://{Request.Host}";
+            var downloadUrl = await _service.GetDownloadTicketAsync(
+                jobId,
+                agentId.Value,
+                publicServerBaseUrl,
+                HttpContext.RequestAborted);
             return Ok(new DownloadTicketResponse(downloadUrl));
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }

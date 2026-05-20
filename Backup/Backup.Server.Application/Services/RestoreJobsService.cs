@@ -70,6 +70,7 @@ public class RestoreJobsService
     public async Task<string> GetDownloadTicketAsync(
         Guid jobId,
         Guid agentId,
+        string? publicServerBaseUrl,
         CancellationToken cancellationToken = default)
     {
         var job = await _restoreJobRepository.GetByIdAsync(jobId)
@@ -92,7 +93,10 @@ public class RestoreJobsService
             await _restoreJobRepository.SaveChangesAsync();
         }
 
-        return await _storageAccessService.CreateDownloadTicketAsync(artifact.ObjectKey, cancellationToken);
+        return await _storageAccessService.CreateDownloadTicketAsync(
+            artifact.ObjectKey,
+            publicServerBaseUrl,
+            cancellationToken);
     }
 
     public async Task CompleteAsync(Guid jobId, Guid agentId)

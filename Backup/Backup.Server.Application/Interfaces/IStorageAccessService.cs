@@ -23,6 +23,7 @@ public interface IStorageAccessService
 
     Task<string> CreateDownloadTicketAsync(
         string objectKey,
+        string? publicServerBaseUrl,
         CancellationToken cancellationToken);
 
     Task DeleteObjectAsync(string objectKey, CancellationToken cancellationToken);

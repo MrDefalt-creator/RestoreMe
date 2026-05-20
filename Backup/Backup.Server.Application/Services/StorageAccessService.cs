@@ -49,16 +49,7 @@ public class StorageAccessService : IStorageAccessService
         string objectKey = $"{agentId}/{policyId}/{backupJobId}/{safeFileName}";
         int expirySeconds = _storageOptions.UploadUrlExpirySeconds;
         var expiresAtUtc = DateTime.UtcNow.AddSeconds(expirySeconds);
-        var publicEndpoint = ResolvePublicEndpoint(
-            _storageOptions.PublicEndpoint,
-            publicServerBaseUrl,
-            _storageOptions.Endpoint,
-            _storageOptions.UseSsl);
-        var signingClient = CreateSigningClient(
-            publicEndpoint ?? _storageOptions.Endpoint,
-            publicEndpoint is not null
-                ? IsSslEnabled(publicEndpoint, _storageOptions.UseSsl)
-                : _storageOptions.UseSsl);
+        var signingClient = BuildAgentFacingSigningClient(publicServerBaseUrl);
 
         string uploadUrl = await signingClient.PresignedPutObjectAsync(
             new PresignedPutObjectArgs()
@@ -95,18 +86,37 @@ public class StorageAccessService : IStorageAccessService
 
     public async Task<string> CreateDownloadTicketAsync(
         string objectKey,
+        string? publicServerBaseUrl,
         CancellationToken cancellationToken)
     {
         var expirySeconds = _storageOptions.UploadUrlExpirySeconds;
-        var signingClient = CreateSigningClient(
-            _storageOptions.Endpoint,
-            _storageOptions.UseSsl);
+        var signingClient = BuildAgentFacingSigningClient(publicServerBaseUrl);
 
         return await signingClient.PresignedGetObjectAsync(
             new PresignedGetObjectArgs()
                 .WithBucket(_storageOptions.BucketName)
                 .WithObject(objectKey)
                 .WithExpiry(expirySeconds));
+    }
+
+    private IMinioClient BuildAgentFacingSigningClient(string? publicServerBaseUrl)
+    {
+        // Presigned URLs returned to agents must point to a host the agent can
+        // reach. Prefer an explicitly configured Storage:PublicEndpoint, then
+        // derive from the incoming request host, otherwise fall back to the
+        // internal endpoint (only works when the agent and backend share the
+        // same network — e.g. local docker compose).
+        var publicEndpoint = ResolvePublicEndpoint(
+            _storageOptions.PublicEndpoint,
+            publicServerBaseUrl,
+            _storageOptions.Endpoint,
+            _storageOptions.UseSsl);
+
+        return CreateSigningClient(
+            publicEndpoint ?? _storageOptions.Endpoint,
+            publicEndpoint is not null
+                ? IsSslEnabled(publicEndpoint, _storageOptions.UseSsl)
+                : _storageOptions.UseSsl);
     }
 
     public async Task DeleteObjectAsync(string objectKey, CancellationToken cancellationToken)
