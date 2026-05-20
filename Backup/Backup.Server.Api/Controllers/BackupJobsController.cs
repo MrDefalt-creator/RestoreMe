@@ -4,6 +4,7 @@ using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Backup.Server.Api.Controllers;
 
@@ -53,6 +54,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("start")]
     public async Task<IActionResult> StartJob([FromBody] StartBackupJobRequest request)
     {
@@ -73,6 +75,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("complete/{jobId:guid}")]
     public async Task<IActionResult> CompletedJob([FromRoute] Guid jobId)
     {
@@ -94,6 +97,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("failed")]
     public async Task<IActionResult> FailedJob([FromBody] FailedBackupJobRequest request)
     {
@@ -107,6 +111,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("add_artifact")]
     public async Task<IActionResult> AddArtifact([FromBody] AddArtifactBackupJobRequest request)
     {
@@ -134,6 +139,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("upload_ticket")]
     public async Task<IActionResult> RequestUploadTicket([FromBody] RequestUploadTicketRequest request)
     {

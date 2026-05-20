@@ -3,6 +3,7 @@ using Backup.Server.Application.Services;
 using Backup.Shared.Contracts.DTOs.Restore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Backup.Server.Api.Controllers;
 
@@ -46,6 +47,7 @@ public class RestoreController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("download_ticket/{jobId:guid}")]
     public async Task<IActionResult> RequestDownloadTicket([FromRoute] Guid jobId)
     {
@@ -68,6 +70,7 @@ public class RestoreController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("complete/{jobId:guid}")]
     public async Task<IActionResult> Complete([FromRoute] Guid jobId)
     {
@@ -84,6 +87,7 @@ public class RestoreController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("failed")]
     public async Task<IActionResult> Failed([FromBody] FailRestoreJobRequest request)
     {

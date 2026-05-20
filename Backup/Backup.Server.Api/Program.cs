@@ -280,12 +280,62 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // Authenticated agent endpoints (heartbeat, job completion, upload
+    // tickets, etc.). Per-agent partition keyed off the JWT subject so a
+    // compromised agent token can't DoS the backend for the whole fleet.
+    options.AddPolicy("agent-write", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.User.TryGetAgentId()?.ToString()
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 60,
+                SegmentsPerWindow = 6,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+            }));
+
+    // Enrollment endpoints (anonymous + only bound by the shared/install
+    // token in a header). Per-IP partition. Tighter than agent-write
+    // because legitimate use is just a few requests per agent during
+    // first-time setup.
+    options.AddPolicy("enrollment-public", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 20,
+                SegmentsPerWindow = 6,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+            }));
+
+    // Per-user policy for admin-minted install tokens. A compromised
+    // admin session shouldn't be able to mint hundreds of tokens
+    // instantly.
+    options.AddPolicy("install-token-create", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.User.TryGetUserId()?.ToString()
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 10,
+                SegmentsPerWindow = 6,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+            }));
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.ContentType = "application/json";
         await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Too many login attempts. Please try again later." },
+            new { message = "Too many requests. Please slow down and try again." },
             cancellationToken);
     };
 });

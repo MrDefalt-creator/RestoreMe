@@ -6,6 +6,7 @@ using Backup.Server.Infrastructure.Options;
 using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 // AgentEnrollmentAuthenticationHandler lives in this namespace
 
@@ -76,6 +77,7 @@ public class AgentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("heartbeat/{agentId:guid}")]
     public async Task<IActionResult> Heartbeat([FromRoute] Guid agentId)
     {
@@ -89,6 +91,7 @@ public class AgentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
+    [EnableRateLimiting("enrollment-public")]
     [HttpGet("status/{pendingId:guid}")]
     public async Task<IActionResult> Status([FromRoute] Guid pendingId)
     {
@@ -151,6 +154,7 @@ public class AgentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
+    [EnableRateLimiting("enrollment-public")]
     [HttpPost("issue_access_token/{agentId:guid}")]
     public async Task<IActionResult> IssueAccessToken([FromRoute] Guid agentId, [FromBody] IssueAgentAccessTokenRequest request)
     {
@@ -164,6 +168,7 @@ public class AgentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
+    [EnableRateLimiting("enrollment-public")]
     [HttpPost("register_pending")]
     public async Task<IActionResult> RegisterPending(
         [FromBody] PendingAgentRequest request,
@@ -209,6 +214,7 @@ public class AgentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [EnableRateLimiting("install-token-create")]
     [HttpPost("install-tokens")]
     public async Task<IActionResult> CreateInstallToken(
         [FromBody] CreateInstallTokenRequest request,
