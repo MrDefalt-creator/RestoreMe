@@ -162,6 +162,55 @@ public class AgentService
         return agent.Id;
     }
 
+    // Install-token enrollment path: the admin already authorised this
+    // specific agent by minting a single-use token in the UI, so we skip
+    // the pending-approval queue entirely. Returns the freshly-created
+    // approved agent, or throws if the requested machine name collides
+    // with an existing agent (the install token is left consumed so the
+    // operator regenerates a new one rather than retrying silently).
+    public async Task<Agent> ApproveFromInstallTokenAsync(
+        string machineName,
+        string osType,
+        string osVersion,
+        string? preApprovedName,
+        Guid createdByUserId,
+        Guid installTokenId)
+    {
+        var existing = await _agentRepository.GetByMachineNameAsync(machineName);
+        if (existing != null)
+        {
+            throw new InvalidOperationException(
+                $"An agent with machine name '{machineName}' already exists.");
+        }
+
+        var agent = new Agent
+        {
+            Id = Guid.NewGuid(),
+            MachineName = machineName,
+            Name = string.IsNullOrWhiteSpace(preApprovedName) ? machineName : preApprovedName,
+            OsType = osType,
+            Version = osVersion,
+            Status = AgentStatus.Offline,
+            CreatedAt = DateTime.UtcNow,
+            ApprovedAt = DateTime.UtcNow,
+        };
+
+        await _agentRepository.AddAgent(agent);
+        await _auditLogRepository.AddAsync(Audit(
+            createdByUserId,
+            "agent.install_token.used",
+            installTokenId,
+            $"machine={machineName} agent={agent.Id}"));
+        await _auditLogRepository.AddAsync(Audit(
+            createdByUserId,
+            "agent.approve",
+            agent.Id,
+            $"machine={machineName} name={agent.Name} via=install_token"));
+        await _agentRepository.SaveChangesAsync();
+
+        return agent;
+    }
+
     public async Task RejectAgent(Guid pendingId, Guid actorId)
     {
         var pendingAgent = await _pendingAgentsRepository.GetByIdAsync(pendingId)

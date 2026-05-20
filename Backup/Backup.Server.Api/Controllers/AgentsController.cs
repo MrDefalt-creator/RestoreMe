@@ -7,6 +7,7 @@ using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+// AgentEnrollmentAuthenticationHandler lives in this namespace
 
 namespace Backup.Server.Api.Controllers;
 
@@ -164,10 +165,87 @@ public class AgentsController : ControllerBase
 
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
     [HttpPost("register_pending")]
-    public async Task<IActionResult> RegisterPending([FromBody] PendingAgentRequest request)
+    public async Task<IActionResult> RegisterPending(
+        [FromBody] PendingAgentRequest request,
+        [FromServices] AgentInstallTokenService installTokenService)
     {
+        // Auth handler classifies the presented token as either "install"
+        // (a single-use admin-minted token bound to one agent slot) or
+        // "shared" (the legacy AgentEnrollment:EnrollmentToken). The
+        // install path auto-approves and returns an access token; the
+        // shared path stays the existing pending-approval queue.
+        var kind = HttpContext.Items[AgentEnrollmentAuthenticationHandler.TokenKindItemKey] as string;
+        if (kind == AgentEnrollmentAuthenticationHandler.KindInstall)
+        {
+            var rawToken = HttpContext.Items[AgentEnrollmentAuthenticationHandler.TokenRawItemKey] as string
+                ?? string.Empty;
+
+            var consumed = await installTokenService.TryConsumeAsync(
+                rawToken,
+                request.MachineName,
+                HttpContext.RequestAborted);
+
+            // Lost the race against another caller (or the cleanup
+            // service) between auth recognition and consume — fail closed.
+            if (consumed is null)
+            {
+                return Unauthorized();
+            }
+
+            var agent = await _agentService.ApproveFromInstallTokenAsync(
+                request.MachineName,
+                request.OsType,
+                request.OsVersion,
+                consumed.PreApprovedName,
+                consumed.CreatedByUserId,
+                consumed.Id);
+
+            var accessToken = _tokenService.CreateAgentToken(agent);
+            return Ok(new PendingAgentRegisterResponse(agent.Id, agent.Id, accessToken));
+        }
+
         var pendingId = await _agentService.RegisterPending(request.MachineName, request.OsType, request.OsVersion);
         return Ok(new PendingAgentRegisterResponse(pendingId));
+    }
+
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [HttpPost("install-tokens")]
+    public async Task<IActionResult> CreateInstallToken(
+        [FromBody] CreateInstallTokenRequest request,
+        [FromServices] AgentInstallTokenService installTokenService,
+        [FromServices] IAuditLogRepository auditLogRepository)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var ttl = request.TtlMinutes.HasValue
+            ? TimeSpan.FromMinutes(request.TtlMinutes.Value)
+            : AgentInstallTokenService.DefaultTtl;
+
+        var generated = await installTokenService.GenerateAsync(
+            actorUserId.Value,
+            request.PreApprovedName,
+            ttl,
+            HttpContext.RequestAborted);
+
+        await auditLogRepository.AddAsync(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorUserId.Value,
+            Action = "agent.install_token.created",
+            TargetId = generated.Record.Id,
+            Details = $"expires_at={generated.Record.ExpiresAt:O} preapproved={generated.Record.PreApprovedName ?? "-"}",
+            OccurredAt = DateTime.UtcNow,
+        });
+        await auditLogRepository.SaveChangesAsync();
+
+        return Ok(new CreateInstallTokenResponse(
+            generated.Record.Id,
+            generated.Token,
+            generated.Record.ExpiresAt));
     }
 
     private AgentListItemDto MapAgent(Agent agent)
