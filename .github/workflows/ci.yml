@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        working-directory: Backup
+        run: dotnet restore BackupSystem.slnx
+
+      - name: Build
+        working-directory: Backup
+        run: dotnet build BackupSystem.slnx --configuration Release --no-restore
+
+  frontend:
+    name: Frontend build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [Frontend, Frontend-2.0]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: ${{ matrix.app }}/yarn.lock
+
+      - name: Install
+        working-directory: ${{ matrix.app }}
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        working-directory: ${{ matrix.app }}
+        run: yarn lint
+
+      - name: Typecheck
+        working-directory: ${{ matrix.app }}
+        run: yarn typecheck
+
+      - name: Build
+        working-directory: ${{ matrix.app }}
+        run: yarn build
