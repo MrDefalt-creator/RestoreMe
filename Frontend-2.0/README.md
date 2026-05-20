@@ -19,22 +19,38 @@ Frontend 2.0 focuses on:
 
 - React 19
 - TypeScript
-- Vite 6
+- Vite 8
 - Yarn 1.x
-- React Router 6
-- TanStack Query
+- React Router 7
+- TanStack Query 5 (+ devtools)
 - Zustand
-- React Hook Form
-- Zod
-- Tailwind CSS
-- Sonner
-- Lucide React
+- React Hook Form 7
+- Zod 4
+- Tailwind CSS 4
+- Sonner 2
+- Lucide React 1.x
+- Radix UI primitives (`@radix-ui/react-dialog`, `react-select`, `react-toast`, etc.)
+
+## Layout (Feature-Sliced Design)
+
+```
+src/
+  app/          providers, router, zustand stores (auth-store, ui-store)
+  entities/     domain models + API hooks (agent, artifact, audit-log, auth, job, policy, user)
+  features/     self-contained feature modules (approve-agent, install-agent, policy-form, user-management)
+  pages/        route-level components assembled from features/widgets
+  widgets/      app-shell, header, side-bar
+  shared/       api (axios http client), config (env.ts), i18n, lib, ui (primitives)
+```
+
+`@/` alias maps to `src/`.
 
 ## Implemented Areas
 
 - login and authenticated app shell
 - dashboard with protection status, trends, attention items and recent activity
 - agents page with filtering, policy coverage and details dialog
+- **install-agent wizard** on the Agents page — admins/operators copy a one-liner that installs and enrols an agent on Linux or Windows; server URL is taken from the panel, enrollment token from `GET /api/agents/enrollment-info`
 - pending agents page with approve and reject flows
 - policies page with create, edit and toggle
 - jobs page with resilient labels based on agent/policy lookup
@@ -154,9 +170,8 @@ The production image builds the Vite bundle and serves it through Apache with SP
 
 ## Notes
 
-- The original `Frontend` should be treated as the stable diploma baseline.
-- `Frontend-2.0` should be presented as the next-generation RestoreMe UI prototype.
-- Both frontends should remain compatible with the same backend contracts.
+- `Frontend-2.0` is the next-generation RestoreMe UI and is positioned to replace `Frontend/` over time. Both frontends remain compatible with the same backend contracts; deprecation signals on the original `Frontend/` will come in a later cycle.
+- Dependencies are tracked to match the original `Frontend/`'s baseline (Zod 4, React Router 7, Sonner 2, lucide-react 1.x, Vite 8, ESLint 10) so the two frontends don't drift while v2 takes over.
 - If a browser tab was open during a rebuild, reload it once to avoid stale Vite chunk references.
 
 ## Related Documentation
