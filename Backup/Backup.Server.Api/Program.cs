@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Backup.Server.Api.Filters;
 using Backup.Server.Api.HealthChecks;
 using Backup.Server.Api.HostedServices;
+using Backup.Server.Api.Middleware;
 using Backup.Server.Api.Security;
 using Backup.Server.Api.Services;
 using Backup.Server.Application.Interfaces;
@@ -359,6 +360,7 @@ if (app.Environment.IsProduction())
     app.UseHttpsRedirection();
 }
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors("FrontendClient");
 app.UseRateLimiter();
 app.UseAuthentication();
