@@ -24,6 +24,30 @@ public sealed class ApiEndpointResolver : IApiEndpointResolver
             return new ResolvedApiEndpoint(Normalize(storedServerAddress), "local state");
         }
 
+        return ResolveFromConfig();
+    }
+
+    public ResolvedApiEndpoint Resolve()
+    {
+        // Sync path for HttpClient factory delegates. Falls back to config
+        // when the state hasn't been written yet; Worker.ExecuteAsync calls
+        // ResolveAsync on startup and persists the server address so this
+        // path picks it up on subsequent restarts.
+        var storedServerAddress = _agentState
+            .TryGetServerAddressAsync(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        if (!string.IsNullOrWhiteSpace(storedServerAddress))
+        {
+            return new ResolvedApiEndpoint(Normalize(storedServerAddress), "local state");
+        }
+
+        return ResolveFromConfig();
+    }
+
+    private ResolvedApiEndpoint ResolveFromConfig()
+    {
         if (!string.IsNullOrWhiteSpace(_apiOptions.BaseUrl))
         {
             return new ResolvedApiEndpoint(Normalize(_apiOptions.BaseUrl), "configuration");

@@ -26,20 +26,20 @@ builder.Services.AddSingleton<IAgentState, FileAgentStore>();
 builder.Services.AddSingleton<IApiEndpointResolver, ApiEndpointResolver>();
 builder.Services.AddTransient<AgentAccessTokenHandler>();
 
-builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>((sp, client) =>
+static void ConfigureBaseAddress(IServiceProvider sp, HttpClient client)
 {
-    var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
-    var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
-    client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
-}).AddHttpMessageHandler<AgentAccessTokenHandler>();
+    // Sync path — no GetAwaiter().GetResult() in factory delegates.
+    var endpoint = sp.GetRequiredService<IApiEndpointResolver>().Resolve();
+    client.BaseAddress = new Uri(endpoint.BaseUrl);
+}
 
-builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>((sp, client) =>
-    {
-        var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
-        var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
-        client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
-    })
-    .AddHttpMessageHandler<AgentAccessTokenHandler>();
+builder.Services.AddHttpClient<IAgentApiClient, AgentApiClient>(ConfigureBaseAddress)
+    .AddHttpMessageHandler<AgentAccessTokenHandler>()
+    .AddStandardResilienceHandler();
+
+builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>(ConfigureBaseAddress)
+    .AddHttpMessageHandler<AgentAccessTokenHandler>()
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<IMinioStorageClient, MinioStorageClient>();
 builder.Services.AddSingleton<IArchiveService, ArchiveService>();
@@ -49,13 +49,9 @@ builder.Services.AddTransient<IBackupExecutor, BackupExecuter>();
 builder.Services.AddSingleton<LogicalRestoreService>();
 builder.Services.AddTransient<IRestoreExecutor, RestoreExecuter>();
 
-builder.Services.AddHttpClient<IRestoreApiClient, RestoreApiClient>((sp, client) =>
-    {
-        var apiEndpointResolver = sp.GetRequiredService<IApiEndpointResolver>();
-        var resolvedEndpoint = apiEndpointResolver.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
-        client.BaseAddress = new Uri(resolvedEndpoint.BaseUrl);
-    })
-    .AddHttpMessageHandler<AgentAccessTokenHandler>();
+builder.Services.AddHttpClient<IRestoreApiClient, RestoreApiClient>(ConfigureBaseAddress)
+    .AddHttpMessageHandler<AgentAccessTokenHandler>()
+    .AddStandardResilienceHandler();
 
 builder.Services.AddHostedService<Worker>();
 
