@@ -360,6 +360,104 @@ Admins can revoke an individual agent from the Agents page in either frontend (o
 
 The backend writes audit entries for every critical action: user create / delete / status change / role change / password reset, agent approve / reject / revoke. Admin-only `GET /api/audit-logs` returns paginated entries with actor username joined server-side. Both frontends expose a read-only `/audit-log` page (admin-only) with filtering by action.
 
+## Installing the Agent
+
+The agent ships as a self-contained, single-file binary for `linux-x64`, `linux-arm64`, and `win-x64`. No .NET runtime is required on the target host. Released binaries are attached to the GitHub Release for each tag:
+
+`https://github.com/MrDefalt-creator/RestorMe/releases`
+
+### Install agent on Linux
+
+One-shot installer (Debian/Ubuntu/Fedora/etc., any systemd-based distro):
+
+```bash
+sudo curl -fsSL \
+  https://raw.githubusercontent.com/MrDefalt-creator/RestorMe/main/installers/install-agent.sh \
+  -o /tmp/install-agent.sh
+sudo bash /tmp/install-agent.sh \
+  --server https://restoreme.example.com \
+  --token <enrollment-token>
+```
+
+What it does:
+- detects host architecture (`x86_64` → `linux-x64`, `aarch64` → `linux-arm64`)
+- downloads the matching release asset into `/opt/restoreme-agent/restoreme-agent`
+- writes `/etc/restoreme-agent/config.env` with `RESTOREME_SERVER`, `RESTOREME_ENROLLMENT_TOKEN`, `RESTOREME_STATE_DIR` (mode `0600`)
+- creates state directory `/var/lib/restoreme-agent/state/`
+- installs and enables `restoreme-agent.service` via systemd
+
+Useful flags:
+- `--version vX.Y.Z` — install a specific release instead of `latest`
+- `--state-dir /custom/path` — store agent state somewhere other than `/var/lib/restoreme-agent/state`
+- `--service-user restoreme` — run the agent as a dedicated non-root user (creates it on demand). Use `root` for filesystem backups of arbitrary paths.
+- `--repo OWNER/NAME` — pull releases from a fork
+
+Verify:
+
+```bash
+sudo systemctl status restoreme-agent
+sudo journalctl -u restoreme-agent -f
+```
+
+Uninstall:
+
+```bash
+sudo bash /tmp/install-agent.sh --uninstall          # keeps /var/lib/restoreme-agent/state
+sudo bash /tmp/install-agent.sh --uninstall --purge  # also wipes state
+```
+
+Manual install (without the script): copy the downloaded binary to `/opt/restoreme-agent/restoreme-agent`, create `/etc/restoreme-agent/config.env`, and adapt [installers/restoreme-agent.service](installers/restoreme-agent.service) — it documents the placeholder set.
+
+### Install agent on Windows
+
+From an elevated PowerShell session:
+
+```powershell
+$installer = "$env:TEMP\install-agent.ps1"
+Invoke-WebRequest `
+  -Uri https://raw.githubusercontent.com/MrDefalt-creator/RestorMe/main/installers/install-agent.ps1 `
+  -OutFile $installer -UseBasicParsing
+& $installer -Server https://restoreme.example.com -Token <enrollment-token>
+```
+
+What it does:
+- downloads `restoreme-agent-win-x64.exe` to `C:\Program Files\RestoreMe\Agent\restoreme-agent.exe`
+- creates state directory `C:\ProgramData\RestoreMe\Agent\state\`
+- registers the `RestoreMeAgent` Windows Service (auto-start, restart-on-failure)
+- writes `RESTOREME_SERVER` / `RESTOREME_ENROLLMENT_TOKEN` / `RESTOREME_STATE_DIR` to the service's registry environment so SCM injects them at start
+- starts the service
+
+Useful parameters:
+- `-Version v0.1.0` — pin to a specific release
+- `-StateDir 'D:\RestoreMe\state'` — relocate state off `%ProgramData%`
+- `-Repo OWNER/NAME` — pull releases from a fork
+
+Verify:
+
+```powershell
+Get-Service RestoreMeAgent
+Get-EventLog -LogName Application -Source 'RestoreMe*' -Newest 20
+```
+
+Uninstall:
+
+```powershell
+& $installer -Uninstall         # keeps state directory
+& $installer -Uninstall -Purge  # also wipes state
+```
+
+### Default state-directory locations
+
+When neither `--state-dir` nor `RESTOREME_STATE_DIR` is set, the agent picks an OS-appropriate default and falls back to `<AppContext.BaseDirectory>/state` only if the default isn't writable (typical for `dotnet run` from a developer checkout):
+
+| OS | Default state directory |
+|---|---|
+| Linux | `/var/lib/restoreme-agent/state` |
+| Windows | `%ProgramData%\RestoreMe\Agent\state` |
+| macOS | `~/Library/Application Support/RestoreMe/Agent/state` |
+
+The startup log line `state directory: <path> (source: <origin>)` always names the location actually used.
+
 ## Agent Security Model
 
 ### Bootstrap and regular operation
