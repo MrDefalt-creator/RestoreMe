@@ -1,6 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+
+import { useAuthStore } from '@/app/store/auth-store'
 import {
   AlertTriangle,
   Clock3,
@@ -13,7 +16,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { getAgents, type Agent } from '@/shared/api/agents'
+import { getAgents, revokeAgent, type Agent } from '@/shared/api/agents'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
@@ -309,6 +312,20 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const policyCount = policies.length
   const enabledPolicyCount = policies.filter((policy) => policy.isEnabled).length
+  const currentUser = useAuthStore((state) => state.user)
+  const isAdmin = currentUser?.role === 'admin'
+  const queryClient = useQueryClient()
+
+  const revokeMutation = useMutation({
+    mutationFn: revokeAgent,
+    onSuccess: () => {
+      toast.success(t('Agent token revoked'))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Unable to revoke agent'))
+    },
+  })
 
   return (
     <>
@@ -355,6 +372,19 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
             <Button variant="outline" size="sm" onClick={() => setDetailsOpen(true)}>
               {t('Details')}
             </Button>
+            {isAdmin ? (
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={revokeMutation.isPending}
+                onClick={() => {
+                  if (!window.confirm(t('Revoke agent token? The agent will need to re-enroll.'))) return
+                  revokeMutation.mutate(agent.id)
+                }}
+              >
+                {t('Revoke')}
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>

@@ -1,9 +1,11 @@
 import { startTransition, useDeferredValue, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
+import { toast } from 'sonner'
 
+import { useAuthStore } from '@/app/store/auth-store'
 import { useUiStore } from '@/app/store/ui-store'
-import { getAgents } from '@/entities/agent/api'
+import { getAgents, revokeAgent } from '@/entities/agent/api'
 import type { AgentStatus } from '@/entities/agent/model/types'
 import { getJobs } from '@/entities/job/api'
 import { getPolicies } from '@/entities/policy/api'
@@ -13,6 +15,7 @@ import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
+import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
@@ -48,10 +51,25 @@ export function AgentsPage() {
   const selectedAgentId = useUiStore((state) => state.selectedAgentId)
   const setSelectedAgentId = useUiStore((state) => state.setSelectedAgentId)
 
+  const queryClient = useQueryClient()
+  const currentUser = useAuthStore((state) => state.user)
+  const isAdmin = currentUser?.role === 'admin'
+
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
     ...liveQueryOptions,
+  })
+
+  const revokeMutation = useMutation({
+    mutationFn: revokeAgent,
+    onSuccess: () => {
+      toast.success(t('Agent token revoked'))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Unable to revoke agent'))
+    },
   })
   const policiesQuery = useQuery({
     queryKey: queryKeys.policies,
@@ -167,6 +185,22 @@ export function AgentsPage() {
                 <MetaCard label={t('Status')} value={t(selectedAgent.status)} />
                 <MetaCard label={t('Last heartbeat')} value={formatRelativeTime(selectedAgent.lastSeenAt)} />
               </div>
+
+              {isAdmin ? (
+                <div className="flex items-center justify-end">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    disabled={revokeMutation.isPending}
+                    onClick={() => {
+                      if (!window.confirm(t('Revoke agent token? The agent will need to re-enroll.'))) return
+                      revokeMutation.mutate(selectedAgent.id)
+                    }}
+                  >
+                    {t('Revoke token')}
+                  </Button>
+                </div>
+              ) : null}
 
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-ink-950">{t('Attached policies')}</h3>

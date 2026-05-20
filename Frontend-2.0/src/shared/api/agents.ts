@@ -44,6 +44,10 @@ export async function rejectAgent(pendingId: string): Promise<void> {
   await apiClient.post(`/api/agents/reject/${pendingId}`)
 }
 
+export async function revokeAgent(agentId: string): Promise<void> {
+  await apiClient.post(`/api/agents/${agentId}/revoke`)
+}
+
 export async function getAgentById(agentId: string): Promise<Agent> {
   const response = await apiClient.get(`/api/agents/agent/${agentId}`)
   return response.data

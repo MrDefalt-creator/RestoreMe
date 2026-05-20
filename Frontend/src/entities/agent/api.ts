@@ -59,6 +59,10 @@ export async function approvePendingAgent(input: ApprovePendingAgentInput) {
   return getAgentById(response.data)
 }
 
+export async function revokeAgent(agentId: string) {
+  await http.post(`/api/agents/${agentId}/revoke`)
+}
+
 export async function getPendingStatus(pendingId: string) {
   const response = await http.get<PendingStatusResponse>(
     `/api/agents/status/${pendingId}`,
