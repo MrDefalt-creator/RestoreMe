@@ -11,6 +11,7 @@ import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { BrandMark } from '@/shared/ui/BrandMark'
+import { DeprecationBanner } from './DeprecationBanner'
 
 type NavItem = {
   to: string
@@ -225,6 +226,7 @@ export function AppShell() {
               </Button>
             </div>
           </header>
+          <DeprecationBanner />
           <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-5 md:px-8 md:py-7">
             <Outlet />
           </main>

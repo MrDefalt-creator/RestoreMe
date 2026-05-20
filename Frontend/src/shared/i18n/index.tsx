@@ -13,6 +13,9 @@ const dictionaries: Record<Language, Record<string, string>> = {
   en: {},
   ru: {
     Account: 'Аккаунт',
+    'Deprecated UI.': 'Устаревший интерфейс.',
+    'This frontend is no longer the recommended version. The new RestoreMe admin panel is at:':
+      'Эта версия панели больше не рекомендуется. Новая панель RestoreMe доступна по адресу:',
     Actions: 'Действия',
     Active: 'Активен',
     'Active policies': 'Активные политики',
