@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
+using Backup.Server.Api.Filters;
 using Backup.Server.Api.HealthChecks;
 using Backup.Server.Api.Security;
 using Backup.Server.Api.Services;
@@ -33,7 +34,10 @@ var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<st
                   ];
 
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ExceptionToStatusFilter>();
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendClient", policy =>
@@ -99,7 +103,9 @@ builder.Services
     .AddOptions<NotificationOptions>()
     .Bind(builder.Configuration.GetSection(NotificationOptions.SectionName));
 builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>();
+builder.Services.AddSingleton<BucketReadyState>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
+builder.Services.AddHostedService<MinioBucketInitializer>();
 builder.Services.AddHostedService<RetentionCleanupService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions, corsOrigins);

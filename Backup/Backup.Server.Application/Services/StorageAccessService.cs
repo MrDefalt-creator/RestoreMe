@@ -11,17 +11,25 @@ public class StorageAccessService : IStorageAccessService
 {
     private readonly IMinioClient _minioClient;
     private readonly StorageOptions _storageOptions;
+    private readonly BucketReadyState _bucketReadyState;
 
     public StorageAccessService(
         IMinioClient minioClient,
-        IOptions<StorageOptions> storageOptions)
+        IOptions<StorageOptions> storageOptions,
+        BucketReadyState bucketReadyState)
     {
         _minioClient = minioClient;
         _storageOptions = storageOptions.Value;
+        _bucketReadyState = bucketReadyState;
     }
 
-    private async Task EnsureBucketExistsAsync(CancellationToken cancellationToken)
+    public async Task EnsureBucketExistsAsync(CancellationToken cancellationToken)
     {
+        if (_bucketReadyState.IsReady)
+        {
+            return;
+        }
+
         var exists = await _minioClient.BucketExistsAsync(
             new BucketExistsArgs().WithBucket(_storageOptions.BucketName),
             cancellationToken);
@@ -32,6 +40,8 @@ public class StorageAccessService : IStorageAccessService
                 new MakeBucketArgs().WithBucket(_storageOptions.BucketName),
                 cancellationToken);
         }
+
+        _bucketReadyState.MarkReady();
     }
 
     public async Task<UploadTicketResponse> CreateUploadTicketAsync(
