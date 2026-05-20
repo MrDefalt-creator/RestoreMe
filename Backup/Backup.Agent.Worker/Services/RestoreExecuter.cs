@@ -81,13 +81,58 @@ public class RestoreExecuter : IRestoreExecutor
             var parentDir = Path.GetDirectoryName(sourcePath);
             if (string.IsNullOrEmpty(parentDir)) parentDir = ".";
             Directory.CreateDirectory(parentDir);
-            ZipFile.ExtractToDirectory(tempFilePath, parentDir, overwriteFiles: true);
+            ExtractZipSafely(tempFilePath, parentDir);
         }
         else
         {
             var dir = Path.GetDirectoryName(sourcePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
             File.Copy(tempFilePath, sourcePath, overwrite: true);
+        }
+    }
+
+    private void ExtractZipSafely(string archivePath, string destinationRoot)
+    {
+        // Guard against ZIP slip: validate each entry resolves inside destinationRoot
+        // before extracting. A malicious or corrupted artifact with entries like
+        // "../../etc/passwd" would otherwise let the agent overwrite arbitrary files
+        // with whatever privileges its process has.
+        var fullDestinationRoot = Path.GetFullPath(destinationRoot);
+        var rootWithSeparator = fullDestinationRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? fullDestinationRoot
+            : fullDestinationRoot + Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.OpenRead(archivePath);
+
+        foreach (var entry in archive.Entries)
+        {
+            var targetPath = Path.GetFullPath(Path.Combine(fullDestinationRoot, entry.FullName));
+
+            var isDirectoryEntry = string.IsNullOrEmpty(entry.Name);
+            var pathToValidate = isDirectoryEntry
+                ? (targetPath.EndsWith(Path.DirectorySeparatorChar) ? targetPath : targetPath + Path.DirectorySeparatorChar)
+                : targetPath;
+
+            if (!pathToValidate.StartsWith(rootWithSeparator, StringComparison.Ordinal) &&
+                !string.Equals(pathToValidate.TrimEnd(Path.DirectorySeparatorChar), fullDestinationRoot, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to extract zip entry '{entry.FullName}' — resolved path escapes the restore directory.");
+            }
+
+            if (isDirectoryEntry)
+            {
+                Directory.CreateDirectory(targetPath);
+                continue;
+            }
+
+            var entryDirectory = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrEmpty(entryDirectory))
+            {
+                Directory.CreateDirectory(entryDirectory);
+            }
+
+            entry.ExtractToFile(targetPath, overwrite: true);
         }
     }
 }
