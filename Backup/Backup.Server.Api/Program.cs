@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
+using Backup.Server.Api.HealthChecks;
 using Backup.Server.Api.Security;
 using Backup.Server.Api.Services;
 using Backup.Server.Application.Interfaces;
@@ -194,6 +195,11 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
         .Build();
 });
 
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>(name: "database")
+    .AddCheck<MinioHealthCheck>("minio");
+
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("login", context =>
@@ -232,6 +238,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 await ApplyMigrationsAsync(app);
 await EnsureSecuritySeedAsync(app);

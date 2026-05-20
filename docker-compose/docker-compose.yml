@@ -36,6 +36,11 @@ services:
     volumes:
       # Persist object storage data between restarts.
       - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     secrets:
       - minio-access-key
       - minio-secret-key
@@ -60,14 +65,20 @@ services:
       Storage__SecretKey_FILE: /run/secrets/minio-secret-key
       Storage__BucketName: backups
       Storage__UseSsl: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
-      # API waits for PostgreSQL health check and MinIO startup.
+      # API waits for PostgreSQL and MinIO health checks before starting.
       db:
         condition: service_healthy
       minio:
-        condition: service_started
+        condition: service_healthy
     secrets:
       - postgres-connection
       - minio-access-key
