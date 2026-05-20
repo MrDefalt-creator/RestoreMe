@@ -1,9 +1,12 @@
 using Backup.Server.Api.Security;
+using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Infrastructure.Options;
 using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Backup.Server.Api.Controllers;
 
@@ -42,6 +45,33 @@ public class AgentsController : ControllerBase
     {
         var pendingAgents = await _agentService.GetPendingAgents();
         return Ok(pendingAgents.Select(MapPendingAgent));
+    }
+
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [HttpGet("enrollment-info")]
+    public async Task<IActionResult> GetEnrollmentInfo(
+        [FromServices] IOptions<AgentEnrollmentOptions> enrollmentOptions,
+        [FromServices] IAuditLogRepository auditLogRepository)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        // Token is a secret. Every read leaves a paper trail so admins can
+        // see who pulled the install command — and the install-agent
+        // wizard's audit row in the panel is enough to spot abuse.
+        await auditLogRepository.AddAsync(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorUserId.Value,
+            Action = "agent.enrollment_info_viewed",
+            OccurredAt = DateTime.UtcNow,
+        });
+        await auditLogRepository.SaveChangesAsync();
+
+        return Ok(new EnrollmentInfoResponse(enrollmentOptions.Value.EnrollmentToken));
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
