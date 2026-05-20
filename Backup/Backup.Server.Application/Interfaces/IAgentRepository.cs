@@ -10,4 +10,5 @@ public interface IAgentRepository
     Task SaveChangesAsync();
     Task<Agent?> GetAgentByIdAsync(Guid agentId);
     Task UpdateAgent(Agent agent);
+    Task<int?> GetTokenVersionAsync(Guid agentId);
 }

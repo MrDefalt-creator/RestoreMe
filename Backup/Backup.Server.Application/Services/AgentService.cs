@@ -1,6 +1,7 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Domain.Enums;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Backup.Server.Application.Services;
 
@@ -12,15 +13,37 @@ public class AgentService
     private readonly IAgentRepository _agentRepository;
     private readonly IPendingAgentsRepository _pendingAgentsRepository;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IMemoryCache _cache;
 
     public AgentService(
         IAgentRepository agentRepository,
         IPendingAgentsRepository pendingAgentsRepository,
-        IAuditLogRepository auditLogRepository)
+        IAuditLogRepository auditLogRepository,
+        IMemoryCache cache)
     {
         _agentRepository = agentRepository;
         _pendingAgentsRepository = pendingAgentsRepository;
         _auditLogRepository = auditLogRepository;
+        _cache = cache;
+    }
+
+    public async Task RevokeAgentTokenAsync(Guid agentId, Guid actorUserId)
+    {
+        var agent = await _agentRepository.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
+
+        agent.TokenVersion++;
+        await _agentRepository.UpdateAgent(agent);
+        await _auditLogRepository.AddAsync(Audit(
+            actorUserId,
+            "agent.revoke",
+            agentId,
+            $"machine={agent.MachineName} new_version={agent.TokenVersion}"));
+        await _agentRepository.SaveChangesAsync();
+
+        // Invalidate the cached token version so the next request from the
+        // revoked agent fails immediately rather than after the 30 s TTL.
+        _cache.Remove($"agent-tokver:{agentId}");
     }
 
     public async Task<Guid> RegisterPending(string machineName, string os, string version)

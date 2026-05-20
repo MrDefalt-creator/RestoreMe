@@ -17,8 +17,14 @@ public class Agent
     public DateTime? LastSeenAt { get; set; }
     public DateTime? ApprovedAt { get; set; }
 
+    // Incremented when an admin revokes the agent. Embedded in the issued
+    // JWT as "tokver"; OnTokenValidated rejects any token whose version
+    // is older than the live value, so a compromised agent can be locked
+    // out without rotating the global JWT signing key.
+    public int TokenVersion { get; set; } = 1;
+
     public ICollection<BackupPolicy> Policies { get; set; } = new List<BackupPolicy>();
-    
+
     public PendingAgent? PendingAgent { get; set; }
 
 }

@@ -105,6 +105,20 @@ public class AgentsController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = AuthConstants.UserManagementPolicy)]
+    [HttpPost("{agentId:guid}/revoke")]
+    public async Task<IActionResult> Revoke([FromRoute] Guid agentId)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        await _agentService.RevokeAgentTokenAsync(agentId, actorUserId.Value);
+        return NoContent();
+    }
+
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
     [HttpPost("issue_access_token/{agentId:guid}")]
     public async Task<IActionResult> IssueAccessToken([FromRoute] Guid agentId, [FromBody] IssueAgentAccessTokenRequest request)

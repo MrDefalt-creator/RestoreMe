@@ -47,4 +47,15 @@ public class AgentRepository : IAgentRepository
     {
         _dbContext.Agents.Update(agent);
     }
+
+    public async Task<int?> GetTokenVersionAsync(Guid agentId)
+    {
+        // Project just the version so OnTokenValidated stays a single-row,
+        // single-column lookup.
+        return await _dbContext.Agents
+            .AsNoTracking()
+            .Where(a => a.Id == agentId)
+            .Select(a => (int?)a.TokenVersion)
+            .FirstOrDefaultAsync();
+    }
 }

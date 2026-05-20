@@ -28,7 +28,8 @@ public class TokenService
             MapUserRole(user.Role),
             AuthConstants.UserTokenType,
             expiresAtUtc,
-            user.SecurityStamp.ToString());
+            user.SecurityStamp.ToString(),
+            agentTokenVersion: null);
 
         return new AuthResponse(
             token,
@@ -45,7 +46,8 @@ public class TokenService
             AuthConstants.AgentRole,
             AuthConstants.AgentTokenType,
             expiresAtUtc,
-            stamp: null);
+            stamp: null,
+            agentTokenVersion: agent.TokenVersion);
     }
 
     private string CreateToken(
@@ -54,7 +56,8 @@ public class TokenService
         string role,
         string tokenType,
         DateTime expiresAtUtc,
-        string? stamp)
+        string? stamp,
+        int? agentTokenVersion)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -70,6 +73,13 @@ public class TokenService
         if (!string.IsNullOrEmpty(stamp))
         {
             claims.Add(new Claim(AuthConstants.SecurityStampClaim, stamp));
+        }
+
+        if (agentTokenVersion.HasValue)
+        {
+            claims.Add(new Claim(
+                AuthConstants.AgentTokenVersionClaim,
+                agentTokenVersion.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         var descriptor = new SecurityTokenDescriptor

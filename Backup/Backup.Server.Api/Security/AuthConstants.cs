@@ -11,6 +11,7 @@ public static class AuthConstants
     public const string AgentTokenType = "agent";
 
     public const string SecurityStampClaim = "stamp";
+    public const string AgentTokenVersionClaim = "tokver";
 
     public const string ViewerRole = "Viewer";
     public const string OperatorRole = "Operator";

@@ -23,10 +23,13 @@ public static class SecurityStampValidator
         }
 
         var tokenType = principal.FindFirst(AuthConstants.TokenTypeClaim)?.Value;
+        if (tokenType == AuthConstants.AgentTokenType)
+        {
+            await ValidateAgentTokenAsync(context);
+            return;
+        }
         if (tokenType != AuthConstants.UserTokenType)
         {
-            // Agent tokens don't carry a stamp claim; their revocation lives
-            // on Agent.TokenVersion (H2).
             return;
         }
 
@@ -59,6 +62,43 @@ public static class SecurityStampValidator
         if (currentStamp is null || currentStamp.Value != tokenStamp)
         {
             context.Fail("Security stamp mismatch — token has been invalidated.");
+        }
+    }
+
+    private static async Task ValidateAgentTokenAsync(TokenValidatedContext context)
+    {
+        var principal = context.Principal!;
+        var agentIdClaim = principal.TryGetAgentId();
+        if (!agentIdClaim.HasValue)
+        {
+            context.Fail("Missing agent identifier.");
+            return;
+        }
+
+        var versionClaim = principal.FindFirst(AuthConstants.AgentTokenVersionClaim)?.Value;
+        if (string.IsNullOrWhiteSpace(versionClaim) || !int.TryParse(versionClaim, out var tokenVersion))
+        {
+            // Grace path for agent tokens issued before H2 rollout: treat as
+            // version 1. Once an operator revokes, TokenVersion goes to 2+
+            // and these old tokens stop validating — so revocation works
+            // even for the very first rollout window without forcing every
+            // running agent to re-enroll on deploy day.
+            tokenVersion = 1;
+        }
+
+        var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+        var agentRepository = context.HttpContext.RequestServices.GetRequiredService<IAgentRepository>();
+
+        var cacheKey = $"agent-tokver:{agentIdClaim.Value}";
+        var currentVersion = await cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheTtl;
+            return await agentRepository.GetTokenVersionAsync(agentIdClaim.Value);
+        });
+
+        if (currentVersion is null || currentVersion.Value > tokenVersion)
+        {
+            context.Fail("Agent token has been revoked.");
         }
     }
 }
