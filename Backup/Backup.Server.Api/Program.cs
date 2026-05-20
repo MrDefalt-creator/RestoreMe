@@ -114,7 +114,11 @@ builder.Services.AddScoped<RestoreJobsService>();
 builder.Services
     .AddOptions<NotificationOptions>()
     .Bind(builder.Configuration.GetSection(NotificationOptions.SectionName));
-builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>();
+builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>(client =>
+{
+    // Cap webhook latency so a slow receiver can't stall the failure-reporting path.
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddSingleton<BucketReadyState>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddHostedService<MinioBucketInitializer>();
