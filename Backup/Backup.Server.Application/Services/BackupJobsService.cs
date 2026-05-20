@@ -212,6 +212,7 @@ public class BackupJobsService
             job.AgentId,
             request.FileName,
             request.ContentType,
+            request.SizeBytes,
             publicServerBaseUrl,
             CancellationToken.None);
     }

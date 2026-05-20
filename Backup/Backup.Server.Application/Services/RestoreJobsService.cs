@@ -95,6 +95,7 @@ public class RestoreJobsService
 
         return await _storageAccessService.CreateDownloadTicketAsync(
             artifact.ObjectKey,
+            artifact.SizeBytes,
             publicServerBaseUrl,
             cancellationToken);
     }

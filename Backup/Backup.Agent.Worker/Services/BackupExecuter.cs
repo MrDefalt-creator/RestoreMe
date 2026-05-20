@@ -54,12 +54,18 @@ public class BackupExecuter : IBackupExecutor
 
             preparedPayload = await PreparePayloadAsync(policy, cancellationToken);
 
+            // Report payload size so the server can size the presigned URL
+            // expiry to the upload — small backups get a short window,
+            // huge ones get hours/days.
+            var payloadSize = new FileInfo(preparedPayload.FilePath).Length;
+
             var ticket = await _backupApiClient.RequestUploadTicketAsync(
                 new RequestUploadTicketRequest(
                     jobId,
                     policy.Id,
                     preparedPayload.FileName,
-                    preparedPayload.ContentType),
+                    preparedPayload.ContentType,
+                    payloadSize),
                 cancellationToken);
 
 

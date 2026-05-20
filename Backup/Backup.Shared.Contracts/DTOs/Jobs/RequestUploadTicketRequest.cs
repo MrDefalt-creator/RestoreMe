@@ -4,5 +4,5 @@ public record RequestUploadTicketRequest(
     Guid BackupJobId,
     Guid PolicyId,
     string FileName,
-    string ContentType
-    );
+    string ContentType,
+    long SizeBytes = 0);

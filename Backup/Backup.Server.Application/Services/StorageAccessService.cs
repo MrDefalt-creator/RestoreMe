@@ -44,12 +44,16 @@ public class StorageAccessService : IStorageAccessService
         _bucketReadyState.MarkReady();
     }
 
+    // MinIO caps presigned URL lifetime at 7 days (604 800 seconds).
+    private const int MaxPresignedSeconds = 604_800;
+
     public async Task<UploadTicketResponse> CreateUploadTicketAsync(
         Guid backupJobId,
         Guid policyId,
         Guid agentId,
         string fileName,
         string contentType,
+        long sizeBytes,
         string? publicServerBaseUrl,
         CancellationToken cancellationToken)
     {
@@ -57,7 +61,7 @@ public class StorageAccessService : IStorageAccessService
 
         string safeFileName = fileName.Replace("\\", "/");
         string objectKey = $"{agentId}/{policyId}/{backupJobId}/{safeFileName}";
-        int expirySeconds = _storageOptions.UploadUrlExpirySeconds;
+        int expirySeconds = ComputeUploadExpiry(sizeBytes);
         var expiresAtUtc = DateTime.UtcNow.AddSeconds(expirySeconds);
         var signingClient = BuildAgentFacingSigningClient(publicServerBaseUrl);
 
@@ -72,6 +76,41 @@ public class StorageAccessService : IStorageAccessService
             objectKey,
             uploadUrl,
             expiresAtUtc);
+    }
+
+    private int ComputeUploadExpiry(long sizeBytes)
+    {
+        if (!_storageOptions.UseAdaptiveExpiry || sizeBytes <= 0)
+        {
+            return Math.Min(_storageOptions.UploadUrlExpirySeconds, MaxPresignedSeconds);
+        }
+
+        return ClampAdaptive(sizeBytes);
+    }
+
+    private int ComputeDownloadExpiry(long sizeBytes)
+    {
+        // Static override wins when configured explicitly.
+        if (_storageOptions.DownloadUrlExpirySeconds is { } configured && configured > 0)
+        {
+            return Math.Min(configured, MaxPresignedSeconds);
+        }
+
+        if (!_storageOptions.UseAdaptiveExpiry || sizeBytes <= 0)
+        {
+            return Math.Min(_storageOptions.UploadUrlExpirySeconds, MaxPresignedSeconds);
+        }
+
+        return ClampAdaptive(sizeBytes);
+    }
+
+    private int ClampAdaptive(long sizeBytes)
+    {
+        var sizeGb = sizeBytes / (1024.0 * 1024.0 * 1024.0);
+        var raw = _storageOptions.AdaptiveBaseSeconds + (long)Math.Ceiling(sizeGb * _storageOptions.AdaptivePerGbSeconds);
+        if (raw < _storageOptions.AdaptiveBaseSeconds) raw = _storageOptions.AdaptiveBaseSeconds;
+        if (raw > MaxPresignedSeconds) raw = MaxPresignedSeconds;
+        return (int)raw;
     }
 
     public async Task WriteObjectToAsync(
@@ -95,10 +134,11 @@ public class StorageAccessService : IStorageAccessService
 
     public async Task<string> CreateDownloadTicketAsync(
         string objectKey,
+        long sizeBytes,
         string? publicServerBaseUrl,
         CancellationToken cancellationToken)
     {
-        var expirySeconds = _storageOptions.UploadUrlExpirySeconds;
+        var expirySeconds = ComputeDownloadExpiry(sizeBytes);
         var signingClient = BuildAgentFacingSigningClient(publicServerBaseUrl);
 
         return await signingClient.PresignedGetObjectAsync(

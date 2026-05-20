@@ -12,6 +12,7 @@ public interface IStorageAccessService
         Guid agentId,
         string fileName,
         string contentType,
+        long sizeBytes,
         string? publicServerBaseUrl,
         CancellationToken cancellationToken);
 
@@ -26,6 +27,7 @@ public interface IStorageAccessService
 
     Task<string> CreateDownloadTicketAsync(
         string objectKey,
+        long sizeBytes,
         string? publicServerBaseUrl,
         CancellationToken cancellationToken);
 
