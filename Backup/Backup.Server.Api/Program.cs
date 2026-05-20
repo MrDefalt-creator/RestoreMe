@@ -53,7 +53,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendClient", policy =>
     {
-        policy.AllowAnyHeader().AllowAnyMethod();
+        policy.AllowAnyHeader()
+            .AllowAnyMethod()
+            // Browsers cache CORS preflight responses up to PreflightMaxAge;
+            // every cached preflight saves one RTT before the real request.
+            // 10 minutes matches typical session lifetimes without holding
+            // stale CORS state for too long after a config change.
+            .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
 
         if (builder.Environment.IsDevelopment())
         {
@@ -63,6 +69,15 @@ builder.Services.AddCors(options =>
 
         policy.WithOrigins(corsOrigins);
     });
+});
+
+// Lock the JSON request body to 64 KiB. Backup payloads upload directly
+// to MinIO via presigned URLs — none of the API endpoints take more
+// than a small JSON envelope, so any body bigger than this is a DoS
+// signal rather than a legitimate request.
+builder.Services.Configure<Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = 64 * 1024;
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
