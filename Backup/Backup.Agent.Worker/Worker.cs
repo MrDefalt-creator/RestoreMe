@@ -132,9 +132,26 @@ public class Worker : BackgroundService
 
         _logger.LogInformation("AgentId not found. Starting pending registration flow");
 
-        var pendingId = await _apiClient.RegisterPendingAsync(
+        var registerResponse = await _apiClient.RegisterPendingAsync(
             new PendingAgentRequest(Environment.MachineName, GetOsType(), Environment.OSVersion.VersionString), cancellationToken);
-        
+
+        // Per-agent install-token flow: server pre-approved this agent
+        // and minted its access token in the same response. Skip the
+        // legacy polling loop entirely.
+        if (registerResponse.AgentId.HasValue && !string.IsNullOrWhiteSpace(registerResponse.AccessToken))
+        {
+            var approvedAgentId = registerResponse.AgentId.Value;
+            await _agentState.SaveAgentIdAsync(approvedAgentId, cancellationToken);
+            await _agentState.SaveAccessTokenAsync(registerResponse.AccessToken, cancellationToken);
+
+            _logger.LogInformation(
+                "Agent enrolled via install token and approved immediately. AgentId: {AgentId}",
+                approvedAgentId);
+
+            return approvedAgentId;
+        }
+
+        var pendingId = registerResponse.PendingId;
         _logger.LogInformation("Pending registration succeeded. AgentId: {PendingId}", pendingId);
 
         while (!cancellationToken.IsCancellationRequested)

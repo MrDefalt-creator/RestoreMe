@@ -20,7 +20,7 @@ public class AgentApiClient : IAgentApiClient
         _apiOptions = apiOptions.Value;
     }
 
-    public async Task<Guid> RegisterPendingAsync(PendingAgentRequest request, CancellationToken cancellationToken)
+    public async Task<PendingAgentRegisterResponse> RegisterPendingAsync(PendingAgentRequest request, CancellationToken cancellationToken)
     {
         using var httpRequest = CreateEnrollmentRequest(HttpMethod.Post, "/api/Agents/register_pending");
         httpRequest.Content = JsonContent.Create(request);
@@ -32,14 +32,14 @@ public class AgentApiClient : IAgentApiClient
             throw new HttpRequestException($"RegisterPending failed with status {response.StatusCode}", null, response.StatusCode);
         }
 
-        var result =  await response.Content.ReadFromJsonAsync<PendingAgentRegisterResponse>(cancellationToken);
+        var result = await response.Content.ReadFromJsonAsync<PendingAgentRegisterResponse>(cancellationToken);
 
         if (result == null)
         {
             throw new InvalidOperationException("RegisterPending response is empty.");
         }
 
-        return result.PendingId;
+        return result;
     }
 
     public async Task<string> IssueAccessTokenAsync(Guid agentId, string machineName, CancellationToken cancellationToken)
