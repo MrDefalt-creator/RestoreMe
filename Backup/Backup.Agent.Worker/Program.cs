@@ -38,6 +38,14 @@ if (startup.ResetState)
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// Lift the process into a Windows Service when SCM started us. No-op
+// when running interactively or on non-Windows, so this stays safe for
+// `dotnet run` and the Linux/systemd path.
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "RestoreMe Agent";
+});
+
 // Fold operator-supplied overrides into IConfiguration so existing code that
 // reads ApiOptions.EnrollmentToken / ApiOptions.BaseUrl picks them up. The
 // in-memory layer is appended last so it wins over appsettings.json.
