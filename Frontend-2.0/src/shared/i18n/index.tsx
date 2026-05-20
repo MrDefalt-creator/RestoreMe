@@ -291,8 +291,25 @@ const dictionaries: Record<Language, Record<string, string>> = {
     Copied: 'Скопировано',
     'Copy command': 'Скопировать команду',
     'Could not copy. Select the command manually.': 'Не удалось скопировать. Выделите команду вручную.',
+    'Could not generate install token.': 'Не удалось сгенерировать install-токен.',
     'Could not load the enrollment token.': 'Не удалось загрузить токен регистрации.',
     'Install new agent': 'Установить агента',
+    'Generate a single-use install command. Run it on the machine you want to back up — the agent connects and shows up here automatically.':
+      'Сгенерируйте одноразовую установочную команду. Запустите её на машине, которую нужно бэкапить — агент подключится и появится здесь автоматически.',
+    'Run this command on the target machine. The token is single-use and expires shortly.':
+      'Выполните команду на целевой машине. Токен одноразовый и скоро истечёт.',
+    'Generate install command': 'Сгенерировать команду установки',
+    'Generating...': 'Генерируем...',
+    'Agent name (optional)': 'Имя агента (опционально)',
+    'Leave empty to use the host machine name as the agent name.':
+      'Оставьте пустым, чтобы использовать имя хоста.',
+    'Expires in {minutes}m {seconds}s': 'Истекает через {minutes}м {seconds}с',
+    'Expires in {seconds}s': 'Истекает через {seconds}с',
+    'This install token has expired. Generate a new one to retry.':
+      'Install-токен истёк. Сгенерируйте новый, чтобы продолжить.',
+    Regenerate: 'Перевыпустить',
+    'Waiting for agent to connect...': 'Ждём подключения агента...',
+    'Connected: {name}': 'Подключён: {name}',
     'Run this command on the machine you want to back up. The agent will appear under Pending agents after enrollment.':
       'Выполните команду на машине, которую нужно бэкапить. Агент появится в разделе ожидающих после регистрации.',
     'Loading enrollment token...': 'Загружаем токен регистрации...',

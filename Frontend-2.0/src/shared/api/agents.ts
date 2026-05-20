@@ -52,8 +52,35 @@ export interface EnrollmentInfo {
   enrollmentToken: string
 }
 
+/**
+ * @deprecated Returns the shared AgentEnrollment:EnrollmentToken — kept only
+ * so legacy agents keep enrolling. New agents should be installed via the
+ * per-agent install-token flow (POST /api/agents/install-tokens), which is
+ * what the install-agent wizard now uses.
+ */
 export async function getEnrollmentInfo(): Promise<EnrollmentInfo> {
   const response = await apiClient.get<EnrollmentInfo>('/api/agents/enrollment-info')
+  return response.data
+}
+
+export interface CreateInstallTokenRequest {
+  preApprovedName?: string
+  ttlMinutes?: number
+}
+
+export interface CreateInstallTokenResponse {
+  id: string
+  token: string
+  expiresAt: string
+}
+
+export async function createInstallToken(
+  input: CreateInstallTokenRequest = {},
+): Promise<CreateInstallTokenResponse> {
+  const response = await apiClient.post<CreateInstallTokenResponse>(
+    '/api/agents/install-tokens',
+    input,
+  )
   return response.data
 }
 

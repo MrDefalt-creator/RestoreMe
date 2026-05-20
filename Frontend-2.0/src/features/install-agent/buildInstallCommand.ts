@@ -2,6 +2,10 @@ import { env } from '@/shared/config/env'
 
 export type InstallOs = 'linux' | 'windows'
 
+// The token passed in is single-use and TTL-bound — minted on demand by
+// the install-agent wizard from POST /api/agents/install-tokens. A leak
+// of one install command compromises at most one agent slot.
+//
 // Repo holding the installer scripts on raw.githubusercontent.com.
 // Kept in sync with installers/install-agent.{sh,ps1} location.
 const SCRIPT_REPO = 'MrDefalt-creator/RestorMe'

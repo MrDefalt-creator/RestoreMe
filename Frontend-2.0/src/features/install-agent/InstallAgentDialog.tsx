@@ -1,11 +1,18 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Clipboard, ClipboardCheck, MonitorSmartphone, TerminalSquare } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import {
+  CheckCircle2,
+  Clipboard,
+  ClipboardCheck,
+  MonitorSmartphone,
+  TerminalSquare,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
-import { getEnrollmentInfo } from '@/shared/api/agents'
+import { createInstallToken, getAgents, type CreateInstallTokenResponse } from '@/shared/api/agents'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
+import { Input } from '@/shared/ui/Input'
 import { Spinner } from '@/shared/ui/Spinner'
 import { useI18n } from '@/shared/i18n'
 import { buildInstallCommand, resolveServerUrl, type InstallOs } from './buildInstallCommand'
@@ -15,38 +22,78 @@ type InstallAgentDialogProps = {
   onClose: () => void
 }
 
+type Phase = 'form' | 'command'
+
 export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
   const { t } = useI18n()
+  const [phase, setPhase] = useState<Phase>('form')
   const [os, setOs] = useState<InstallOs>('linux')
+  const [preApprovedName, setPreApprovedName] = useState('')
   const [copied, setCopied] = useState(false)
+  const [token, setToken] = useState<CreateInstallTokenResponse | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
-  const enrollmentQuery = useQuery({
-    queryKey: ['agents', 'enrollment-info'],
-    queryFn: getEnrollmentInfo,
-    enabled: open,
-    // Token is a secret — drop it from cache shortly after the dialog
-    // closes so it doesn't sit in memory for the rest of the session.
-    staleTime: 0,
-    gcTime: 60_000,
-  })
-
-  // Reset the copied-flag whenever the dialog closes — useState-tracked
-  // prev value matches the React docs' "adjusting state on a prop change"
-  // pattern.
+  // Reset everything when the dialog closes (useState-tracked prev value
+  // matches React's "adjusting state on a prop change" pattern).
   const [prevOpen, setPrevOpen] = useState(open)
   if (prevOpen !== open) {
     setPrevOpen(open)
-    if (!open && copied) setCopied(false)
+    if (!open) {
+      setPhase('form')
+      setToken(null)
+      setPreApprovedName('')
+      setCopied(false)
+    }
   }
 
+  // Once the token exists, tick a 1s clock so the expiry countdown updates.
+  useEffect(() => {
+    if (phase !== 'command' || !token) return
+    const id = setInterval(() => setNow(Date.now()), 1_000)
+    return () => clearInterval(id)
+  }, [phase, token])
+
+  const mutation = useMutation({
+    mutationFn: createInstallToken,
+    onSuccess: (result) => {
+      setToken(result)
+      setNow(Date.now())
+      setPhase('command')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Could not generate install token.'))
+    },
+  })
+
+  // After the wizard moves to phase=command, poll the Agents list every 3s
+  // looking for a new approved agent matching the pre-approved name or any
+  // newly-arrived one. When found, flip to "Connected ✓".
+  const enteredAt = useState(() => Date.now())[0]
+  const agentsQuery = useQuery({
+    queryKey: ['agents', 'install-watch'],
+    queryFn: getAgents,
+    enabled: phase === 'command' && Boolean(token),
+    refetchInterval: 3_000,
+    staleTime: 0,
+  })
+
+  const connectedAgent = (agentsQuery.data ?? []).find((a) => {
+    const created = a.createdAt ? Date.parse(a.createdAt) : NaN
+    if (!Number.isFinite(created) || created < enteredAt - 2_000) return false
+    if (preApprovedName && a.name.trim() === preApprovedName.trim()) return true
+    // No PreApprovedName supplied — any newly-created agent is the one.
+    return !preApprovedName
+  })
+
   const serverUrl = resolveServerUrl()
-  const token = enrollmentQuery.data?.enrollmentToken ?? '<enrollment-token>'
-  const command = buildInstallCommand(os, serverUrl, token)
-  const canCopy = enrollmentQuery.isSuccess && !enrollmentQuery.isError
+  const installCommand = token
+    ? buildInstallCommand(os, serverUrl, token.token)
+    : ''
 
   async function copy() {
+    if (!installCommand) return
     try {
-      await navigator.clipboard.writeText(command)
+      await navigator.clipboard.writeText(installCommand)
       setCopied(true)
       toast.success(t('Copied'))
       setTimeout(() => setCopied(false), 1500)
@@ -55,62 +102,129 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
     }
   }
 
+  const expiresAtMs = token ? Date.parse(token.expiresAt) : 0
+  const secondsLeft = token ? Math.max(0, Math.floor((expiresAtMs - now) / 1000)) : 0
+  const minutesLeft = Math.floor(secondsLeft / 60)
+  const tokenExpired = token !== null && secondsLeft === 0
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={t('Install new agent')}
-      description={t('Run this command on the machine you want to back up. The agent will appear under Pending agents after enrollment.')}
+      description={
+        phase === 'form'
+          ? t('Generate a single-use install command. Run it on the machine you want to back up — the agent connects and shows up here automatically.')
+          : t('Run this command on the target machine. The token is single-use and expires shortly.')
+      }
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            {t('Close')}
-          </Button>
-          <Button onClick={copy} disabled={!canCopy} className="gap-2">
-            {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
-            {copied ? t('Copied') : t('Copy command')}
-          </Button>
-        </>
+        phase === 'form' ? (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              {t('Cancel')}
+            </Button>
+            <Button onClick={() => mutation.mutate({ preApprovedName: preApprovedName.trim() || undefined, ttlMinutes: 15 })} disabled={mutation.isPending}>
+              {mutation.isPending ? t('Generating...') : t('Generate install command')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              {t('Close')}
+            </Button>
+            <Button onClick={copy} disabled={!installCommand || tokenExpired} className="gap-2">
+              {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
+              {copied ? t('Copied') : t('Copy command')}
+            </Button>
+          </>
+        )
       }
     >
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/40 p-1">
-          <OsButton
-            active={os === 'linux'}
-            icon={<TerminalSquare className="h-4 w-4" />}
-            label="Linux"
-            onClick={() => setOs('linux')}
-          />
-          <OsButton
-            active={os === 'windows'}
-            icon={<MonitorSmartphone className="h-4 w-4" />}
-            label="Windows"
-            onClick={() => setOs('windows')}
-          />
+      {phase === 'form' ? (
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground" htmlFor="install-agent-name">
+              {t('Agent name (optional)')}
+            </label>
+            <Input
+              id="install-agent-name"
+              value={preApprovedName}
+              onChange={(event) => setPreApprovedName(event.target.value)}
+              placeholder={t('Accounting workstation')}
+              className="mt-2"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t('Leave empty to use the host machine name as the agent name.')}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/40 p-1">
+            <OsButton
+              active={os === 'linux'}
+              icon={<TerminalSquare className="h-4 w-4" />}
+              label="Linux"
+              onClick={() => setOs('linux')}
+            />
+            <OsButton
+              active={os === 'windows'}
+              icon={<MonitorSmartphone className="h-4 w-4" />}
+              label="Windows"
+              onClick={() => setOs('windows')}
+            />
+          </div>
         </div>
+      ) : (
+        <div className="space-y-4">
+          {tokenExpired ? (
+            <div className="rounded-lg border border-warning/30 bg-warning/8 p-3 text-sm text-warning-foreground">
+              {t('This install token has expired. Generate a new one to retry.')}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">
+                {minutesLeft >= 1
+                  ? t('Expires in {minutes}m {seconds}s', { minutes: minutesLeft, seconds: secondsLeft % 60 })
+                  : t('Expires in {seconds}s', { seconds: secondsLeft })}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setPhase('form')
+                  setToken(null)
+                }}
+              >
+                {t('Regenerate')}
+              </Button>
+            </div>
+          )}
 
-        {enrollmentQuery.isLoading ? (
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-            <Spinner /> {t('Loading enrollment token...')}
-          </div>
-        ) : enrollmentQuery.isError ? (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/8 p-4 text-sm text-destructive">
-            {enrollmentQuery.error instanceof Error
-              ? enrollmentQuery.error.message
-              : t('Could not load the enrollment token.')}
-          </div>
-        ) : (
           <pre className="overflow-x-auto rounded-lg border border-border bg-card p-4 text-xs leading-6 text-foreground">
-            <code>{command}</code>
+            <code>{installCommand}</code>
           </pre>
-        )}
 
-        <p className="text-xs text-muted-foreground">
-          {t('Server URL is taken from this panel ({url}). To install against a different backend, edit the command before running it.', {
-            url: serverUrl,
-          })}
-        </p>
-      </div>
+          <div className="rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+            {connectedAgent ? (
+              <div className="flex items-center gap-2 text-success-foreground">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <span>
+                  {t('Connected: {name}', { name: connectedAgent.name })}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Spinner />
+                <span>{t('Waiting for agent to connect...')}</span>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {t('Server URL is taken from this panel ({url}). To install against a different backend, edit the command before running it.', {
+              url: serverUrl,
+            })}
+          </p>
+        </div>
+      )}
     </Dialog>
   )
 }
