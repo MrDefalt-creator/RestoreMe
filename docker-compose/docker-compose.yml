@@ -32,7 +32,6 @@ services:
       MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio-secret-key
     ports:
       - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       # Persist object storage data between restarts.
       - minio_data:/data
@@ -52,7 +51,6 @@ services:
     container_name: restoreme-backend
     restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       # Backend reads the full PostgreSQL connection string from a secret file.
       ConnectionStrings__DefaultConnection_FILE: /run/secrets/postgres-connection
