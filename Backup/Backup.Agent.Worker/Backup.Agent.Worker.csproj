@@ -5,6 +5,23 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-Backup.Agent.Worker-dfe99ce6-3593-482c-8567-83fcb4bfd281</UserSecretsId>
+
+    <!-- RIDs we ship release binaries for. `dotnet restore` pulls native
+         assets for each so a single restore feeds every publish target. -->
+    <RuntimeIdentifiers>linux-x64;linux-arm64;win-x64</RuntimeIdentifiers>
+
+    <!-- The agent doesn't render localised text, only emits log lines.
+         Invariant mode strips ICU and shaves ~30 MB off the self-contained
+         binary while leaving CultureInfo.InvariantCulture intact. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Publish-time defaults so `dotnet publish -r <RID>` produces a
+         single self-contained binary out of the box. CI/release workflow
+         still passes the flags explicitly for clarity, but local
+         `dotnet publish -r linux-x64` Just Works. -->
+    <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">true</PublishSingleFile>
+    <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
