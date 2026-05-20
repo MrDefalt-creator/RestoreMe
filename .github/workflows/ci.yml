@@ -26,6 +26,10 @@ jobs:
         working-directory: Backup
         run: dotnet build BackupSystem.slnx --configuration Release --no-restore
 
+      - name: Test
+        working-directory: Backup
+        run: dotnet test BackupSystem.slnx --configuration Release --no-build --verbosity normal
+
   frontend:
     name: Frontend build (${{ matrix.app }})
     runs-on: ubuntu-latest

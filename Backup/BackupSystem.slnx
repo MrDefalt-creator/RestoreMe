@@ -4,5 +4,6 @@
   <Project Path="Backup.Server.Application/Backup.Server.Application.csproj" />
   <Project Path="Backup.Server.Domain/Backup.Server.Domain.csproj" />
   <Project Path="Backup.Server.Infrastructure/Backup.Server.Infrastructure.csproj" />
+  <Project Path="Backup.Server.Tests/Backup.Server.Tests.csproj" />
   <Project Path="Backup.Shared.Contracts/Backup.Shared.Contracts.csproj" />
 </Solution>

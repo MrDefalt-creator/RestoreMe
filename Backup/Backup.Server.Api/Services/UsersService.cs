@@ -151,7 +151,7 @@ public class UsersService
         };
     }
 
-    private static void ValidatePassword(string password)
+    internal static void ValidatePassword(string password)
     {
         if (password.Length < 8)
             throw new InvalidOperationException("Password must be at least 8 characters long.");

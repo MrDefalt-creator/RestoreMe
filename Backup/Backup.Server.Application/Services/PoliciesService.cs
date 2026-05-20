@@ -143,7 +143,7 @@ public class PoliciesService
         await _policyRepository.SaveChangesAsync();
     }
     
-    private static string NormalizeSourcePath(BackupPolicyType policyType, string? path)
+    internal static string NormalizeSourcePath(BackupPolicyType policyType, string? path)
     {
         if (policyType != BackupPolicyType.FileSystem)
         {
