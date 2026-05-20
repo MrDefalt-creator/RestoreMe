@@ -13,6 +13,9 @@ COPY . .
 RUN yarn build
 
 FROM httpd:2.4.66 AS final
+# Re-declare the build arg so the CSP can pin connect-src to the same
+# backend URL that was baked into the Vite bundle.
+ARG VITE_API_BASE_URL=http://localhost:8080
 RUN sed -i 's/^#LoadModule rewrite_module modules\/mod_rewrite.so/LoadModule rewrite_module modules\/mod_rewrite.so/' /usr/local/apache2/conf/httpd.conf \
     && sed -i 's/^#LoadModule headers_module modules\/mod_headers.so/LoadModule headers_module modules\/mod_headers.so/' /usr/local/apache2/conf/httpd.conf \
     && printf "ServerName localhost\n" > /usr/local/apache2/conf/extra/servername.conf \
@@ -21,7 +24,7 @@ RUN sed -i 's/^#LoadModule rewrite_module modules\/mod_rewrite.so/LoadModule rew
     && echo "Include conf/extra/servername.conf" >> /usr/local/apache2/conf/httpd.conf \
     && echo "Include conf/extra/spa-routing.conf" >> /usr/local/apache2/conf/httpd.conf \
     && echo "Include conf/extra/cache-control.conf" >> /usr/local/apache2/conf/httpd.conf \
-    && printf "Header always set X-Content-Type-Options \"nosniff\"\nHeader always set X-Frame-Options \"DENY\"\nHeader always set Referrer-Policy \"strict-origin-when-cross-origin\"\nHeader always set Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src *; font-src 'self';\"\n" > /usr/local/apache2/conf/extra/security-headers.conf \
+    && printf "Header always set X-Content-Type-Options \"nosniff\"\nHeader always set X-Frame-Options \"DENY\"\nHeader always set Referrer-Policy \"strict-origin-when-cross-origin\"\nHeader always set Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' %s; font-src 'self';\"\n" "$VITE_API_BASE_URL" > /usr/local/apache2/conf/extra/security-headers.conf \
     && echo "Include conf/extra/security-headers.conf" >> /usr/local/apache2/conf/httpd.conf
 
 COPY --from=build /app/dist/ /usr/local/apache2/htdocs/
