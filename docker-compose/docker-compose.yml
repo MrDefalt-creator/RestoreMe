@@ -69,6 +69,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    volumes:
+      # Persist ASP.NET Core DataProtection keys so cookie tokens and any
+      # future Protect/Unprotect payloads survive container recreation.
+      - backend_keys:/app/keys
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -117,6 +121,7 @@ services:
 volumes:
   db_data:
   minio_data:
+  backend_keys:
 
 secrets:
   postgres-password:

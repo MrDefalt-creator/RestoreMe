@@ -13,6 +13,7 @@ using Backup.Server.Infrastructure.Configuration;
 using Backup.Server.Infrastructure.Options;
 using Backup.Server.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -38,6 +39,16 @@ builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ExceptionToStatusFilter>();
 });
+
+// Persist DataProtection keys so any payload that uses Protect/Unprotect
+// (antiforgery in the future, encrypted cookies, etc.) keeps working
+// across container restarts. SetApplicationName isolates the key ring
+// from the agent and from other instances sharing the volume.
+var serverKeysDir = Path.Combine(AppContext.BaseDirectory, "keys");
+Directory.CreateDirectory(serverKeysDir);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(serverKeysDir))
+    .SetApplicationName("RestoreMe.Server");
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendClient", policy =>
