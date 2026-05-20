@@ -1,0 +1,5 @@
+# Shell scripts and unit files run on Linux — pin line endings to LF
+# regardless of contributor platform so a Windows checkout doesn't break
+# the shebang or systemd parser.
+*.sh                  text eol=lf
+installers/*.service  text eol=lf
