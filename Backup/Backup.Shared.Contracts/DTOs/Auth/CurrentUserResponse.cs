@@ -3,4 +3,5 @@ namespace Backup.Shared.Contracts.DTOs.Auth;
 public record CurrentUserResponse(
     Guid Id,
     string Username,
-    string Role);
+    string Role,
+    bool MustChangePassword = false);

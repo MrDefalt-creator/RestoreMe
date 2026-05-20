@@ -7,6 +7,7 @@ export type AuthUser = {
   id: string
   username: string
   role: AuthRole
+  mustChangePassword?: boolean
 }
 
 type AuthStore = {
@@ -56,11 +57,17 @@ function normalizeRole(role: string): AuthRole {
   return 'viewer'
 }
 
-export function toAuthUser(user: { id: string; username: string; role: string }): AuthUser {
+export function toAuthUser(user: {
+  id: string
+  username: string
+  role: string
+  mustChangePassword?: boolean
+}): AuthUser {
   return {
     id: user.id,
     username: user.username,
     role: normalizeRole(user.role),
+    mustChangePassword: user.mustChangePassword ?? false,
   }
 }
 

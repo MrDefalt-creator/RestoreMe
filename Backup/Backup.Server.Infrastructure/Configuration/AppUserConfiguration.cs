@@ -37,6 +37,10 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .IsRequired()
             .HasDefaultValueSql("gen_random_uuid()");
 
+        builder.Property(x => x.MustChangePassword)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.HasIndex(x => x.NormalizedUsername)
             .IsUnique();
     }

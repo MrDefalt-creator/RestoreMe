@@ -72,6 +72,7 @@ public class AuthService
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
         user.SecurityStamp = Guid.NewGuid();
+        user.MustChangePassword = false;
         await _appUserRepository.UpdateAsync(user);
         await _appUserRepository.SaveChangesAsync();
     }

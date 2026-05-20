@@ -10,6 +10,7 @@ export interface User {
   username: string
   role: 'admin' | 'operator' | 'viewer'
   isActive: boolean
+  mustChangePassword?: boolean
 }
 
 export interface AuthResponse {

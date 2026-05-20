@@ -15,4 +15,9 @@ public class AppUser
     // Bumped on password change / role change so any JWT issued before the
     // bump fails OnTokenValidated. New users start with a fresh stamp.
     public Guid SecurityStamp { get; set; } = Guid.NewGuid();
+
+    // When true, only password-change / logout endpoints are reachable —
+    // forces the bootstrap admin (and any user the admin password-reset)
+    // to set a fresh secret before doing anything else.
+    public bool MustChangePassword { get; set; }
 }

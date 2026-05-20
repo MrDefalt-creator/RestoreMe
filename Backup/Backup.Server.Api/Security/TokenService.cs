@@ -22,6 +22,9 @@ public class TokenService
     public AuthResponse CreateUserAuthResponse(AppUser user)
     {
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.UserTokenLifetimeMinutes);
+        var extraClaims = user.MustChangePassword
+            ? new[] { new System.Security.Claims.Claim(AuthConstants.MustChangePasswordClaim, "1") }
+            : null;
         var token = CreateToken(
             user.Id,
             user.Username,
@@ -29,12 +32,13 @@ public class TokenService
             AuthConstants.UserTokenType,
             expiresAtUtc,
             user.SecurityStamp.ToString(),
-            agentTokenVersion: null);
+            agentTokenVersion: null,
+            extraClaims: extraClaims);
 
         return new AuthResponse(
             token,
             expiresAtUtc,
-            new CurrentUserResponse(user.Id, user.Username, MapUserRole(user.Role)));
+            new CurrentUserResponse(user.Id, user.Username, MapUserRole(user.Role), user.MustChangePassword));
     }
 
     public string CreateAgentToken(Agent agent)
@@ -47,7 +51,8 @@ public class TokenService
             AuthConstants.AgentTokenType,
             expiresAtUtc,
             stamp: null,
-            agentTokenVersion: agent.TokenVersion);
+            agentTokenVersion: agent.TokenVersion,
+            extraClaims: null);
     }
 
     private string CreateToken(
@@ -57,7 +62,8 @@ public class TokenService
         string tokenType,
         DateTime expiresAtUtc,
         string? stamp,
-        int? agentTokenVersion)
+        int? agentTokenVersion,
+        IEnumerable<System.Security.Claims.Claim>? extraClaims)
     {
         // Agent tokens get their own signing key when AgentSigningKey is
         // configured — otherwise we fall back to the shared SigningKey to
@@ -87,6 +93,11 @@ public class TokenService
             claims.Add(new Claim(
                 AuthConstants.AgentTokenVersionClaim,
                 agentTokenVersion.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        if (extraClaims is not null)
+        {
+            claims.AddRange(extraClaims);
         }
 
         var descriptor = new SecurityTokenDescriptor

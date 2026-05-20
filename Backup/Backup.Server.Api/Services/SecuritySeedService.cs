@@ -55,7 +55,11 @@ public class SecuritySeedService
                 NormalizedUsername = normalizedUsername,
                 Role = ParseRole(seedUser.Role),
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                // Bootstrap accounts ship with a known dev-default password;
+                // force a rotation on first sign-in so the operator does it
+                // before any real work.
+                MustChangePassword = true,
             };
 
             user.PasswordHash = _passwordHasher.HashPassword(user, seedUser.Password);
