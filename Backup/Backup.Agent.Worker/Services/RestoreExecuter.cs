@@ -80,6 +80,7 @@ public class RestoreExecuter : IRestoreExecutor
         {
             var parentDir = Path.GetDirectoryName(sourcePath);
             if (string.IsNullOrEmpty(parentDir)) parentDir = ".";
+            SnapshotBeforeRestore(parentDir, isDirectory: true);
             Directory.CreateDirectory(parentDir);
             ExtractZipSafely(tempFilePath, parentDir);
         }
@@ -87,8 +88,61 @@ public class RestoreExecuter : IRestoreExecutor
         {
             var dir = Path.GetDirectoryName(sourcePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            SnapshotBeforeRestore(sourcePath, isDirectory: false);
             File.Copy(tempFilePath, sourcePath, overwrite: true);
         }
+    }
+
+    private void SnapshotBeforeRestore(string targetPath, bool isDirectory)
+    {
+        // Rename the existing target out of the way before overwriting so a
+        // bad/corrupted restore can be rolled back manually. Snapshot suffix
+        // includes a UTC timestamp; collisions across same-second restarts
+        // get an extra Guid fragment.
+        try
+        {
+            if (isDirectory)
+            {
+                if (!Directory.Exists(targetPath)) return;
+                if (!Directory.EnumerateFileSystemEntries(targetPath).Any()) return;
+
+                var snapshotPath = BuildSnapshotPath(targetPath);
+                Directory.Move(targetPath, snapshotPath);
+                _logger.LogInformation(
+                    "Pre-restore snapshot of directory {Target} created at {Snapshot}",
+                    targetPath, snapshotPath);
+                return;
+            }
+
+            if (!File.Exists(targetPath)) return;
+
+            var fileSnapshotPath = BuildSnapshotPath(targetPath);
+            File.Move(targetPath, fileSnapshotPath);
+            _logger.LogInformation(
+                "Pre-restore snapshot of file {Target} created at {Snapshot}",
+                targetPath, fileSnapshotPath);
+        }
+        catch (Exception ex)
+        {
+            // Snapshot is best-effort; don't fail the whole restore if the
+            // process can't move the file (locked, permissions, cross-volume).
+            // Operators still get the restore — they just lose the rollback path.
+            _logger.LogWarning(ex,
+                "Pre-restore snapshot of {Target} failed; proceeding with overwrite",
+                targetPath);
+        }
+    }
+
+    private static string BuildSnapshotPath(string targetPath)
+    {
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+        var candidate = $"{targetPath}.pre-restore-{timestamp}";
+        if (!File.Exists(candidate) && !Directory.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        return $"{targetPath}.pre-restore-{timestamp}-{Guid.NewGuid():N}";
     }
 
     private void ExtractZipSafely(string archivePath, string destinationRoot)
