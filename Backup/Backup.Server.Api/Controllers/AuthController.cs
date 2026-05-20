@@ -34,6 +34,7 @@ public class AuthController : ControllerBase
                 HttpOnly = true,
                 Secure = !_env.IsDevelopment(),
                 SameSite = SameSiteMode.Strict,
+                Path = "/",
             };
 
             if (request.RememberMe)
@@ -55,7 +56,15 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        Response.Cookies.Delete("access_token");
+        // Cookie.Delete must match the attributes used at Append time, otherwise
+        // some browsers silently ignore the deletion and leave a stale token.
+        Response.Cookies.Delete("access_token", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !_env.IsDevelopment(),
+            SameSite = SameSiteMode.Strict,
+            Path = "/",
+        });
         return NoContent();
     }
 
