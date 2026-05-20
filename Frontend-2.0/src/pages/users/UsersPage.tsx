@@ -13,7 +13,7 @@ import {
   updateUserStatus,
   type User,
   type UserRole,
-} from '@/shared/api/users'
+} from '@/entities/user'
 import { formatDateTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'

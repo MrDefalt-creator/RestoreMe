@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { useAuthStore } from '@/app/store/auth-store'
-import { getAuditLogs } from '@/shared/api/auditLogs'
+import { getAuditLogs } from '@/entities/audit-log'
 import { useI18n } from '@/shared/i18n'
 import { formatDateTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'

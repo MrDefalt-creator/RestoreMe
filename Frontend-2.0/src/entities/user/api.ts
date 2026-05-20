@@ -1,21 +1,5 @@
-import apiClient from './client'
-
-export type UserRole = 'admin' | 'operator' | 'viewer'
-
-export interface User {
-  id: string
-  username: string
-  role: UserRole
-  isActive: boolean
-  createdAtUtc?: string
-  lastSeenAt?: string | null
-}
-
-export type CreateUserInput = {
-  username: string
-  password: string
-  role: UserRole
-}
+import apiClient from '@/shared/api/client'
+import type { CreateUserInput, User, UserRole } from './model'
 
 function normalizeRole(role: string): UserRole {
   const normalized = role.trim().toLowerCase()

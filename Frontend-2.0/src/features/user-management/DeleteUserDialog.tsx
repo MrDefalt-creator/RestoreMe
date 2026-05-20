@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { deleteUser, type User } from '@/shared/api/users'
+import { deleteUser, type User } from '@/entities/user'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { useI18n } from '@/shared/i18n'

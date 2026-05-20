@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Inbox, Server, XCircle } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Inbox, Server } from 'lucide-react'
 
-import { approveAgent, getPendingAgents, rejectAgent, type PendingAgent } from '@/shared/api/agents'
+import { getPendingAgents, type PendingAgent } from '@/shared/api/agents'
+import { ApproveAgentDialog, RejectAgentDialog } from '@/features/approve-agent'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
-import { Dialog } from '@/shared/ui/Dialog'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { Input } from '@/shared/ui/Input'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime } from '@/shared/lib/format'
-import { toast } from 'sonner'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { useAuthStore } from '@/app/store/auth-store'
@@ -21,45 +19,19 @@ export function PendingAgentsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const role = useAuthStore((state) => state.user?.role)
   const canApprove = role === 'admin' || role === 'operator'
-  const [selectedAgent, setSelectedAgent] = useState<PendingAgent | null>(null)
-  const [rejectingAgent, setRejectingAgent] = useState<PendingAgent | null>(null)
-  const [agentName, setAgentName] = useState('')
+  const [approving, setApproving] = useState<PendingAgent | null>(null)
+  const [rejecting, setRejecting] = useState<PendingAgent | null>(null)
+
   const pendingQuery = useQuery({
     queryKey: queryKeys.pendingAgents,
     queryFn: getPendingAgents,
     ...liveQueryOptions,
   })
 
-  const approveMutation = useMutation({
-    mutationFn: approveAgent,
-    onSuccess: () => {
-      void pendingQuery.refetch()
-      setSelectedAgent(null)
-      setAgentName('')
-      toast.success(t('Agent approved'))
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Failed to approve agent'))
-    },
-  })
-
-  const rejectMutation = useMutation({
-    mutationFn: rejectAgent,
-    onSuccess: () => {
-      void pendingQuery.refetch()
-      setRejectingAgent(null)
-      toast.success(t('Agent rejected'))
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Failed to reject agent'))
-    },
-  })
-
   const pendingAgents = pendingQuery.data ?? []
 
   return (
     <div className="space-y-8">
-      {/* Section Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           {t('Pending Approvals')}
@@ -72,7 +44,6 @@ export function PendingAgentsPage() {
         </Badge>
       </div>
 
-      {/* Pending Agents */}
       <div className="space-y-4">
         {pendingAgents.length ? (
           pendingAgents.map((agent) => (
@@ -103,35 +74,16 @@ export function PendingAgentsPage() {
 
                 {canApprove ? (
                   <div className="flex gap-3">
-                    <Button
-                      variant="success"
-                      onClick={() => {
-                        setSelectedAgent(agent)
-                        setAgentName(agent.machineName)
-                      }}
-                      disabled={approveMutation.isPending || rejectMutation.isPending}
-                      className="flex-1"
-                    >
-                      {approveMutation.isPending ? t('Approving...') : t('Approve')}
+                    <Button variant="success" onClick={() => setApproving(agent)} className="flex-1">
+                      {t('Approve')}
                     </Button>
-                    <Button
-                      variant="danger"
-                      className="flex-1"
-                      onClick={() => setRejectingAgent(agent)}
-                      disabled={approveMutation.isPending || rejectMutation.isPending}
-                    >
-                      {rejectMutation.isPending ? t('Rejecting...') : t('Reject')}
+                    <Button variant="danger" onClick={() => setRejecting(agent)} className="flex-1">
+                      {t('Reject')}
                     </Button>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-border bg-secondary p-3 text-sm text-muted-foreground">
                     {t('Read only')}
-                  </div>
-                )}
-
-                {(approveMutation.error || rejectMutation.error) && (
-                  <div className="rounded-lg border border-destructive/20 bg-destructive/8 p-3 text-sm text-destructive">
-                    {(approveMutation.error ?? rejectMutation.error)?.message}
                   </div>
                 )}
               </CardContent>
@@ -145,82 +97,17 @@ export function PendingAgentsPage() {
           />
         )}
       </div>
-      <Dialog
-        open={canApprove && Boolean(selectedAgent)}
-        onClose={() => setSelectedAgent(null)}
-        title={t('Approve pending agent')}
-        description={t('Assign a readable name before this machine becomes available for backup policies.')}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setSelectedAgent(null)}>
-              {t('Cancel')}
-            </Button>
-            <Button
-              disabled={!selectedAgent || agentName.trim().length < 2 || approveMutation.isPending}
-              onClick={() => {
-                if (!selectedAgent) {
-                  return
-                }
-                approveMutation.mutate({
-                  pendingId: selectedAgent.id,
-                  name: agentName.trim(),
-                })
-              }}
-            >
-              {approveMutation.isPending ? t('Approving...') : t('Approve agent')}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground" htmlFor="pending-agent-name">
-            {t('Agent name')}
-          </label>
-          <Input
-            id="pending-agent-name"
-            value={agentName}
-            onChange={(event) => setAgentName(event.target.value)}
-            placeholder={t('Accounting workstation')}
-          />
-        </div>
-      </Dialog>
-      <Dialog
-        open={canApprove && Boolean(rejectingAgent)}
-        onClose={() => setRejectingAgent(null)}
-        title={t('Reject pending agent')}
-        description={t('The agent will be told that this registration request was rejected and will stop waiting for approval.')}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setRejectingAgent(null)}>
-              {t('Cancel')}
-            </Button>
-            <Button
-              variant="danger"
-              disabled={!rejectingAgent || rejectMutation.isPending}
-              onClick={() => {
-                if (!rejectingAgent) {
-                  return
-                }
-                rejectMutation.mutate(rejectingAgent.id)
-              }}
-            >
-              {rejectMutation.isPending ? t('Rejecting...') : t('Reject agent')}
-            </Button>
-          </>
-        }
-      >
-        <div className="rounded-lg border border-destructive/20 bg-destructive/8 p-4">
-          <div className="flex items-start gap-3">
-            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-            <div>
-              <p className="font-medium text-foreground">{rejectingAgent?.machineName}</p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {t('This action keeps the machine out of backup policy assignment until it registers again under a pending request.')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </Dialog>
+
+      <ApproveAgentDialog
+        open={canApprove && Boolean(approving)}
+        pendingAgent={approving}
+        onClose={() => setApproving(null)}
+      />
+      <RejectAgentDialog
+        open={canApprove && Boolean(rejecting)}
+        pendingAgent={rejecting}
+        onClose={() => setRejecting(null)}
+      />
     </div>
   )
 }
