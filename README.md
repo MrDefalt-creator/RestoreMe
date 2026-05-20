@@ -394,24 +394,57 @@ Important settings:
 
 Important note:
 - checked-in agent defaults point to the local Docker Compose backend at `http://localhost:8080/`
-- for another machine or server, change `Api:BaseUrl` to the real backend address before starting the agent
+- for another machine or server, point the agent at the real backend via the `--server` flag, `RESTOREME_SERVER` env var, or by editing `Api:BaseUrl` in `appsettings.json`
+
+### Running the agent against a remote backend
+
+The agent reads its server URL and enrollment token from three sources, in this order of precedence:
+
+1. **CLI flags** — `--server <url>`, `--enrollment-token <token>`
+2. **Environment** — `RESTOREME_SERVER`, `RESTOREME_ENROLLMENT_TOKEN`
+3. **`appsettings.json`** — `Api:BaseUrl`, `Api:EnrollmentToken`
+
+```powershell
+BackupAgent --server http://my-backend:8080 --enrollment-token <token>
+```
+
+```bash
+RESTOREME_SERVER=http://my-backend:8080 \
+RESTOREME_ENROLLMENT_TOKEN=<token> \
+  ./BackupAgent
+```
+
+The agent persists the resolved URL into `state/agent-state.json` so subsequent runs keep going to the same backend. When you pass `--server` with a different URL, the agent updates the local state and logs a `WARNING` about the change. No state-file hunting required.
+
+### Resetting agent state
+
+If the agent is wedged on an old URL, a revoked token, or you simply want a clean slate:
+
+```powershell
+BackupAgent --reset-state
+```
+
+or set `RESTOREME_RESET_STATE=1` once. This wipes `state/agent-state.json` and `state/keys/` before the agent starts, so the next run is a fresh enrollment. Combine with `--server` / `--enrollment-token` to redirect at the same time.
 
 ### Agent local state
 
 The agent stores local state in:
-- `state/agent-state.json` — encrypted with ASP.NET Core DataProtection
+- `state/agent-state.json` — encrypted with ASP.NET Core DataProtection (contains `AgentId`, `ServerAddress`, `AccessToken`)
 - `state/keys/` — DataProtection key ring (persisted across restarts via `PersistKeysToFileSystem` + `SetApplicationName("RestoreMe.Agent")`)
 
-That state can contain:
-- `AgentId`
-- `ServerAddress`
-- `AccessToken`
-
 Behavior:
-- if a saved `ServerAddress` exists, it has priority over config `Api:BaseUrl`
-- if an agent already has `AgentId` but no access token, it can recover a new token through enrollment flow
-- if the agent still connects to an old backend after changing config, update or delete `state/agent-state.json`
+- CLI/ENV overrides win over local state — operator stays in control without editing files
+- if an agent already has `AgentId` but no access token, it can recover a new token through the enrollment flow
 - when running the agent in Docker, mount `state/` (including `state/keys/`) on a volume so the encrypted state survives container recreation
+
+### Common agent errors and what to do
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `Cannot reach RestoreMe backend` log line | Wrong URL or backend unreachable | `BackupAgent --server <correct-url> --reset-state` |
+| `Backend rejected the agent token` (401 on heartbeat) | Agent revoked from the panel, JWT key rotated, or token version drift | `BackupAgent --server <url> --enrollment-token <token> --reset-state` |
+| Agent keeps connecting to localhost after changing config | Old `ServerAddress` persisted in state | Either `--server <url>` to override, or `--reset-state` to wipe |
+| `Api:BaseUrl is not configured` | First start without CLI/ENV/config | Pass `--server <url>` or set `RESTOREME_SERVER` |
 
 ### Agent resilience
 
