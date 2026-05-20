@@ -261,6 +261,8 @@ When the backend starts under `ASPNETCORE_ENVIRONMENT=Production`, it refuses to
 
 These guards are intentional — they keep dev defaults from silently shipping to a real environment.
 
+Production also enables `UseHsts()` (30-day pin, includes subdomains) and `UseHttpsRedirection()`. RestoreMe is intended to run behind a TLS-terminating reverse proxy (Caddy, Traefik, nginx) — give the backend container an internal network and publish only the reverse proxy on `:443`. If you must expose Kestrel directly, configure it with a certificate via `ASPNETCORE_Kestrel__Endpoints__Https__Certificate__Path` or the `Kestrel:Endpoints` section.
+
 ### Adaptive presigned URL expiry
 
 Agents talk to MinIO over presigned URLs. The lifetime of each URL is sized to the payload by default so small jobs get short windows (safer) and large jobs get hours-or-days (still works):

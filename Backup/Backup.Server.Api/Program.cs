@@ -299,6 +299,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+if (app.Environment.IsProduction())
+{
+    // HSTS pin: 30 days, includes subdomains. Operators terminating TLS
+    // at a reverse proxy (typical RestoreMe deployment) get the header
+    // forwarded to the browser. If Kestrel is exposed directly with TLS,
+    // UseHttpsRedirection upgrades any naked-HTTP request.
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("FrontendClient");
 app.UseRateLimiter();
 app.UseAuthentication();
