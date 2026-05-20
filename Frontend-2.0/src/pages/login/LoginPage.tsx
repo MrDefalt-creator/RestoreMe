@@ -143,8 +143,7 @@ export function LoginPage() {
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
-                    checked={form.watch('rememberMe')}
-                    onChange={(event) => form.setValue('rememberMe', event.target.checked)}
+                    {...form.register('rememberMe')}
                   />
                   <span>{t('Remember me on this device')}</span>
                 </label>

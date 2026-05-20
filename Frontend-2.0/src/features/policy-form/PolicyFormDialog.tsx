@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -189,8 +189,8 @@ export function PolicyFormDialog({
     mode: 'onChange',
     defaultValues,
   })
-  const policyType = form.watch('type')
-  const authMode = form.watch('authMode')
+  const policyType = useWatch({ control: form.control, name: 'type' })
+  const authMode = useWatch({ control: form.control, name: 'authMode' })
 
   useEffect(() => {
     if (!open) {

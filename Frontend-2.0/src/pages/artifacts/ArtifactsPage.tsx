@@ -256,10 +256,19 @@ function ArtifactRow({
   onRestore: () => void
   t: (key: string, params?: Record<string, string | number>) => string
 }) {
-  const expiresAt = Date.parse(artifact.expiresAt ?? '')
-  const hasExpiry = Boolean(artifact.expiresAt) && Number.isFinite(expiresAt)
-  const isExpired = hasExpiry && Date.now() > expiresAt
-  const expiresSoon = hasExpiry && !isExpired && expiresAt - Date.now() < 3 * 24 * 60 * 60 * 1000
+  const { hasExpiry, isExpired, expiresSoon } = useMemo(() => {
+    const parsed = Date.parse(artifact.expiresAt ?? '')
+    const valid = Boolean(artifact.expiresAt) && Number.isFinite(parsed)
+    // Snapshot "now" once per artifact render — TanStack Query refetches the
+    // list periodically, which re-runs this memo and refreshes the flags.
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now()
+    return {
+      hasExpiry: valid,
+      isExpired: valid && now > parsed,
+      expiresSoon: valid && now <= parsed && parsed - now < 3 * 24 * 60 * 60 * 1000,
+    }
+  }, [artifact.expiresAt])
   const displayName = getArtifactDisplayName(artifact)
   const artifactType = getArtifactType(artifact)
 
