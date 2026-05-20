@@ -109,7 +109,7 @@ yarn dev
 
 Vite will choose an available local port. The Docker Compose setup publishes this frontend on:
 
-- `http://localhost:5174`
+- `http://localhost:5173` (primary RestoreMe admin panel)
 
 ## Environment
 
@@ -153,7 +153,7 @@ docker compose up --build frontend-2
 
 Default address:
 
-- `http://localhost:5174`
+- `http://localhost:5173` (primary RestoreMe admin panel)
 
 The production image builds the Vite bundle and serves it through Apache with SPA rewrite rules, so direct navigation to nested routes works.
 

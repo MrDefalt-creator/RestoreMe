@@ -29,7 +29,7 @@ Use this order when you deploy the stack on a clean workstation.
 2. Replace the starter secret files inside [secrets](secrets).
 3. Run `docker compose up --build`.
 4. Wait until backend applies migrations.
-5. Open the stable frontend on `http://localhost:5173`, or Frontend 2.0 on `http://localhost:5174`.
+5. Open Frontend 2.0 on `http://localhost:5173` (primary), or the deprecated legacy frontend on `http://localhost:5174`.
 6. Sign in with the bootstrap administrator account.
 7. Change the bootstrap administrator password.
 8. Create additional users if required.
@@ -82,8 +82,8 @@ docker compose down
 ## Default Ports
 
 By default the stack publishes:
-- stable frontend: `http://localhost:5173`
-- frontend 2.0: `http://localhost:5174`
+- frontend 2.0: `http://localhost:5173` (primary)
+- legacy frontend: `http://localhost:5174` (deprecated, see [Frontend/README.md](../Frontend/README.md))
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
@@ -219,8 +219,8 @@ This does not change backend security rules; it only changes frontend session pe
 
 The Compose stack runs both UI versions against the same backend, database and object storage:
 
-- `frontend` on `http://localhost:5173` is the stable diploma baseline.
-- `frontend-2` on `http://localhost:5174` is the next-generation UI prototype.
+- `frontend-2` on `http://localhost:5173` is the primary RestoreMe admin panel.
+- `frontend` on `http://localhost:5174` is the deprecated legacy UI, kept available during the burn-in period.
 
 Both frontends use the same API and should show the same agents, policies, jobs and artifacts after polling/refetch.
 
@@ -305,9 +305,9 @@ Check:
 - frontend is pointing to the correct backend URL
 - you are using the current seeded admin credentials on a clean or expected database
 
-### Frontend 2.0 is not available on port 5174
+### Frontend 2.0 is not available on port 5173
 Check:
-- `.env` contains `FRONTEND_2_PORT=5174`
+- `.env` contains `FRONTEND_2_PORT=5173`
 - `frontend-2` container exists in `docker compose ps`
 - the image was rebuilt with `docker compose up -d --build frontend-2`
 - another local process is not already using the selected port

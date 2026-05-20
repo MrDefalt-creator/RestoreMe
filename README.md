@@ -118,8 +118,8 @@ Required env (or `.env.prod` next to the compose files):
 - `API_PUBLIC_URL` — public backend URL baked into the Vite bundle and used in the CSP `connect-src` of both frontends
 
 Default published addresses:
-- frontend v1: `http://localhost:5173`
-- frontend 2.0: `http://localhost:5174`
+- frontend 2.0: `http://localhost:5173` (primary)
+- frontend v1: `http://localhost:5174` (deprecated, see [Frontend/README.md](Frontend/README.md))
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
@@ -162,7 +162,7 @@ Use this sequence for a clean local deployment or first workstation setup.
 3. Check [docker-compose/.env](docker-compose/.env) if default ports are already occupied.
 4. Start the stack with `docker compose up --build`.
 5. Wait until backend applies migrations.
-6. Open `http://localhost:5173` for the stable frontend, or `http://localhost:5174` for Frontend 2.0.
+6. Open `http://localhost:5173` for Frontend 2.0 (primary), or `http://localhost:5174` for the deprecated legacy frontend.
 7. Sign in with the bootstrap administrator account.
 8. Change the bootstrap administrator password.
 9. Create additional users if needed.
@@ -636,10 +636,9 @@ VITE_API_MODE=live
 ```
 
 Notes:
-- Frontend 2.0 is the flagship UI prototype, not the primary diploma baseline.
-- It uses the same backend and database as the original frontend.
-- Data created in one frontend should be visible in the other after refetch/polling.
-- In Docker Compose it is published on `http://localhost:5174`.
+- Frontend 2.0 is the primary RestoreMe admin panel and is gradually replacing the legacy `Frontend/` (now deprecated).
+- It uses the same backend and database as the legacy frontend; data is visible in either UI after refetch/polling.
+- In Docker Compose it is published on `http://localhost:5173`.
 
 ## Logical Database Dump Policies
 

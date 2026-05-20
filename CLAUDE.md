@@ -17,7 +17,7 @@ RestoreMe is a backup management system. The monorepo contains:
 cd docker-compose
 docker compose up --build
 ```
-Default ports: frontend v1 `:5173`, frontend 2.0 `:5174`, backend `:8080`, MinIO API `:9000`, MinIO Console `:9001`, PostgreSQL `:5432`.
+Default ports: frontend 2.0 `:5173` (primary), frontend v1 `:5174` (deprecated), backend `:8080`, MinIO API `:9000`, MinIO Console `:9001`, PostgreSQL `:5432`.
 
 ### Backend
 ```powershell

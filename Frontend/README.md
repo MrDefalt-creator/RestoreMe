@@ -1,4 +1,11 @@
-# RestoreMe Frontend
+# RestoreMe Frontend (Legacy â€” Deprecated)
+
+> [!WARNING]
+> **This frontend is deprecated.** [Frontend-2.0/](../Frontend-2.0/README.md) is the primary RestoreMe admin panel and is the recommended UI for all new deployments.
+>
+> This directory will be removed in a future release after Frontend-2.0 completes its burn-in period. Until then it stays available on `http://localhost:5174` in the default Docker Compose setup so operators can compare both UIs against the same backend, but no new features will land here.
+>
+> If you are setting up RestoreMe for the first time, open `http://localhost:5173` (Frontend-2.0) instead.
 
 Frontend admin panel for the RestoreMe backup system.
 
@@ -44,7 +51,7 @@ yarn dev
 ```
 
 By default Vite starts on:
-- `http://localhost:5173`
+- `http://localhost:5174` (in Docker Compose; Vite's standalone dev server picks the next free local port)
 
 ## Build and Checks
 
@@ -67,8 +74,8 @@ VITE_API_MODE=live
 ```
 
 ### Modes
-- `live` — use the ASP.NET Core backend
-- `mock` — use local in-memory fixtures for offline/demo work
+- `live` ï¿½ use the ASP.NET Core backend
+- `mock` ï¿½ use local in-memory fixtures for offline/demo work
 
 ### Notes
 - in local manual development the recommended backend URL is `http://localhost:8080`
@@ -78,11 +85,11 @@ VITE_API_MODE=live
 ## Main Scripts
 
 Defined in [package.json](D:\projects\RestorMe\Frontend\package.json):
-- `yarn dev` — run Vite dev server
-- `yarn build` — run TypeScript build and production bundle
-- `yarn lint` — run ESLint
-- `yarn typecheck` — run TypeScript without emitting files
-- `yarn preview` — preview the production bundle locally
+- `yarn dev` ï¿½ run Vite dev server
+- `yarn build` ï¿½ run TypeScript build and production bundle
+- `yarn lint` ï¿½ run ESLint
+- `yarn typecheck` ï¿½ run TypeScript without emitting files
+- `yarn preview` ï¿½ preview the production bundle locally
 
 ## Project Structure
 
@@ -168,7 +175,7 @@ In `live` mode the main pages refetch automatically on an interval, so backend c
 
 1. Start backend.
 2. Start frontend with `yarn dev`.
-3. Open `http://localhost:5173`.
+3. Open the URL Vite printed (or `http://localhost:5174` in Docker Compose).
 4. Approve a pending agent in `Pending`.
 5. Create or edit a policy in `Policies`.
 6. Observe jobs in `Jobs`.
