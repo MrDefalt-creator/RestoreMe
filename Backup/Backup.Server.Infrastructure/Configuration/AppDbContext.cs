@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<PendingAgent> PendingAgents { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<RestoreJob> RestoreJobs { get; set; }
+    public DbSet<AgentInstallToken> AgentInstallTokens { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
