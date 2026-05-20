@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Backup.Server.Api.Filters;
 using Backup.Server.Api.HealthChecks;
+using Backup.Server.Api.HostedServices;
 using Backup.Server.Api.Security;
 using Backup.Server.Api.Services;
 using Backup.Server.Application.Interfaces;
@@ -127,6 +128,7 @@ builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<IRestoreJobRepository, RestoreJobRepository>();
 builder.Services.AddScoped<IAgentInstallTokenRepository, AgentInstallTokenRepository>();
 builder.Services.AddScoped<AgentInstallTokenService>();
+builder.Services.AddHostedService<AgentInstallTokenCleanupService>();
 builder.Services.AddScoped<RestoreJobsService>();
 
 builder.Services
