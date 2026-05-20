@@ -57,8 +57,16 @@ public class Worker : BackgroundService
         var resolvedApiEndpoint = await _apiEndpointResolver.ResolveAsync(stoppingToken);
         var storedServerAddress = await _agentState.TryGetServerAddressAsync(stoppingToken);
 
-        if (string.IsNullOrWhiteSpace(storedServerAddress))
+        if (!string.Equals(resolvedApiEndpoint.BaseUrl, storedServerAddress, StringComparison.Ordinal))
         {
+            if (!string.IsNullOrWhiteSpace(storedServerAddress))
+            {
+                _logger.LogWarning(
+                    "Server address changed via {Source}. Previous {Previous} -> new {New}. Updating local state.",
+                    resolvedApiEndpoint.Source,
+                    storedServerAddress,
+                    resolvedApiEndpoint.BaseUrl);
+            }
             await _agentState.SaveServerAddressAsync(resolvedApiEndpoint.BaseUrl, stoppingToken);
         }
 

@@ -83,4 +83,13 @@ public class FileAgentStore : IAgentState
         state.AccessToken = accessToken;
         await SaveStateAsync(state, cancellationToken);
     }
+
+    public Task ClearAsync(CancellationToken cancellationToken)
+    {
+        if (File.Exists(_fileName))
+        {
+            File.Delete(_fileName);
+        }
+        return Task.CompletedTask;
+    }
 }
