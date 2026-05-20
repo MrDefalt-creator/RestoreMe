@@ -2,6 +2,7 @@ import { Suspense, lazy, type ReactNode } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 
 import { RequireAuth } from '@/app/providers/RequireAuth'
+import { ErrorPage } from '@/pages/errors/ErrorPage'
 import { NotFoundPage } from '@/pages/errors/NotFoundPage'
 
 const AppShell = lazy(() => import('@/widgets/app-shell/AppShell').then(module => ({ default: module.AppShell })))
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: withSuspense(<LoginPage />),
-    errorElement: <NotFoundPage />,
+    errorElement: <ErrorPage />,
   },
   {
     path: '/',
@@ -43,7 +44,7 @@ export const router = createBrowserRouter([
         {withSuspense(<AppShell />)}
       </RequireAuth>
     ),
-    errorElement: <NotFoundPage />,
+    errorElement: <ErrorPage />,
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'account', element: <AccountPage /> },
