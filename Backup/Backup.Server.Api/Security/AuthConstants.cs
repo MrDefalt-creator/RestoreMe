@@ -10,6 +10,8 @@ public static class AuthConstants
     public const string UserTokenType = "user";
     public const string AgentTokenType = "agent";
 
+    public const string SecurityStampClaim = "stamp";
+
     public const string ViewerRole = "Viewer";
     public const string OperatorRole = "Operator";
     public const string AdminRole = "Admin";

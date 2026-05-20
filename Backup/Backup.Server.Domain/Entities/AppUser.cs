@@ -11,4 +11,8 @@ public class AppUser
     public AppUserRole Role { get; set; } = AppUserRole.Viewer;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Bumped on password change / role change so any JWT issued before the
+    // bump fails OnTokenValidated. New users start with a fresh stamp.
+    public Guid SecurityStamp { get; set; } = Guid.NewGuid();
 }

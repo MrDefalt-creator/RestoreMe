@@ -27,7 +27,8 @@ public class TokenService
             user.Username,
             MapUserRole(user.Role),
             AuthConstants.UserTokenType,
-            expiresAtUtc);
+            expiresAtUtc,
+            user.SecurityStamp.ToString());
 
         return new AuthResponse(
             token,
@@ -43,7 +44,8 @@ public class TokenService
             agent.MachineName,
             AuthConstants.AgentRole,
             AuthConstants.AgentTokenType,
-            expiresAtUtc);
+            expiresAtUtc,
+            stamp: null);
     }
 
     private string CreateToken(
@@ -51,7 +53,8 @@ public class TokenService
         string subjectName,
         string role,
         string tokenType,
-        DateTime expiresAtUtc)
+        DateTime expiresAtUtc,
+        string? stamp)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -63,6 +66,11 @@ public class TokenService
             new(ClaimTypes.Role, role),
             new(AuthConstants.TokenTypeClaim, tokenType)
         };
+
+        if (!string.IsNullOrEmpty(stamp))
+        {
+            claims.Add(new Claim(AuthConstants.SecurityStampClaim, stamp));
+        }
 
         var descriptor = new SecurityTokenDescriptor
         {

@@ -156,7 +156,8 @@ builder.Services
                     context.Token = cookieToken;
                 }
                 return Task.CompletedTask;
-            }
+            },
+            OnTokenValidated = Backup.Server.Api.Security.SecurityStampValidator.ValidateAsync,
         };
     })
     .AddScheme<AuthenticationSchemeOptions, AgentEnrollmentAuthenticationHandler>(
@@ -221,6 +222,8 @@ builder.Services
     .AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(name: "database")
     .AddCheck<MinioHealthCheck>("minio");
+
+builder.Services.AddMemoryCache();
 
 builder.Services.AddRateLimiter(options =>
 {

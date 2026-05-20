@@ -88,6 +88,7 @@ public class UsersService
         ValidatePassword(newPassword);
         var user = await GetUserByIdAsync(userId);
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.SecurityStamp = Guid.NewGuid();
         await _appUserRepository.UpdateAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorId, "user.password_reset", userId));
         await _appUserRepository.SaveChangesAsync();

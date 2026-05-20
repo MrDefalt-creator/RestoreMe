@@ -8,6 +8,7 @@ public interface IAppUserRepository
     Task<List<AppUser>> GetAllAsync();
     Task<AppUser?> GetByIdAsync(Guid id);
     Task<AppUser?> GetByNormalizedUsernameAsync(string normalizedUsername);
+    Task<Guid?> GetSecurityStampAsync(Guid userId);
     Task<int> CountAsync();
     Task<int> CountActiveByRoleAsync(AppUserRole role);
     Task AddAsync(AppUser user);

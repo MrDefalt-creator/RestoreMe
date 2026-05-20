@@ -33,6 +33,10 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        builder.Property(x => x.SecurityStamp)
+            .IsRequired()
+            .HasDefaultValueSql("gen_random_uuid()");
+
         builder.HasIndex(x => x.NormalizedUsername)
             .IsUnique();
     }
