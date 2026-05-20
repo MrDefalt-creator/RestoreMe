@@ -102,7 +102,7 @@ builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddHostedService<RetentionCleanupService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions);
+ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions, corsOrigins);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
@@ -306,7 +306,8 @@ static bool IsAllowedDevelopmentOrigin(
 static void ValidateProductionConfiguration(
     IConfiguration configuration,
     IWebHostEnvironment environment,
-    JwtOptions jwtOptions)
+    JwtOptions jwtOptions,
+    string[] corsOrigins)
 {
     if (environment.IsDevelopment())
     {
@@ -327,6 +328,39 @@ static void ValidateProductionConfiguration(
     {
         throw new InvalidOperationException("Production agent enrollment token must be configured with a non-default secret.");
     }
+
+    if (corsOrigins.Length == 0)
+    {
+        throw new InvalidOperationException(
+            "Production Cors:AllowedOrigins must be configured explicitly (e.g. via CORS_ORIGIN in docker-compose.prod.yml).");
+    }
+
+    if (corsOrigins.Any(IsLoopbackOrigin))
+    {
+        throw new InvalidOperationException(
+            "Production Cors:AllowedOrigins must not contain loopback addresses (localhost/127.0.0.1).");
+    }
+}
+
+static bool IsLoopbackOrigin(string origin)
+{
+    if (string.IsNullOrWhiteSpace(origin))
+    {
+        return false;
+    }
+
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+    {
+        return origin.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+               origin.Contains("127.0.0.1", StringComparison.Ordinal);
+    }
+
+    if (string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return IPAddress.TryParse(uri.Host, out var address) && IPAddress.IsLoopback(address);
 }
 
 static async Task ApplyMigrationsAsync(WebApplication app)
