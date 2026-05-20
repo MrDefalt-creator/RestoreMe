@@ -48,6 +48,15 @@ export async function revokeAgent(agentId: string): Promise<void> {
   await apiClient.post(`/api/agents/${agentId}/revoke`)
 }
 
+export interface EnrollmentInfo {
+  enrollmentToken: string
+}
+
+export async function getEnrollmentInfo(): Promise<EnrollmentInfo> {
+  const response = await apiClient.get<EnrollmentInfo>('/api/agents/enrollment-info')
+  return response.data
+}
+
 export async function getAgentById(agentId: string): Promise<Agent> {
   const response = await apiClient.get(`/api/agents/agent/${agentId}`)
   return response.data

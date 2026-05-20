@@ -288,6 +288,16 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Agent identifier': 'Идентификатор агента',
     Details: 'Детали',
     Close: 'Закрыть',
+    Copied: 'Скопировано',
+    'Copy command': 'Скопировать команду',
+    'Could not copy. Select the command manually.': 'Не удалось скопировать. Выделите команду вручную.',
+    'Could not load the enrollment token.': 'Не удалось загрузить токен регистрации.',
+    'Install new agent': 'Установить агента',
+    'Run this command on the machine you want to back up. The agent will appear under Pending agents after enrollment.':
+      'Выполните команду на машине, которую нужно бэкапить. Агент появится в разделе ожидающих после регистрации.',
+    'Loading enrollment token...': 'Загружаем токен регистрации...',
+    'Server URL is taken from this panel ({url}). To install against a different backend, edit the command before running it.':
+      'URL берётся из текущей панели ({url}). Чтобы поставить агент на другой бэкенд, отредактируйте команду перед запуском.',
     'Manage policies': 'Управлять политиками',
     'Registered RestoreMe agent': 'Зарегистрированный агент RestoreMe',
     'Assigned policies': 'Назначенные политики',

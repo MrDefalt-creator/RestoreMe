@@ -7,6 +7,7 @@ import { useAuthStore } from '@/app/store/auth-store'
 import {
   AlertTriangle,
   Clock3,
+  Download,
   Laptop,
   Search,
   Server,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react'
 
 import { getAgents, revokeAgent, type Agent } from '@/shared/api/agents'
+import { InstallAgentDialog } from '@/features/install-agent'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
@@ -45,9 +47,12 @@ type PolicyCoverageFilter = 'all' | 'with-policies' | 'without-policies'
 
 export function AgentsPage() {
   const { t } = useI18n()
+  const role = useAuthStore((state) => state.user?.role)
+  const canInstall = role === 'admin' || role === 'operator'
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [osFilter, setOsFilter] = useState('all')
   const [policyCoverageFilter, setPolicyCoverageFilter] = useState<PolicyCoverageFilter>('all')
@@ -122,7 +127,17 @@ export function AgentsPage() {
         eyebrow={t('Infrastructure')}
         title={t('Agents')}
         description={t('A live map of registered machines, their heartbeat health, and the protection policy coverage behind each one.')}
-        action={<Badge variant="success">{t('{count} online', { count: stats.online })}</Badge>}
+        action={
+          <div className="flex items-center gap-3">
+            <Badge variant="success">{t('{count} online', { count: stats.online })}</Badge>
+            {canInstall ? (
+              <Button variant="primary" size="sm" className="gap-2" onClick={() => setInstallOpen(true)}>
+                <Download className="h-4 w-4" />
+                {t('Install new agent')}
+              </Button>
+            ) : null}
+          </div>
+        }
       />
 
       <div className="grid gap-3 md:grid-cols-4">
@@ -252,6 +267,10 @@ export function AgentsPage() {
           ) : undefined}
         />
       )}
+
+      {canInstall ? (
+        <InstallAgentDialog open={installOpen} onClose={() => setInstallOpen(false)} />
+      ) : null}
     </div>
   )
 }
