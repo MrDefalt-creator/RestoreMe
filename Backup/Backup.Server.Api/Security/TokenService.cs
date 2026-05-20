@@ -59,7 +59,14 @@ public class TokenService
         string? stamp,
         int? agentTokenVersion)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
+        // Agent tokens get their own signing key when AgentSigningKey is
+        // configured — otherwise we fall back to the shared SigningKey to
+        // stay backwards compatible with existing deployments.
+        var rawKey = tokenType == AuthConstants.AgentTokenType && !string.IsNullOrWhiteSpace(_jwtOptions.AgentSigningKey)
+            ? _jwtOptions.AgentSigningKey
+            : _jwtOptions.SigningKey;
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(rawKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>

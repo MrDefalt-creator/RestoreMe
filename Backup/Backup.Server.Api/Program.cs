@@ -141,6 +141,9 @@ builder.Services.AddHostedService<RetentionCleanupService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions, corsOrigins);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
+var agentSigningKey = !string.IsNullOrWhiteSpace(jwtOptions.AgentSigningKey)
+    ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.AgentSigningKey))
+    : signingKey;
 
 builder.Services
     .AddAuthentication(options =>
@@ -158,7 +161,25 @@ builder.Services
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtOptions.Issuer,
             ValidAudience = jwtOptions.Audience,
-            IssuerSigningKey = signingKey,
+            // Pick the key by inspecting the token_type claim *before*
+            // verifying the signature. Reading the claim from the unverified
+            // payload is fine — the wrong key will simply make the signature
+            // check fail in the next pipeline step.
+            IssuerSigningKeyResolver = (token, _, _, _) =>
+            {
+                try
+                {
+                    var jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(token);
+                    var tokenType = jwt.Claims.FirstOrDefault(c => c.Type == AuthConstants.TokenTypeClaim)?.Value;
+                    return tokenType == AuthConstants.AgentTokenType
+                        ? [agentSigningKey]
+                        : [signingKey];
+                }
+                catch
+                {
+                    return [signingKey, agentSigningKey];
+                }
+            },
             ClockSkew = TimeSpan.FromMinutes(1)
         };
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
@@ -359,6 +380,21 @@ static void ValidateProductionConfiguration(
         Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32)
     {
         throw new InvalidOperationException("Production JWT signing key must be configured with a strong secret.");
+    }
+
+    // If operator opted into a dedicated agent key, validate it the same way.
+    // An empty value is legitimate — it just means agents share SigningKey.
+    if (!string.IsNullOrWhiteSpace(jwtOptions.AgentSigningKey))
+    {
+        if (string.Equals(jwtOptions.AgentSigningKey, jwtOptions.SigningKey, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Jwt:AgentSigningKey must differ from Jwt:SigningKey when configured.");
+        }
+
+        if (Encoding.UTF8.GetByteCount(jwtOptions.AgentSigningKey) < 32)
+        {
+            throw new InvalidOperationException("Production Jwt:AgentSigningKey must be at least 32 bytes.");
+        }
     }
 
     var enrollmentToken = configuration["AgentEnrollment:EnrollmentToken"];
