@@ -58,4 +58,18 @@ public class BackupJobRepository : IBackupJobRepository
     {
         _dbContext.BackupJobs.Update(job);
     }
+
+    public async Task ExecuteInTransactionAsync(Func<Task> action)
+    {
+        // EF Core execution strategy wraps the action in a retry loop and
+        // owns the transaction lifetime — so retried operations on transient
+        // failures still commit atomically.
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _dbContext.Database.BeginTransactionAsync();
+            await action();
+            await tx.CommitAsync();
+        });
+    }
 }

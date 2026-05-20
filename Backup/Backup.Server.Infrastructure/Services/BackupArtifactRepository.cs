@@ -38,6 +38,11 @@ public class BackupArtifactRepository : IBackupArtifactRepository
             .FirstOrDefaultAsync(x => x.Id == artifactId);
     }
 
+    public Task<int> CountByJobIdAsync(Guid jobId)
+    {
+        return _dbContext.BackupArtifacts.CountAsync(x => x.JobId == jobId);
+    }
+
     public async Task AddArtifact(BackupArtifact artifact)
     {
         await _dbContext.BackupArtifacts.AddAsync(artifact);

@@ -90,36 +90,43 @@ public class BackupJobsService
 
     public async Task Complete(Guid jobId)
     {
-        var job = await _backupJobRepository.GetBackupJob(jobId);
-
-        if (job == null)
+        // Re-fetch job + artifacts inside a single transaction so a parallel
+        // AddArtifact can't see "running" and let us mark complete with a stale
+        // artifact-count read. Postgres default isolation (READ COMMITTED) is
+        // enough — the artifact INSERT either commits before our SELECT or
+        // serializes after our UPDATE.
+        await _backupJobRepository.ExecuteInTransactionAsync(async () =>
         {
-            throw new ApplicationException($"Job with id {jobId} does not exist");
-        }
+            var job = await _backupJobRepository.GetBackupJob(jobId)
+                ?? throw new KeyNotFoundException($"Job with id {jobId} does not exist");
 
-        var artifacts = await _backupArtifactRepository.GetArtifactsByJobIdAsync(jobId);
-        if (artifacts.Count == 0)
-        {
-            throw new InvalidOperationException("Backup job cannot be completed before a verified artifact is registered.");
-        }
+            var artifactCount = await _backupArtifactRepository.CountByJobIdAsync(jobId);
+            if (artifactCount == 0)
+            {
+                throw new InvalidOperationException("Backup job cannot be completed before a verified artifact is registered.");
+            }
 
-        job.Status = BackupJobStatus.Completed;
-        job.CompletedAt = DateTime.UtcNow;
-        job.ErrorMessage = null;
+            job.Status = BackupJobStatus.Completed;
+            job.CompletedAt = DateTime.UtcNow;
+            job.ErrorMessage = null;
 
-        await _backupJobRepository.UpdateBackupJob(job);
-        await _backupJobRepository.SaveChangesAsync();
-
+            await _backupJobRepository.UpdateBackupJob(job);
+            await _backupJobRepository.SaveChangesAsync();
+        });
     }
 
     public async Task Failed(Guid jobId, string errorMessage)
     {
-        var job = await _backupJobRepository.GetBackupJob(jobId);
-        if (job == null)
+        var job = await _backupJobRepository.GetBackupJob(jobId)
+            ?? throw new KeyNotFoundException($"Job with id {jobId} does not exist");
+
+        // Idempotent: a re-tried Failed call from a flaky agent must not
+        // re-fire the webhook or rewrite the original error message.
+        if (job.Status == BackupJobStatus.Failed)
         {
-            throw new ApplicationException($"Job with id {jobId} does not exist");
+            return;
         }
-        
+
         job.CompletedAt = DateTime.UtcNow;
         job.Status = BackupJobStatus.Failed;
         job.ErrorMessage = errorMessage;
