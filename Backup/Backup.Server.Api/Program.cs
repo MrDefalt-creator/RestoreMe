@@ -107,6 +107,7 @@ builder.Services.AddScoped<IPendingAgentsRepository, PendingAgentsRepository>();
 builder.Services.AddScoped<IBackupJobRepository, BackupJobRepository>();
 builder.Services.AddScoped<IBackupArtifactRepository, BackupArtifactRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<IRestoreJobRepository, RestoreJobRepository>();
 builder.Services.AddScoped<RestoreJobsService>();
 
