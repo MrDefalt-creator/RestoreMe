@@ -19,6 +19,7 @@ import { getJobs } from '@/shared/api/jobs'
 import { getPolicies } from '@/shared/api/policies'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
+import { TrendBarChart } from '@/shared/ui/charts/TrendBarChart'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
@@ -215,10 +216,8 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid min-h-64 gap-5 lg:grid-cols-[1fr_220px]">
-              <div className="flex items-end gap-2 rounded-lg border border-border bg-background/55 p-4">
-                {backupTrend.map((day) => (
-                  <TrendBar key={day.label} label={day.label} value={day.value} max={backupTrend.max} />
-                ))}
+              <div className="rounded-lg border border-border bg-background/55 p-3">
+                <TrendBarChart data={backupTrend} seriesLabel={t('Recorded runs')} />
               </div>
               <div className="grid gap-3">
                 <InsightTile icon={Activity} label={t('Recorded runs')} value={jobs.length} detail={t('Across all known policies')} />
@@ -384,9 +383,7 @@ function buildSevenDayTrend(jobs: { startedAt: string }[], language: Language) {
     }
   })
 
-  return Object.assign(days, {
-    max: Math.max(1, ...days.map((day) => day.value)),
-  })
+  return days
 }
 
 function getUnresolvedFailedJobs<T extends { policyId: string; status: string; startedAt: string }>(jobs: T[]) {
@@ -408,34 +405,6 @@ function toLocalDateKey(date: Date) {
   const day = String(date.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
-}
-
-function TrendBar({
-  label,
-  value,
-  max,
-}: {
-  label: string
-  value: number
-  max: number
-}) {
-  const height = Math.min(100, Math.max(value > 0 ? 10 : 0, Math.round((value / max) * 100)))
-
-  return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
-      <div className="flex h-40 w-full items-end justify-center overflow-hidden rounded-lg bg-secondary/55 px-2 pb-2">
-        <div
-          className="w-full rounded-md bg-primary/85 shadow-[0_10px_26px_hsl(var(--primary)/0.16)] transition-all"
-          style={{ height: `${height}%` }}
-          title={`${value} jobs`}
-        />
-      </div>
-      <div className="text-center">
-        <p className="text-sm font-semibold text-foreground">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  )
 }
 
 function InsightTile({
