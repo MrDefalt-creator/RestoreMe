@@ -30,7 +30,7 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
-import { Spinner } from '@/shared/ui/Spinner'
+import { SkeletonCard } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
@@ -229,12 +229,11 @@ export function AgentsPage() {
       </Card>
 
       {agentsQuery.isLoading ? (
-        <Card>
-          <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
-            <Spinner />
-            {t('Loading agents...')}
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <SkeletonCard key={idx} className="h-56" />
+          ))}
+        </div>
       ) : agentsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}

@@ -22,7 +22,7 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
-import { Spinner } from '@/shared/ui/Spinner'
+import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
@@ -167,12 +167,7 @@ export function ArtifactsPage() {
       </Card>
 
       {artifactsQuery.isLoading ? (
-        <Card>
-          <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
-            <Spinner />
-            {t('Loading artifacts...')}
-          </CardContent>
-        </Card>
+        <SkeletonList count={6} columns={4} />
       ) : artifactsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
