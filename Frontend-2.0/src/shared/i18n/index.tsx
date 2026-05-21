@@ -479,6 +479,67 @@ const dictionaries: Record<Language, Record<string, string>> = {
     '7 days': '7 дней',
     '30 days': '30 дней',
     '90 days': '90 дней',
+    Notifications: 'Уведомления',
+    'Notification channels': 'Каналы уведомлений',
+    'Add channel': 'Добавить канал',
+    'Add notification channel': 'Добавить канал уведомлений',
+    'Edit notification channel': 'Изменить канал уведомлений',
+    'Delete notification channel': 'Удалить канал уведомлений',
+    'Delete channel': 'Удалить канал',
+    'Test channel': 'Проверить канал',
+    'Channel name': 'Название канала',
+    'Channel type': 'Тип канала',
+    'Channel name is required': 'Название канала обязательно',
+    'Channel type cannot be changed after creation.':
+      'Тип канала нельзя изменить после создания.',
+    'Channels receive alerts about backup failures and agent health changes.':
+      'Каналы получают уведомления о сбоях резервных копий и состоянии агентов.',
+    'Send backup, restore and agent-health alerts to Telegram, Slack, Discord or a custom webhook.':
+      'Отправляйте уведомления о бэкапах, восстановлении и состоянии агентов в Telegram, Slack, Discord или произвольный webhook.',
+    'Only administrators can configure backup notification destinations.':
+      'Только администраторы могут настраивать каналы уведомлений.',
+    'Sign in as an administrator to manage notification channels.':
+      'Войдите как администратор, чтобы управлять каналами уведомлений.',
+    'No notification channels yet': 'Каналов уведомлений пока нет',
+    'Add a destination so RestoreMe can let you know when something needs attention.':
+      'Добавьте канал, чтобы RestoreMe сообщал, когда что-то требует внимания.',
+    'Subscribed events': 'Подписки на события',
+    'Subscribed to every event': 'Подписан на все события',
+    '{count} event(s) subscribed': 'Подписан на {count} событ.',
+    'Created {date}': 'Создан {date}',
+    'Enabled (delivers notifications)': 'Включен (отправляет уведомления)',
+    'Fill out the channel-specific fields': 'Заполните поля, специфичные для канала',
+    'Leave blank to keep the existing secret.':
+      'Оставьте пустым, чтобы сохранить текущий секрет.',
+    'Talk to @BotFather to create a bot, then grab the chat id via @userinfobot.':
+      'Создайте бота через @BotFather, затем получите chat id через @userinfobot.',
+    'Paste the incoming-webhook URL from your Slack app configuration.':
+      'Вставьте URL incoming-webhook из настроек Slack-приложения.',
+    'Paste the webhook URL from the target Discord channel settings.':
+      'Вставьте webhook URL из настроек целевого канала Discord.',
+    'Generic HMAC-signed JSON webhook. Optionally set a shared secret.':
+      'Произвольный JSON webhook с HMAC-подписью. Можно задать общий секрет.',
+    'Notification channel created': 'Канал уведомлений создан',
+    'Notification channel updated': 'Канал уведомлений обновлен',
+    'Notification channel deleted': 'Канал уведомлений удален',
+    'Unable to save notification channel': 'Не удалось сохранить канал уведомлений',
+    'Unable to delete notification channel': 'Не удалось удалить канал уведомлений',
+    'Test message delivered': 'Тестовое сообщение отправлено',
+    'Delivery failed': 'Доставка не удалась',
+    'Sending...': 'Отправка...',
+    "Delete '{name}'? Notifications will stop reaching this destination immediately.":
+      "Удалить '{name}'? Уведомления сразу перестанут приходить в этот канал.",
+    'Existing audit log entries for past deliveries are preserved.':
+      'Прошлые записи аудита по доставкам сохраняются.',
+    Telegram: 'Telegram',
+    Slack: 'Slack',
+    Discord: 'Discord',
+    Webhook: 'Webhook',
+    'Backup failed': 'Бэкап провален',
+    'Restore failed': 'Восстановление провалено',
+    'Backup completed': 'Бэкап завершен',
+    'Agent offline': 'Агент офлайн',
+    'Agent back online': 'Агент снова онлайн',
   },
 }
 

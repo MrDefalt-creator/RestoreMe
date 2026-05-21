@@ -14,6 +14,7 @@ const PoliciesPage = lazy(() => import('@/pages/policies/PoliciesPage').then(mod
 const JobsPage = lazy(() => import('@/pages/jobs/JobsPage').then(module => ({ default: module.JobsPage })))
 const ArtifactsPage = lazy(() => import('@/pages/artifacts/ArtifactsPage').then(module => ({ default: module.ArtifactsPage })))
 const UsersPage = lazy(() => import('@/pages/users/UsersPage').then(module => ({ default: module.UsersPage })))
+const NotificationChannelsPage = lazy(() => import('@/pages/notifications/NotificationChannelsPage').then(module => ({ default: module.NotificationChannelsPage })))
 const AuditLogPage = lazy(() => import('@/pages/audit-log/AuditLogPage').then(module => ({ default: module.AuditLogPage })))
 const AccountPage = lazy(() => import('@/pages/account/AccountPage').then(module => ({ default: module.AccountPage })))
 
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: 'backups', element: withSuspense(<ArtifactsPage />) },
       { path: 'artifacts', element: withSuspense(<ArtifactsPage />) },
       { path: 'users', element: withSuspense(<UsersPage />) },
+      { path: 'notifications', element: withSuspense(<NotificationChannelsPage />) },
       { path: 'audit-log', element: withSuspense(<AuditLogPage />) },
       { path: '*', element: <NotFoundPage /> },
     ],

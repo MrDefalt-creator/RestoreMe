@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bell,
   HardDriveDownload,
   History,
   KeyRound,
@@ -43,6 +44,7 @@ const navigation: NavItem[] = [
   { to: '/jobs', label: 'Jobs', icon: History },
   { to: '/backups', label: 'Backups', icon: Archive },
   { to: '/users', label: 'Users', icon: Users, roles: ['admin'] },
+  { to: '/notifications', label: 'Notifications', icon: Bell, roles: ['admin'] },
   { to: '/audit-log', label: 'Audit log', icon: ScrollText, roles: ['admin'] },
   { to: '/account', label: 'Account', icon: KeyRound },
 ]
