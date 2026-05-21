@@ -11,9 +11,11 @@ using Backup.Server.Api.Services;
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Application.Notifications;
 using Backup.Server.Infrastructure.Configuration;
 using Backup.Server.Infrastructure.Options;
 using Backup.Server.Infrastructure.Services;
+using Backup.Server.Infrastructure.Services.Adapters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -141,14 +143,21 @@ builder.Services.AddScoped<AgentInstallTokenService>();
 builder.Services.AddHostedService<AgentInstallTokenCleanupService>();
 builder.Services.AddScoped<RestoreJobsService>();
 
-builder.Services
-    .AddOptions<NotificationOptions>()
-    .Bind(builder.Configuration.GetSection(NotificationOptions.SectionName));
-builder.Services.AddHttpClient<INotificationService, WebhookNotificationService>(client =>
+// One HttpClient timeout caps every adapter the same way — slow chat
+// platforms can't stall the failure-reporting path. Each adapter gets
+// its own typed client so HttpClientFactory can pool connections per
+// destination (Telegram, Slack, Discord all sit on different hosts).
+static void CapAdapterTimeout(HttpClient client)
 {
-    // Cap webhook latency so a slow receiver can't stall the failure-reporting path.
     client.Timeout = TimeSpan.FromSeconds(10);
-});
+}
+
+builder.Services.AddHttpClient<INotificationChannelAdapter, GenericWebhookAdapter>(CapAdapterTimeout);
+builder.Services.AddHttpClient<INotificationChannelAdapter, TelegramAdapter>(CapAdapterTimeout);
+builder.Services.AddHttpClient<INotificationChannelAdapter, SlackAdapter>(CapAdapterTimeout);
+builder.Services.AddHttpClient<INotificationChannelAdapter, DiscordAdapter>(CapAdapterTimeout);
+builder.Services.AddScoped<INotificationService, NotificationDispatcher>();
+builder.Services.AddScoped<NotificationDispatcher>();
 builder.Services.AddSingleton<BucketReadyState>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddHostedService<MinioBucketInitializer>();
