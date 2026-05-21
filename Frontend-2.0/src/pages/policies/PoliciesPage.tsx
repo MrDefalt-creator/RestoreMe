@@ -131,68 +131,143 @@ export function PoliciesPage() {
         </CardHeader>
         <CardContent>
           {filteredPolicies.length ? (
-            <div className="overflow-hidden rounded-lg border border-border">
-              <table className="min-w-full text-sm">
-                <thead className="bg-secondary/70">
-                  <tr>
-                    <Th>{t('Policy')}</Th>
-                    <Th>{t('Type')}</Th>
-                    <Th>{t('Path')}</Th>
-                    <Th>{t('Interval')}</Th>
-                    <Th>{t('Next Run')}</Th>
-                    <Th>{t('State')}</Th>
-                    {canWrite ? <Th>{t('Actions')}</Th> : null}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredPolicies.map((policy) => (
-                    <tr key={policy.id} className="hover:bg-secondary/35">
-                      <Td>{policy.name}</Td>
-                      <Td className="uppercase tracking-wider">{formatPolicyType(policy.type, t)}</Td>
-                      <Td className="max-w-[220px] truncate">
-                        {formatPolicyTarget(policy) || t('N/A')}
-                      </Td>
-                      <Td>{formatDurationSeconds(policy.intervalSeconds)}</Td>
-                      <Td className="text-muted-foreground">
-                        {formatDateTime(policy.nextRunAt)}
-                      </Td>
-                      <Td>
-                        <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
-                          {policy.isEnabled ? t('enabled') : t('disabled')}
-                        </Badge>
-                      </Td>
-                      {canWrite ? (
-                        <Td>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingPolicy(policy)
-                                setIsDialogOpen(true)
-                              }}
-                            >
-                              {t('Edit')}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={toggleMutation.isPending}
-                              onClick={() => toggleMutation.mutate({
-                                id: policy.id,
-                                isEnabled: policy.isEnabled,
-                              })}
-                            >
-                              {t('Toggle')}
-                            </Button>
-                          </div>
-                        </Td>
-                      ) : null}
+            <>
+              {/* Desktop / tablet — the table reads great when there's
+                  horizontal room. Hidden on phones where we collapse to
+                  stacked cards (the narrow column was forcing horizontal
+                  scroll). */}
+              <div className="hidden overflow-hidden rounded-lg border border-border md:block">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-secondary/70">
+                    <tr>
+                      <Th>{t('Policy')}</Th>
+                      <Th>{t('Type')}</Th>
+                      <Th>{t('Path')}</Th>
+                      <Th>{t('Interval')}</Th>
+                      <Th>{t('Next Run')}</Th>
+                      <Th>{t('State')}</Th>
+                      {canWrite ? <Th>{t('Actions')}</Th> : null}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredPolicies.map((policy) => (
+                      <tr key={policy.id} className="hover:bg-secondary/35">
+                        <Td>{policy.name}</Td>
+                        <Td className="uppercase tracking-wider">{formatPolicyType(policy.type, t)}</Td>
+                        <Td className="max-w-[220px] truncate">
+                          {formatPolicyTarget(policy) || t('N/A')}
+                        </Td>
+                        <Td>{formatDurationSeconds(policy.intervalSeconds)}</Td>
+                        <Td className="text-muted-foreground">
+                          {formatDateTime(policy.nextRunAt)}
+                        </Td>
+                        <Td>
+                          <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
+                            {policy.isEnabled ? t('enabled') : t('disabled')}
+                          </Badge>
+                        </Td>
+                        {canWrite ? (
+                          <Td>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingPolicy(policy)
+                                  setIsDialogOpen(true)
+                                }}
+                              >
+                                {t('Edit')}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={toggleMutation.isPending}
+                                onClick={() => toggleMutation.mutate({
+                                  id: policy.id,
+                                  isEnabled: policy.isEnabled,
+                                })}
+                              >
+                                {t('Toggle')}
+                              </Button>
+                            </div>
+                          </Td>
+                        ) : null}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile (<md) — stacked cards. Same data as the table but
+                  laid out vertically with key:value pairs instead of
+                  columns; readable without horizontal scroll. */}
+              <div className="space-y-3 md:hidden">
+                {filteredPolicies.map((policy) => (
+                  <div
+                    key={policy.id}
+                    className="rounded-lg border border-border bg-card/80 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-foreground">
+                          {policy.name}
+                        </p>
+                        <p className="mt-0.5 text-xs uppercase tracking-wider text-muted-foreground">
+                          {formatPolicyType(policy.type, t)}
+                        </p>
+                      </div>
+                      <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
+                        {policy.isEnabled ? t('enabled') : t('disabled')}
+                      </Badge>
+                    </div>
+
+                    <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 text-sm">
+                      <dt className="text-muted-foreground">{t('Path')}</dt>
+                      <dd className="truncate text-foreground">
+                        {formatPolicyTarget(policy) || t('N/A')}
+                      </dd>
+                      <dt className="text-muted-foreground">{t('Interval')}</dt>
+                      <dd className="text-foreground">
+                        {formatDurationSeconds(policy.intervalSeconds)}
+                      </dd>
+                      <dt className="text-muted-foreground">{t('Next Run')}</dt>
+                      <dd className="text-foreground">
+                        {formatDateTime(policy.nextRunAt)}
+                      </dd>
+                    </dl>
+
+                    {canWrite ? (
+                      <div className="mt-3 flex gap-2 border-t border-border pt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setEditingPolicy(policy)
+                            setIsDialogOpen(true)
+                          }}
+                        >
+                          {t('Edit')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1"
+                          disabled={toggleMutation.isPending}
+                          onClick={() => toggleMutation.mutate({
+                            id: policy.id,
+                            isEnabled: policy.isEnabled,
+                          })}
+                        >
+                          {t('Toggle')}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <EmptyState
               title={t('No policies found')}
