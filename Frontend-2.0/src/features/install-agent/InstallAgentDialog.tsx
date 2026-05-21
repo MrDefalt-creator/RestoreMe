@@ -15,7 +15,7 @@ import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Spinner } from '@/shared/ui/Spinner'
 import { useI18n } from '@/shared/i18n'
-import { buildInstallCommand, resolveServerUrl, type InstallOs } from './buildInstallCommand'
+import { buildInstallCommand, isLocalishUrl, resolveServerUrl, type InstallOs } from './buildInstallCommand'
 
 type InstallAgentDialogProps = {
   open: boolean
@@ -32,6 +32,11 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
   const [copied, setCopied] = useState(false)
   const [token, setToken] = useState<CreateInstallTokenResponse | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  // Editable Server URL — defaults to the smart resolver, which picks the
+  // browser's hostname when the build-time apiBaseUrl is localhost. The
+  // operator can override here if they're behind a reverse proxy or want
+  // a different hostname baked into the install command.
+  const [serverUrl, setServerUrl] = useState(() => resolveServerUrl())
 
   // Reset everything when the dialog closes (useState-tracked prev value
   // matches React's "adjusting state on a prop change" pattern).
@@ -43,6 +48,7 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
       setToken(null)
       setPreApprovedName('')
       setCopied(false)
+      setServerUrl(resolveServerUrl())
     }
   }
 
@@ -85,9 +91,10 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
     return !preApprovedName
   })
 
-  const serverUrl = resolveServerUrl()
+  const trimmedServerUrl = serverUrl.trim().replace(/\/$/, '')
+  const serverLooksLocal = isLocalishUrl(trimmedServerUrl)
   const installCommand = token
-    ? buildInstallCommand(os, serverUrl, token.token)
+    ? buildInstallCommand(os, trimmedServerUrl, token.token)
     : ''
 
   async function copy() {
@@ -142,6 +149,28 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
     >
       {phase === 'form' ? (
         <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground" htmlFor="install-agent-server">
+              {t('Backend URL (as reachable from the agent machine)')}
+            </label>
+            <Input
+              id="install-agent-server"
+              value={serverUrl}
+              onChange={(event) => setServerUrl(event.target.value)}
+              placeholder="http://restoreme.lan:8080"
+              className="mt-2"
+              spellCheck={false}
+            />
+            {serverLooksLocal ? (
+              <p className="mt-1 text-xs text-warning-foreground">
+                {t('This URL points at localhost. It will only work if you run the install command on the same machine as the backend. For a different host, replace it with a LAN-reachable hostname or IP.')}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('The install script downloads the agent binary from this URL and the agent uses it for every API call thereafter.')}
+              </p>
+            )}
+          </div>
           <div>
             <label className="text-sm font-medium text-foreground" htmlFor="install-agent-name">
               {t('Agent name (optional)')}
@@ -219,10 +248,15 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {t('Server URL is taken from this panel ({url}). To install against a different backend, edit the command before running it.', {
-              url: serverUrl,
+            {t('Backend URL used: {url}. To regenerate against a different host, click Regenerate and edit the field.', {
+              url: trimmedServerUrl,
             })}
           </p>
+          {serverLooksLocal ? (
+            <div className="rounded-lg border border-warning/40 bg-warning/8 p-3 text-xs text-warning-foreground">
+              {t('Heads-up: this command targets localhost. Running it on a machine other than the backend host will fail. Regenerate with a LAN-reachable URL if you are installing on a different machine.')}
+            </div>
+          ) : null}
         </div>
       )}
     </Dialog>
