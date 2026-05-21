@@ -123,6 +123,15 @@ volumes:
   minio_data:
   backend_keys:
 
+# Compose would auto-create a default network anyway — this just makes the
+# topology explicit. Every service joins `restoreme-internal`; inter-service
+# hostnames are the service names (db, minio, backend) and resolve through
+# Docker DNS, so the backend reaches MinIO as `minio:9000` regardless of
+# host ports.
+networks:
+  default:
+    name: restoreme-internal
+
 secrets:
   postgres-password:
     file: ./secrets/postgres-password.txt

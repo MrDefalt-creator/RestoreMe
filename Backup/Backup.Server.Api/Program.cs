@@ -58,6 +58,13 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyHeader()
             .AllowAnyMethod()
+            // The frontend authenticates via an httpOnly access_token cookie
+            // (see AuthController.Login + axios withCredentials:true). Browsers
+            // require Access-Control-Allow-Credentials:true to accept the
+            // Set-Cookie response and to attach the cookie on subsequent
+            // cross-origin requests. Without this the entire login flow fails
+            // silently with "preflight does not pass access control check".
+            .AllowCredentials()
             // Browsers cache CORS preflight responses up to PreflightMaxAge;
             // every cached preflight saves one RTT before the real request.
             // 10 minutes matches typical session lifetimes without holding

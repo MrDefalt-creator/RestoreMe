@@ -156,6 +156,8 @@ This means the backend does not need hardcoded database or MinIO secrets in `doc
 
 - frontend API URLs are derived from `API_PORT` during the frontend image builds (override via `API_PUBLIC_URL` in prod)
 - backend CORS in `Development` accepts localhost and loopback origins on any port; in Production the backend refuses to start without an explicit non-loopback `Cors:AllowedOrigins`
+- CORS only affects **browser** traffic (the admin panel). Agent → backend traffic is a plain HTTP client, no `Origin` header, no preflight — so an agent on a different machine reaches the backend regardless of the CORS allowlist as long as the network/firewall allows it
+- all services share the `restoreme-internal` Docker network declared in `docker-compose.yml`; inter-service hostnames are the service names (`db`, `minio`, `backend`)
 - backend runs EF Core migrations automatically on startup
 - backend talks to MinIO internally via `minio:9000`
 - backend returns public upload/download URLs based on `Storage__PublicEndpoint` or the incoming backend host
@@ -197,6 +199,16 @@ Recommended local values for the current stack:
 
 > [!WARNING]
 > Replace the enrollment token in backend and agent configuration before using agents on any shared network. The default token is public repository data.
+
+### Why a remote agent doesn't need to be in the CORS allowlist
+
+CORS is a browser security feature. Browsers refuse to deliver cross-origin XHR responses to a page if the server's `Access-Control-Allow-Origin` doesn't list the page's origin. **Agents are not browsers** — the worker uses `HttpClient` to POST/GET against the backend; no `Origin` header is sent, no preflight is performed, the server doesn't apply CORS to the response.
+
+So:
+
+- Adding a new agent on `192.168.1.50` while the backend's CORS allowlist contains only `http://localhost:5173` is **fine** — the agent connects regardless.
+- What needs to be reachable across the LAN/Internet is the backend's TCP port (`API_PORT`, default `8080`) and the MinIO endpoint exposed via `Storage__PublicEndpoint`.
+- CORS only matters when an operator opens the admin panel from a different host than what's listed — that's the case where you extend `Cors:AllowedOrigins`.
 
 Important note:
 - the checked-in agent appsettings already points to the local Compose backend at `http://localhost:8080/`

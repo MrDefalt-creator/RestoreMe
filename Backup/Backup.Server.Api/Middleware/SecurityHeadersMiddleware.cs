@@ -15,23 +15,33 @@ public sealed class SecurityHeadersMiddleware
 
     public Task InvokeAsync(HttpContext context)
     {
-        var headers = context.Response.Headers;
+        // Swagger UI / OpenAPI explorer renders HTML with inline scripts
+        // and CDN assets; a "default-src 'none'" CSP would blank the page.
+        // We still send the rest of the defensive headers for those routes.
+        var path = context.Request.Path;
+        var isSwaggerUi =
+            path.StartsWithSegments("/swagger") ||
+            path.StartsWithSegments("/openapi");
 
-        // OnStarting fires just before the first byte is flushed so we
-        // also cover routes that short-circuit before reaching MVC.
         context.Response.OnStarting(state =>
         {
-            var h = (IHeaderDictionary)state;
+            var ctx = (HeadersState)state;
+            var h = ctx.Headers;
             SetIfMissing(h, "X-Content-Type-Options", "nosniff");
             SetIfMissing(h, "X-Frame-Options", "DENY");
             SetIfMissing(h, "Referrer-Policy", "strict-origin-when-cross-origin");
             SetIfMissing(h, "X-Permitted-Cross-Domain-Policies", "none");
-            SetIfMissing(h, "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+            if (!ctx.IsSwaggerUi)
+            {
+                SetIfMissing(h, "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+            }
             return Task.CompletedTask;
-        }, headers);
+        }, new HeadersState(context.Response.Headers, isSwaggerUi));
 
         return _next(context);
     }
+
+    private sealed record HeadersState(IHeaderDictionary Headers, bool IsSwaggerUi);
 
     private static void SetIfMissing(IHeaderDictionary headers, string name, string value)
     {
