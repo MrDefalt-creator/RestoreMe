@@ -29,13 +29,13 @@ const toastVariants = cva(
       variant: {
         default: 'border bg-background text-foreground',
         success:
-          'border-l-4 border-l-success bg-success/10 text-success-foreground',
+          'border-l-4 border-l-success bg-success/10 text-foreground',
         error:
-          'border-l-4 border-l-destructive bg-destructive/10 text-destructive-foreground',
+          'border-l-4 border-l-destructive bg-destructive/10 text-foreground',
         warning:
-          'border-l-4 border-l-warning bg-warning/10 text-warning-foreground',
+          'border-l-4 border-l-warning bg-warning/10 text-foreground',
         info:
-          'border-l-4 border-l-primary bg-primary/10 text-primary-foreground',
+          'border-l-4 border-l-primary bg-primary/10 text-foreground',
       },
     },
     defaultVariants: {

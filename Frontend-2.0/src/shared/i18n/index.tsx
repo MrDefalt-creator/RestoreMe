@@ -407,6 +407,40 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Use deletion for accounts that should no longer exist. For temporary suspension, disable the user instead.': 'Удаляйте только аккаунты, которые больше не нужны. Для временной блокировки лучше отключить пользователя.',
     'Set a new password for {username}.': 'Задайте новый пароль для {username}.',
     'Set a new password for the selected user.': 'Задайте новый пароль для выбранного пользователя.',
+    Action: 'Действие',
+    'Agent token revoked': 'Токен агента отозван',
+    Apply: 'Применить',
+    'Audit events appear here as administrators and agents act on the system.':
+      'События аудита появятся здесь после действий администраторов и агентов в системе.',
+    'Audit log': 'Журнал аудита',
+    'Backend URL (as reachable from the agent machine)': 'URL бэкенда (как его видит машина агента)',
+    'Backend URL used: {url}. To regenerate against a different host, click Regenerate and edit the field.':
+      'Используется URL: {url}. Чтобы перевыпустить команду для другого хоста, нажмите «Перевыпустить» и отредактируйте поле.',
+    Clear: 'Очистить',
+    'Heads-up: this command targets localhost. Running it on a machine other than the backend host will fail. Regenerate with a LAN-reachable URL if you are installing on a different machine.':
+      'Внимание: команда указывает на localhost. На любой машине, кроме самого бэкенда, установка не сработает. Перевыпустите команду с URL, доступным по локальной сети, если ставите агента на другую машину.',
+    'No audit records found': 'Записи аудита не найдены',
+    Page: 'Страница',
+    Previous: 'Предыдущая',
+    'Queue a restore job on the originating agent': 'Поставить восстановление в очередь на агенте-источнике',
+    'Queuing...': 'Добавление в очередь...',
+    records: 'записей',
+    Restore: 'Восстановить',
+    'Restore job queued for {name}': 'Восстановление {name} поставлено в очередь',
+    'Restore request failed': 'Не удалось запросить восстановление',
+    Revoke: 'Отозвать',
+    'Revoke agent token? The agent will need to re-enroll.':
+      'Отозвать токен агента? Агенту придётся пройти регистрацию заново.',
+    'Sign in as an administrator to view the audit log.':
+      'Войдите как администратор, чтобы просмотреть журнал аудита.',
+    System: 'Система',
+    'The install script downloads the agent binary from this URL and the agent uses it for every API call thereafter.':
+      'Скрипт установки скачивает бинарный файл агента с этого URL, и затем агент использует этот URL для всех запросов к API.',
+    'This URL points at localhost. It will only work if you run the install command on the same machine as the backend. For a different host, replace it with a LAN-reachable hostname or IP.':
+      'Этот URL указывает на localhost. Установка сработает только на той же машине, где запущен бэкенд. Для другого хоста замените его на имя или IP, доступные по сети.',
+    'Trace of admin and agent lifecycle actions in the control plane.':
+      'История действий администраторов и жизненного цикла агентов в управляющем слое.',
+    'Unable to revoke agent': 'Не удалось отозвать токен агента',
   },
 }
 

@@ -162,7 +162,7 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
               spellCheck={false}
             />
             {serverLooksLocal ? (
-              <p className="mt-1 text-xs text-warning-foreground">
+              <p className="mt-1 text-xs text-warning">
                 {t('This URL points at localhost. It will only work if you run the install command on the same machine as the backend. For a different host, replace it with a LAN-reachable hostname or IP.')}
               </p>
             ) : (
@@ -204,7 +204,7 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
       ) : (
         <div className="space-y-4">
           {tokenExpired ? (
-            <div className="rounded-lg border border-warning/30 bg-warning/8 p-3 text-sm text-warning-foreground">
+            <div className="rounded-lg border border-warning/30 bg-warning/8 p-3 text-sm text-warning">
               {t('This install token has expired. Generate a new one to retry.')}
             </div>
           ) : (
@@ -233,7 +233,7 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
 
           <div className="rounded-lg border border-border bg-secondary/30 p-3 text-sm">
             {connectedAgent ? (
-              <div className="flex items-center gap-2 text-success-foreground">
+              <div className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span>
                   {t('Connected: {name}', { name: connectedAgent.name })}
@@ -253,7 +253,7 @@ export function InstallAgentDialog({ open, onClose }: InstallAgentDialogProps) {
             })}
           </p>
           {serverLooksLocal ? (
-            <div className="rounded-lg border border-warning/40 bg-warning/8 p-3 text-xs text-warning-foreground">
+            <div className="rounded-lg border border-warning/40 bg-warning/8 p-3 text-xs text-warning">
               {t('Heads-up: this command targets localhost. Running it on a machine other than the backend host will fail. Regenerate with a LAN-reachable URL if you are installing on a different machine.')}
             </div>
           ) : null}
