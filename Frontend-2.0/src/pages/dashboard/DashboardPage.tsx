@@ -12,15 +12,20 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { getAgents, getPendingAgents } from '@/shared/api/agents'
 import { getArtifacts } from '@/shared/api/artifacts'
+import { getDashboardMetrics, type DashboardPeriod } from '@/shared/api/dashboard'
 import { getJobs } from '@/shared/api/jobs'
 import { getPolicies } from '@/shared/api/policies'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { TrendBarChart } from '@/shared/ui/charts/TrendBarChart'
+import { StorageGrowthChart } from '@/shared/ui/charts/StorageGrowthChart'
+import { TopFailingPoliciesChart } from '@/shared/ui/charts/TopFailingPoliciesChart'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { cn } from '@/shared/lib/cn'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
@@ -32,9 +37,17 @@ type AttentionItem = {
   tone: 'warning' | 'destructive' | 'neutral'
 }
 
+const PERIOD_OPTIONS: DashboardPeriod[] = ['7d', '30d', '90d']
+
 export function DashboardPage() {
   const { language, t } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
+  const [period, setPeriod] = useState<DashboardPeriod>('30d')
+  const metricsQuery = useQuery({
+    queryKey: [...queryKeys.dashboard, 'metrics', period] as const,
+    queryFn: () => getDashboardMetrics(period),
+    ...liveQueryOptions,
+  })
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
@@ -143,6 +156,13 @@ export function DashboardPage() {
   const latestJobs = [...jobs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)).slice(0, 5)
   const latestArtifacts = [...artifacts].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 5)
 
+  const metrics = metricsQuery.data
+  const storageGrowthSeries = metrics?.storageGrowthTimeseries ?? []
+  const topFailingSeries = metrics?.topFailingPolicies ?? []
+  const storageGrowthDelta = storageGrowthSeries.length
+    ? storageGrowthSeries[storageGrowthSeries.length - 1].cumulativeBytes - storageGrowthSeries[0].cumulativeBytes
+    : 0
+
   return (
     <div className="space-y-8">
       <section className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
@@ -241,6 +261,87 @@ export function DashboardPage() {
             <ProgressGroup title={t('Policy types')} total={policies.length} rows={policyRows} totalLabel={t('{count} total', { count: policies.length })} />
           </CardContent>
         </Card>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              {t('Storage and reliability')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t('Aggregated trends from the selected lookback window.')}
+            </p>
+          </div>
+          <PeriodSelector value={period} onChange={setPeriod} t={t} />
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{t('Storage growth')}</CardTitle>
+                <Database className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {storageGrowthDelta > 0
+                  ? t('+{size} added in this window', { size: formatFileSize(storageGrowthDelta) })
+                  : t('No new bytes recorded in this window.')}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {metricsQuery.isError ? (
+                <EmptyState
+                  title={t('Could not load metrics')}
+                  description={t('Backend did not return the dashboard aggregation. Check connectivity.')}
+                  className="min-h-52"
+                />
+              ) : storageGrowthSeries.length ? (
+                <div className="rounded-lg border border-border bg-background/55 p-3">
+                  <StorageGrowthChart data={storageGrowthSeries} seriesLabel={t('Stored data')} />
+                </div>
+              ) : (
+                <EmptyState
+                  title={t('No storage data yet')}
+                  description={t('Storage growth will appear once artifacts start landing.')}
+                  className="min-h-52"
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{t('Top failing policies')}</CardTitle>
+                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t('Policies with the most failed runs in this window.')}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {metricsQuery.isError ? (
+                <EmptyState
+                  title={t('Could not load metrics')}
+                  description={t('Backend did not return the dashboard aggregation. Check connectivity.')}
+                  className="min-h-52"
+                />
+              ) : topFailingSeries.length ? (
+                <div className="rounded-lg border border-border bg-background/55 p-3">
+                  <TopFailingPoliciesChart data={topFailingSeries} seriesLabel={t('Failures')} />
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<CheckCircle2 className="h-7 w-7 text-success" />}
+                  title={t('No failures recorded')}
+                  description={t('Every policy completed cleanly in this window.')}
+                  className="min-h-52"
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
@@ -500,4 +601,49 @@ function shortId(id: string | undefined) {
   }
 
   return id.slice(0, 8)
+}
+
+function PeriodSelector({
+  value,
+  onChange,
+  t,
+}: {
+  value: DashboardPeriod
+  onChange: (next: DashboardPeriod) => void
+  t: (key: string) => string
+}) {
+  const labels: Record<DashboardPeriod, string> = {
+    '7d': t('7 days'),
+    '30d': t('30 days'),
+    '90d': t('90 days'),
+  }
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={t('Period')}
+      className="inline-flex rounded-lg border border-border bg-background/70 p-1 text-sm"
+    >
+      {PERIOD_OPTIONS.map((option) => {
+        const selected = option === value
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option)}
+            className={cn(
+              'rounded-md px-3 py-1.5 font-medium transition-colors',
+              selected
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {labels[option]}
+          </button>
+        )
+      })}
+    </div>
+  )
 }

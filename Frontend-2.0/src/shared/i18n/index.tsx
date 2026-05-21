@@ -456,6 +456,29 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Interface and data refresh': 'Интерфейс и обновление данных',
     'These settings live on this device and do not affect other operators.':
       'Эти настройки действуют только на этом устройстве и не влияют на других операторов.',
+    'Storage and reliability': 'Хранилище и надёжность',
+    'Aggregated trends from the selected lookback window.':
+      'Сводные тренды за выбранный период.',
+    'Storage growth': 'Рост хранилища',
+    '+{size} added in this window': 'Добавлено {size} за период',
+    'No new bytes recorded in this window.': 'Новые данные за период не добавлялись.',
+    'No storage data yet': 'Пока нет данных по хранилищу',
+    'Storage growth will appear once artifacts start landing.':
+      'Рост хранилища появится после первых артефактов.',
+    'Top failing policies': 'Чаще всего падают',
+    'Policies with the most failed runs in this window.':
+      'Политики с наибольшим числом провальных запусков за период.',
+    Failures: 'Сбои',
+    'No failures recorded': 'Сбоев не было',
+    'Every policy completed cleanly in this window.':
+      'Все политики отработали без ошибок за этот период.',
+    'Could not load metrics': 'Не удалось загрузить метрики',
+    'Backend did not return the dashboard aggregation. Check connectivity.':
+      'Бэкенд не вернул сводные данные. Проверьте подключение.',
+    Period: 'Период',
+    '7 days': '7 дней',
+    '30 days': '30 дней',
+    '90 days': '90 дней',
   },
 }
 
