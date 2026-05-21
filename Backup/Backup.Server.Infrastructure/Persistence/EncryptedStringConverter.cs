@@ -38,3 +38,30 @@ public sealed class EncryptedStringConverter : ValueConverter<string?, string?>
         }
     }
 }
+
+// Variant for non-nullable string properties. Re-uses the same protect
+// / decrypt path but expresses non-nullability to EF Core so the column
+// stays NOT NULL and the C# nullability annotations line up.
+public sealed class RequiredEncryptedStringConverter : ValueConverter<string, string>
+{
+    public RequiredEncryptedStringConverter(IDataProtector protector)
+        : base(
+            plaintext => protector.Protect(plaintext),
+            cipher => DecryptOrPassThrough(protector, cipher))
+    {
+    }
+
+    private static string DecryptOrPassThrough(IDataProtector protector, string cipher)
+    {
+        try
+        {
+            return protector.Unprotect(cipher);
+        }
+        catch (CryptographicException)
+        {
+            // Same self-heal trick as the nullable variant — keep older
+            // rows readable, re-encrypt on the next save.
+            return cipher;
+        }
+    }
+}

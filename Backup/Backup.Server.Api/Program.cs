@@ -136,6 +136,7 @@ builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<IRestoreJobRepository, RestoreJobRepository>();
 builder.Services.AddScoped<IAgentInstallTokenRepository, AgentInstallTokenRepository>();
+builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
 builder.Services.AddScoped<AgentInstallTokenService>();
 builder.Services.AddHostedService<AgentInstallTokenCleanupService>();
 builder.Services.AddScoped<RestoreJobsService>();

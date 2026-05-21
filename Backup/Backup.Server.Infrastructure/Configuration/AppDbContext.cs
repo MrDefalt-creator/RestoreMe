@@ -8,6 +8,7 @@ namespace Backup.Server.Infrastructure.Configuration;
 public class AppDbContext : DbContext
 {
     private readonly IDataProtector _policyPasswordProtector;
+    private readonly IDataProtector _notificationSettingsProtector;
 
     public DbSet<AppUser> AppUsers { get; set; }
     public DbSet<Agent> Agents { get; set; }
@@ -20,11 +21,13 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<RestoreJob> RestoreJobs { get; set; }
     public DbSet<AgentInstallToken> AgentInstallTokens { get; set; }
+    public DbSet<NotificationChannel> NotificationChannels { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, IDataProtectionProvider dataProtection)
         : base(options)
     {
         _policyPasswordProtector = dataProtection.CreateProtector("BackupPolicyDbPassword.v1");
+        _notificationSettingsProtector = dataProtection.CreateProtector("NotificationChannelSettings.v1");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -37,6 +40,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BackupPolicyDatabaseSettings>()
             .Property(x => x.Password)
             .HasConversion(new EncryptedStringConverter(_policyPasswordProtector));
+
+        // Notification channel Settings JSON carries at least one secret
+        // for every channel type (bot tokens, webhook URLs, shared HMAC
+        // secrets). Encrypt the whole blob — partial-leak attacks are
+        // worse than the trivial CPU cost of one Protect/Unprotect call.
+        modelBuilder.Entity<NotificationChannel>()
+            .Property(x => x.Settings)
+            .HasConversion(new RequiredEncryptedStringConverter(_notificationSettingsProtector));
 
         base.OnModelCreating(modelBuilder);
     }
