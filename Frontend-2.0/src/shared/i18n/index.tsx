@@ -452,6 +452,10 @@ const dictionaries: Record<Language, Record<string, string>> = {
       'История действий администраторов и жизненного цикла агентов в управляющем слое.',
     'Unable to revoke agent': 'Не удалось отозвать токен агента',
     'Follow system': 'Как в системе',
+    Preferences: 'Настройки',
+    'Interface and data refresh': 'Интерфейс и обновление данных',
+    'These settings live on this device and do not affect other operators.':
+      'Эти настройки действуют только на этом устройстве и не влияют на других операторов.',
   },
 }
 
