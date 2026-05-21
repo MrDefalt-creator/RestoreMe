@@ -6,10 +6,10 @@ export type InstallOs = 'linux' | 'windows'
 // the install-agent wizard from POST /api/agents/install-tokens. A leak
 // of one install command compromises at most one agent slot.
 //
-// Repo holding the installer scripts on raw.githubusercontent.com.
-// Kept in sync with installers/install-agent.{sh,ps1} location.
-const SCRIPT_REPO = 'MrDefalt-creator/RestorMe'
-const SCRIPT_BRANCH = 'main'
+// Installer scripts are served by the backend itself at /installers/* —
+// see Backup.Server.Api/Dockerfile (copies installers/*.{ps1,sh} into
+// wwwroot) and docker-compose/README.md → "Building agent binaries".
+// Self-hosted by design: no external GitHub dependency.
 
 export function resolveServerUrl(): string {
   const base = env.apiBaseUrl
@@ -28,7 +28,7 @@ export function buildInstallCommand(os: InstallOs, serverUrl: string, token: str
   if (os === 'linux') {
     return [
       `sudo curl -fsSL \\`,
-      `  https://raw.githubusercontent.com/${SCRIPT_REPO}/${SCRIPT_BRANCH}/installers/install-agent.sh \\`,
+      `  ${serverUrl}/installers/install-agent.sh \\`,
       `  -o /tmp/install-agent.sh`,
       `sudo bash /tmp/install-agent.sh \\`,
       `  --server ${serverUrl} \\`,
@@ -39,7 +39,7 @@ export function buildInstallCommand(os: InstallOs, serverUrl: string, token: str
   return [
     `$installer = "$env:TEMP\\install-agent.ps1"`,
     `Invoke-WebRequest \``,
-    `  -Uri https://raw.githubusercontent.com/${SCRIPT_REPO}/${SCRIPT_BRANCH}/installers/install-agent.ps1 \``,
+    `  -Uri ${serverUrl}/installers/install-agent.ps1 \``,
     `  -OutFile $installer -UseBasicParsing`,
     `& $installer -Server ${serverUrl} -Token ${token}`,
   ].join('\n')

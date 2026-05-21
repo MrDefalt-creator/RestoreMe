@@ -2,20 +2,23 @@
 #
 # RestoreMe Agent installer for Linux.
 #
-# Usage:
-#   sudo ./install-agent.sh --server https://restoreme.example.com --token <enrollment-token>
+# The binary is pulled from the backend that minted the enrollment token —
+# no GitHub dependency, no public release pipeline required. The backend
+# must serve agent binaries at /installers/binaries/restoreme-agent-<RID>.
+# See docker-compose/README.md -> "Building agent binaries".
 #
-# Or remote one-liner:
-#   curl -fsSL https://github.com/MrDefalt-creator/RestorMe/releases/latest/download/install-agent.sh \
-#     | sudo bash -s -- --server https://restoreme.example.com --token <enrollment-token>
+# Usage:
+#   sudo ./install-agent.sh --server http://restoreme.lan:8080 --token <enrollment-token>
+#
+# Or remote one-liner via the install wizard:
+#   curl -fsSL http://restoreme.lan:8080/installers/install-agent.sh \
+#     | sudo bash -s -- --server http://restoreme.lan:8080 --token <enrollment-token>
 #
 # Uninstall:
 #   sudo ./install-agent.sh --uninstall
 #
 set -euo pipefail
 
-REPO="MrDefalt-creator/RestorMe"
-VERSION="latest"
 BIN_DIR="/opt/restoreme-agent"
 CONFIG_DIR="/etc/restoreme-agent"
 STATE_DIR="/var/lib/restoreme-agent/state"
@@ -23,6 +26,7 @@ SERVICE_NAME="restoreme-agent"
 SERVICE_USER="root"
 SERVER=""
 TOKEN=""
+BINARY_URL=""
 MODE="install"
 
 usage() {
@@ -30,15 +34,15 @@ usage() {
 RestoreMe Agent installer
 
 Required (install):
-  --server URL              Backend base URL, e.g. https://restoreme.example.com
+  --server URL              Backend base URL, e.g. http://restoreme.lan:8080
   --token  TOKEN            Enrollment token from the admin panel
 
 Optional:
-  --version vX.Y.Z          Release tag to install (default: latest)
   --state-dir PATH          Override agent state directory (default: $STATE_DIR)
   --service-user USER       systemd service User= (default: $SERVICE_USER)
                             Use 'root' for filesystem backups of arbitrary paths.
-  --repo OWNER/NAME         GitHub repository to pull releases from (default: $REPO)
+  --binary-url URL          Override the agent binary download URL.
+                            Default: \$SERVER/installers/binaries/restoreme-agent-<RID>
   --uninstall               Stop the service and remove binary/config/unit.
                             State directory is preserved unless --purge is given.
   --purge                   With --uninstall, also delete $STATE_DIR.
@@ -51,10 +55,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --server) SERVER="$2"; shift 2 ;;
     --token) TOKEN="$2"; shift 2 ;;
-    --version) VERSION="$2"; shift 2 ;;
     --state-dir) STATE_DIR="$2"; shift 2 ;;
     --service-user) SERVICE_USER="$2"; shift 2 ;;
-    --repo) REPO="$2"; shift 2 ;;
+    --binary-url) BINARY_URL="$2"; shift 2 ;;
     --uninstall) MODE="uninstall"; shift ;;
     --purge) PURGE=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -103,18 +106,26 @@ case "$ARCH" in
   *) echo "Unsupported architecture: $ARCH (supported: x86_64, aarch64)" >&2; exit 1 ;;
 esac
 
-ASSET="restoreme-agent-${RID}"
-if [[ "$VERSION" == "latest" ]]; then
-  DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${ASSET}"
-else
-  DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
+if [[ -z "$BINARY_URL" ]]; then
+  # Strip trailing slash on $SERVER before joining so we don't ship //installers/...
+  BINARY_URL="${SERVER%/}/installers/binaries/restoreme-agent-${RID}"
 fi
 
-echo "==> Downloading: $DOWNLOAD_URL"
+echo "==> Downloading: $BINARY_URL"
 mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$STATE_DIR"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
-curl -fSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL" -o "$TMP"
+# Capture HTTP status separately so we can give a friendlier hint on 404.
+http_status=$(curl -fSL --retry 3 --retry-delay 2 -w '%{http_code}' -o "$TMP" "$BINARY_URL" || echo "000")
+if [[ ! -s "$TMP" || "$http_status" != "200" ]]; then
+  echo >&2
+  echo "Agent binary not found at $BINARY_URL (HTTP $http_status)" >&2
+  echo "The backend does not have published agent binaries yet." >&2
+  echo "On the host running the backend, publish them once with:" >&2
+  echo "  docker compose --profile build-agents up agent-builder" >&2
+  echo 'See docker-compose/README.md -> "Building agent binaries" for details.' >&2
+  exit 1
+fi
 install -m 0755 "$TMP" "$BIN_DIR/restoreme-agent"
 
 if [[ "$SERVICE_USER" != "root" ]]; then
@@ -139,7 +150,6 @@ echo "==> Writing systemd unit: /etc/systemd/system/${SERVICE_NAME}.service"
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=RestoreMe Agent
-Documentation=https://github.com/${REPO}
 After=network-online.target
 Wants=network-online.target
 

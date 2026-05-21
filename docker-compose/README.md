@@ -197,6 +197,33 @@ Recommended local values for the current stack:
 - backend URL: `http://localhost:8080/`
 - enrollment token: `restoreme-agent-enrollment-dev-token`
 
+### Building agent binaries
+
+The install wizard generates a command that pulls **both** the installer
+script and the agent binary from the backend itself (no GitHub dependency
+— this is the self-hosted path). The installer scripts are baked into the
+backend image, but agent binaries are produced on-demand by a one-shot
+service so the backend image stays slim and so backend/agent versions can
+be patched independently.
+
+Run it once after a fresh `compose up` (and again any time the agent code
+changes):
+
+```powershell
+cd docker-compose
+docker compose --profile build-agents up agent-builder
+```
+
+This publishes `linux-x64`, `linux-arm64`, and `win-x64` self-contained
+single-file binaries into a shared volume (`agent_binaries`) that the
+backend mounts read-only at `/app/wwwroot/installers/binaries/`. The
+binaries become reachable via the install wizard immediately — no backend
+restart needed.
+
+If an operator skips this step, the install wizard URL still resolves
+(the installer script downloads fine), but the script will fail on the
+agent-binary download with a hint pointing back at this section.
+
 > [!WARNING]
 > Replace the enrollment token in backend and agent configuration before using agents on any shared network. The default token is public repository data.
 

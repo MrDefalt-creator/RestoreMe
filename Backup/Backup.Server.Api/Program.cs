@@ -369,6 +369,18 @@ if (app.Environment.IsProduction())
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors("FrontendClient");
+// Serve the install-agent scripts (baked into wwwroot at image build time)
+// and the agent binaries (mounted from the `agent_binaries` volume in
+// compose) anonymously. Placed BEFORE UseAuthentication so the install
+// wizard one-liner doesn't need an auth header to fetch the .ps1/.sh,
+// and so a fresh agent host has no chicken-and-egg auth requirement
+// before it has a token. `ServeUnknownFileTypes=true` lets us hand out
+// the binary files (no extension on Linux) with octet-stream.
+app.UseStaticFiles(new StaticFileOptions
+{
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream",
+});
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

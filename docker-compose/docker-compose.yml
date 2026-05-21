@@ -46,8 +46,10 @@ services:
 
   backend:
     build:
-      context: ../Backup
-      dockerfile: Backup.Server.Api/Dockerfile
+      # Context is the repo root so the Dockerfile can reach both Backup/
+      # and installers/ (the install-agent scripts are baked into wwwroot).
+      context: ..
+      dockerfile: Backup/Backup.Server.Api/Dockerfile
     container_name: restoreme-backend
     restart: unless-stopped
     environment:
@@ -73,6 +75,12 @@ services:
       # Persist ASP.NET Core DataProtection keys so cookie tokens and any
       # future Protect/Unprotect payloads survive container recreation.
       - backend_keys:/app/keys
+      # Agent binaries published by the `agent-builder` one-shot service
+      # land here read-only and are served at /installers/binaries/* via
+      # UseStaticFiles. The directory may be empty on first start; the
+      # install-agent wizard URL still resolves, but agent binary download
+      # 404s with a clear message until the builder runs at least once.
+      - agent_binaries:/app/wwwroot/installers/binaries:ro
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -102,6 +110,25 @@ services:
     ports:
       - "${FRONTEND_PORT:-5174}:80"
 
+  # One-shot agent binary publisher. Runs `dotnet publish -r <RID>` for the
+  # supported targets and drops self-contained single-file binaries into the
+  # shared `agent_binaries` volume. Opt-in via the `build-agents` profile so
+  # it does NOT run on every `compose up`:
+  #
+  #     docker compose --profile build-agents up agent-builder
+  #
+  # Re-run whenever the agent code changes. Backend reads the volume
+  # read-only and serves the binaries at /installers/binaries/* for the
+  # install wizard.
+  agent-builder:
+    build:
+      context: ..
+      dockerfile: Backup/Backup.Agent.Worker/Dockerfile.builder
+    container_name: restoreme-agent-builder
+    profiles: ["build-agents"]
+    volumes:
+      - agent_binaries:/output
+
   frontend-2:
     build:
       context: ../Frontend-2.0
@@ -122,6 +149,9 @@ volumes:
   db_data:
   minio_data:
   backend_keys:
+  # Populated by the `agent-builder` one-shot service; mounted read-only
+  # into the backend so the install-agent wizard can serve binaries.
+  agent_binaries:
 
 # Compose would auto-create a default network anyway — this just makes the
 # topology explicit. Every service joins `restoreme-internal`; inter-service
