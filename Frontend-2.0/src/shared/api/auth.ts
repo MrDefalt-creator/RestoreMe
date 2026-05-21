@@ -55,9 +55,10 @@ export async function logout(): Promise<void> {
   await apiClient.post('/api/auth/logout')
 }
 
-export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {
-  await apiClient.post('/api/auth/change-password', {
+export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<User> {
+  const response = await apiClient.post<{ user: ApiUser }>('/api/auth/change-password', {
     currentPassword,
     newPassword,
   })
+  return normalizeAuthUser(response.data.user)
 }

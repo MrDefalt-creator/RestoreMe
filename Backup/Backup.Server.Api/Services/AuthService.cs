@@ -3,6 +3,7 @@ using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs.Auth;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Backup.Server.Api.Services;
 
@@ -28,17 +29,20 @@ public class AuthService
     private readonly IPasswordHasher<AppUser> _passwordHasher;
     private readonly TokenService _tokenService;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IMemoryCache _memoryCache;
 
     public AuthService(
         IAppUserRepository appUserRepository,
         IPasswordHasher<AppUser> passwordHasher,
         TokenService tokenService,
-        IAuditLogRepository auditLogRepository)
+        IAuditLogRepository auditLogRepository,
+        IMemoryCache memoryCache)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _auditLogRepository = auditLogRepository;
+        _memoryCache = memoryCache;
     }
 
     public async Task<AuthResponse> LoginAsync(string username, string password)
@@ -107,7 +111,7 @@ public class AuthService
         return _tokenService.CreateUserAuthResponse(user).User;
     }
 
-    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+    public async Task<AuthResponse> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
     {
         var user = await _appUserRepository.GetByIdAsync(userId);
         if (user == null || !user.IsActive)
@@ -136,6 +140,15 @@ public class AuthService
         user.LockedUntilUtc = null;
         await _appUserRepository.UpdateAsync(user);
         await _appUserRepository.SaveChangesAsync();
+
+        // Drop the cached security stamp so the previously issued token can't
+        // outlive the rotation (cache TTL is 30 s and would otherwise keep
+        // accepting the old token until it naturally expired). The caller
+        // gets a fresh token below so the user's session continues without
+        // an involuntary logout.
+        _memoryCache.Remove($"sec-stamp:{user.Id}");
+
+        return _tokenService.CreateUserAuthResponse(user);
     }
 
     public static string NormalizeUsername(string username)

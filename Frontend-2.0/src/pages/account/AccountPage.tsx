@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -41,6 +42,8 @@ export function AccountPage() {
   const { dateStyle, language, refreshInterval, setDateStyle, setLanguage, setRefreshInterval, t } = useI18n()
   const { theme, setTheme } = useTheme()
   const user = useAuthStore((state) => state.user)
+  const updateUser = useAuthStore((state) => state.updateUser)
+  const navigate = useNavigate()
   const formError = (message?: string) => (message ? t(message) : undefined)
   const form = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -55,9 +58,17 @@ export function AccountPage() {
   const mutation = useMutation({
     mutationFn: (values: PasswordValues) =>
       changeOwnPassword(values.currentPassword, values.newPassword),
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
+      const wasForced = Boolean(user?.mustChangePassword)
+      // Backend rotated the auth cookie and cleared `mustChangePassword`.
+      // Mirror that into local state so RequireAuth stops bouncing the
+      // user back to /account on every navigation.
+      updateUser(updatedUser)
       toast.success(t('Password updated'))
       form.reset()
+      if (wasForced) {
+        navigate('/', { replace: true })
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t('Unable to update password'))

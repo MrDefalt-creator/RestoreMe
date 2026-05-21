@@ -94,8 +94,24 @@ public class AuthController : ControllerBase
 
         try
         {
-            await _authService.ChangePasswordAsync(userId.Value, request);
-            return NoContent();
+            var result = await _authService.ChangePasswordAsync(userId.Value, request);
+
+            // Rotate the auth cookie so the browser stops carrying the old
+            // JWT (whose security stamp the service just invalidated). Without
+            // this the user is involuntarily signed out 30 s later when the
+            // stamp cache expires and the validator rejects the stale token.
+            // We mint a session cookie here — the previous "Remember me"
+            // preference isn't recoverable mid-session, and downgrading to a
+            // session cookie is the safer default after a password rotation.
+            Response.Cookies.Append("access_token", result.AccessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !_env.IsDevelopment(),
+                SameSite = SameSiteMode.Strict,
+                Path = "/",
+            });
+
+            return Ok(new { user = result.User });
         }
         catch (UnauthorizedAccessException ex)
         {
