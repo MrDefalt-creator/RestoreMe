@@ -48,6 +48,10 @@ export async function revokeAgent(agentId: string): Promise<void> {
   await apiClient.post(`/api/agents/${agentId}/revoke`)
 }
 
+export async function deleteAgent(agentId: string): Promise<void> {
+  await apiClient.delete(`/api/agents/${agentId}`)
+}
+
 export interface EnrollmentInfo {
   enrollmentToken: string
 }

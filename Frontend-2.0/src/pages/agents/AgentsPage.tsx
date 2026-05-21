@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { getAgents, revokeAgent, type Agent } from '@/shared/api/agents'
+import { deleteAgent, getAgents, revokeAgent, type Agent } from '@/shared/api/agents'
 import { InstallAgentDialog } from '@/features/install-agent'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
@@ -346,6 +346,17 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteAgent,
+    onSuccess: () => {
+      toast.success(t('Agent deleted'))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Unable to delete agent'))
+    },
+  })
+
   return (
     <>
       <Card className="group overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_50px_hsl(var(--foreground)/0.08)]">
@@ -384,7 +395,7 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
             <p className="mt-2 truncate font-mono text-xs text-muted-foreground">{agent.id}</p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button asChild variant="primary" size="sm" className="flex-1">
               <Link to="/policies">{t('Policies')}</Link>
             </Button>
@@ -392,17 +403,34 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
               {t('Details')}
             </Button>
             {isAdmin ? (
-              <Button
-                variant="danger"
-                size="sm"
-                disabled={revokeMutation.isPending}
-                onClick={() => {
-                  if (!window.confirm(t('Revoke agent token? The agent will need to re-enroll.'))) return
-                  revokeMutation.mutate(agent.id)
-                }}
-              >
-                {t('Revoke')}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={revokeMutation.isPending}
+                  title={t('Revokes the agent access token. The row stays in the list and history is preserved; the agent must re-enroll to continue working.')}
+                  onClick={() => {
+                    if (!window.confirm(t('Revoke agent token? The agent will need to re-enroll. The row stays in the list and history is preserved.'))) return
+                    revokeMutation.mutate(agent.id)
+                  }}
+                >
+                  {t('Revoke')}
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={deleteMutation.isPending}
+                  title={t('Permanently deletes the agent, its policies, jobs, artifacts, and restore history.')}
+                  onClick={() => {
+                    if (!window.confirm(
+                      t('This permanently deletes the agent "{name}" and ALL of its backup jobs, artifacts, policies, and restore history. Stored backup files in object storage will be removed on a best-effort basis. This cannot be undone. Continue?', { name: agent.name }),
+                    )) return
+                    deleteMutation.mutate(agent.id)
+                  }}
+                >
+                  {t('Delete')}
+                </Button>
+              </>
             ) : null}
           </div>
         </CardContent>

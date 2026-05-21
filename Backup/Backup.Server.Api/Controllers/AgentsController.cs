@@ -153,6 +153,47 @@ public class AgentsController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = AuthConstants.UserManagementPolicy)]
+    [HttpDelete("{agentId:guid}")]
+    public async Task<IActionResult> Delete(
+        [FromRoute] Guid agentId,
+        [FromServices] IStorageAccessService storage,
+        [FromServices] ILogger<AgentsController> logger)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        List<string> storageKeys;
+        try
+        {
+            storageKeys = await _agentService.DeleteAgentAsync(agentId, actorUserId.Value, HttpContext.RequestAborted);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+
+        // Best-effort MinIO cleanup after the DB commit. A storage failure
+        // must not undo the deletion — the row is already gone and the
+        // operator expects the agent to disappear from the list.
+        foreach (var objectKey in storageKeys)
+        {
+            try
+            {
+                await storage.DeleteObjectAsync(objectKey, HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Best-effort delete of object {ObjectKey} failed after agent {AgentId} removal", objectKey, agentId);
+            }
+        }
+
+        return NoContent();
+    }
+
     [Authorize(Policy = AuthConstants.AgentEnrollmentPolicy)]
     [EnableRateLimiting("enrollment-public")]
     [HttpPost("issue_access_token/{agentId:guid}")]

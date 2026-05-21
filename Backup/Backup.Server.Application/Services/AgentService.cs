@@ -46,6 +46,35 @@ public class AgentService
         _cache.Remove($"agent-tokver:{agentId}");
     }
 
+    /// <summary>
+    /// Permanently removes the agent and everything connected to it. Returns
+    /// the MinIO object keys whose backing objects the caller should attempt
+    /// to delete (best-effort — storage cleanup must not block the DB
+    /// transaction or fail the request if MinIO is unreachable).
+    /// </summary>
+    public async Task<List<string>> DeleteAgentAsync(Guid agentId, Guid actorUserId, CancellationToken cancellationToken)
+    {
+        var agent = await _agentRepository.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
+
+        // Queue the audit row on the same DbContext before the repo's
+        // SaveChanges inside the transaction — that way the audit insert and
+        // the agent removal commit (or roll back) together.
+        await _auditLogRepository.AddAsync(Audit(
+            actorUserId,
+            "agent.deleted",
+            agentId,
+            $"machine={agent.MachineName} name={agent.Name}"));
+
+        var storageKeys = await _agentRepository.DeleteAgentWithCascadeAsync(agentId, cancellationToken);
+
+        // Drop the cached token version so any in-flight request from this
+        // agent fails at auth time instead of after the cache TTL.
+        _cache.Remove($"agent-tokver:{agentId}");
+
+        return storageKeys;
+    }
+
     public async Task<Guid> RegisterPending(string machineName, string os, string version)
     {
         var existingAgent = await _agentRepository.GetByMachineNameAsync(machineName);

@@ -431,6 +431,16 @@ const dictionaries: Record<Language, Record<string, string>> = {
     Revoke: 'Отозвать',
     'Revoke agent token? The agent will need to re-enroll.':
       'Отозвать токен агента? Агенту придётся пройти регистрацию заново.',
+    'Revoke agent token? The agent will need to re-enroll. The row stays in the list and history is preserved.':
+      'Отозвать токен агента? Агенту придётся пройти регистрацию заново. Запись остаётся в списке, история сохраняется.',
+    'Revokes the agent access token. The row stays in the list and history is preserved; the agent must re-enroll to continue working.':
+      'Отзывает токен агента. Запись остаётся в списке, история сохраняется; чтобы работать дальше, агент должен пройти регистрацию заново.',
+    'Permanently deletes the agent, its policies, jobs, artifacts, and restore history.':
+      'Безвозвратно удаляет агента вместе с его политиками, заданиями, артефактами и историей восстановления.',
+    'This permanently deletes the agent "{name}" and ALL of its backup jobs, artifacts, policies, and restore history. Stored backup files in object storage will be removed on a best-effort basis. This cannot be undone. Continue?':
+      'Действие безвозвратно удалит агента «{name}» и ВСЕ его задания, артефакты, политики и историю восстановления. Файлы в объектном хранилище будут удалены best-effort. Отменить нельзя. Продолжить?',
+    'Agent deleted': 'Агент удалён',
+    'Unable to delete agent': 'Не удалось удалить агента',
     'Sign in as an administrator to view the audit log.':
       'Войдите как администратор, чтобы просмотреть журнал аудита.',
     System: 'Система',
