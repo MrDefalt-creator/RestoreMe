@@ -23,6 +23,13 @@ public class Agent
     // out without rotating the global JWT signing key.
     public int TokenVersion { get; set; } = 1;
 
+    // Tracks the health state the sweep service most recently fired a
+    // notification for. NULL means "never observed yet" — the first
+    // sweep records the current state without firing, so the operator
+    // doesn't get a startup-time "agent offline" for every agent that
+    // happens to be down at boot.
+    public bool? LastNotifiedOnline { get; set; }
+
     public ICollection<BackupPolicy> Policies { get; set; } = new List<BackupPolicy>();
 
     public PendingAgent? PendingAgent { get; set; }

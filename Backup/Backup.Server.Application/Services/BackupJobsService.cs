@@ -95,6 +95,11 @@ public class BackupJobsService
         // artifact-count read. Postgres default isolation (READ COMMITTED) is
         // enough — the artifact INSERT either commits before our SELECT or
         // serializes after our UPDATE.
+        Guid policyId = Guid.Empty;
+        Guid agentId = Guid.Empty;
+        string policyName = string.Empty;
+        var shouldNotify = false;
+
         await _backupJobRepository.ExecuteInTransactionAsync(async () =>
         {
             var job = await _backupJobRepository.GetBackupJob(jobId)
@@ -106,13 +111,31 @@ public class BackupJobsService
                 throw new InvalidOperationException("Backup job cannot be completed before a verified artifact is registered.");
             }
 
+            // Idempotent: a retried Complete from a flaky agent must not
+            // re-fire the completion notification. The first call wins.
+            if (job.Status == BackupJobStatus.Completed)
+            {
+                return;
+            }
+
             job.Status = BackupJobStatus.Completed;
             job.CompletedAt = DateTime.UtcNow;
             job.ErrorMessage = null;
 
             await _backupJobRepository.UpdateBackupJob(job);
             await _backupJobRepository.SaveChangesAsync();
+
+            policyId = job.PolicyId;
+            agentId = job.AgentId;
+            shouldNotify = true;
         });
+
+        if (shouldNotify)
+        {
+            var policy = await _policyRepository.GetPolicyById(policyId);
+            policyName = policy?.Name ?? string.Empty;
+            await _notificationService.NotifyBackupCompletedAsync(jobId, policyId, agentId, policyName);
+        }
     }
 
     public async Task Failed(Guid jobId, string errorMessage)

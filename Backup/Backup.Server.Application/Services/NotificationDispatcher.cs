@@ -69,6 +69,70 @@ public class NotificationDispatcher : INotificationService
         return DispatchAsync(evt, cancellationToken);
     }
 
+    public Task NotifyBackupCompletedAsync(
+        Guid jobId, Guid policyId, Guid agentId, string policyName,
+        CancellationToken cancellationToken = default)
+    {
+        var evt = new NotificationEvent(
+            NotificationEventType.BackupCompleted,
+            "Backup job completed",
+            $"Policy '{policyName}' finished on agent {agentId}",
+            null,
+            DateTime.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["jobId"] = jobId.ToString(),
+                ["policyId"] = policyId.ToString(),
+                ["agentId"] = agentId.ToString(),
+                ["policyName"] = policyName,
+            });
+
+        return DispatchAsync(evt, cancellationToken);
+    }
+
+    public Task NotifyAgentOfflineAsync(
+        Guid agentId, string agentName, DateTime? lastSeenAt,
+        CancellationToken cancellationToken = default)
+    {
+        var detail = lastSeenAt.HasValue
+            ? $"Last seen at {lastSeenAt.Value:u}"
+            : "Agent has never reported a heartbeat";
+
+        var evt = new NotificationEvent(
+            NotificationEventType.AgentOffline,
+            "Agent offline",
+            $"Agent '{agentName}' stopped sending heartbeats",
+            detail,
+            DateTime.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["agentId"] = agentId.ToString(),
+                ["agentName"] = agentName,
+                ["lastSeenAt"] = lastSeenAt?.ToString("o"),
+            });
+
+        return DispatchAsync(evt, cancellationToken);
+    }
+
+    public Task NotifyAgentBackOnlineAsync(
+        Guid agentId, string agentName,
+        CancellationToken cancellationToken = default)
+    {
+        var evt = new NotificationEvent(
+            NotificationEventType.AgentBackOnline,
+            "Agent back online",
+            $"Agent '{agentName}' resumed sending heartbeats",
+            null,
+            DateTime.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["agentId"] = agentId.ToString(),
+                ["agentName"] = agentName,
+            });
+
+        return DispatchAsync(evt, cancellationToken);
+    }
+
     /// <summary>
     /// Sends an event to one explicit channel — used by the "Test channel"
     /// admin button. Bypasses the SubscribedEvents filter so operators

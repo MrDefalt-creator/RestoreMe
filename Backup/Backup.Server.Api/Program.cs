@@ -158,6 +158,8 @@ builder.Services.AddHttpClient<INotificationChannelAdapter, SlackAdapter>(CapAda
 builder.Services.AddHttpClient<INotificationChannelAdapter, DiscordAdapter>(CapAdapterTimeout);
 builder.Services.AddScoped<INotificationService, NotificationDispatcher>();
 builder.Services.AddScoped<NotificationDispatcher>();
+builder.Services.AddScoped<AgentHealthService>();
+builder.Services.AddHostedService<AgentHealthSweepService>();
 builder.Services.AddSingleton<BucketReadyState>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddHostedService<MinioBucketInitializer>();
