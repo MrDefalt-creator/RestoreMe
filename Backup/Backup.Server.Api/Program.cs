@@ -119,6 +119,7 @@ builder.Services.AddScoped<AgentService>();
 builder.Services.AddScoped<PoliciesService>();
 builder.Services.AddScoped<BackupJobsService>();
 builder.Services.AddScoped<BackupArtifactsService>();
+builder.Services.AddScoped<DashboardMetricsService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UsersService>();
 builder.Services.AddScoped<SecuritySeedService>();
