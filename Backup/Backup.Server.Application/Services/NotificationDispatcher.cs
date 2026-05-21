@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Notifications;
 using Backup.Server.Domain.Entities;
@@ -16,16 +17,22 @@ namespace Backup.Server.Application.Services;
 /// </summary>
 public class NotificationDispatcher : INotificationService
 {
+    public const string AuditActionSent = "notification.sent";
+    public const string AuditActionFailed = "notification.failed";
+
     private readonly INotificationChannelRepository _channelRepository;
+    private readonly IAuditLogRepository _auditLogRepository;
     private readonly IReadOnlyDictionary<NotificationChannelType, INotificationChannelAdapter> _adapters;
     private readonly ILogger<NotificationDispatcher> _logger;
 
     public NotificationDispatcher(
         INotificationChannelRepository channelRepository,
+        IAuditLogRepository auditLogRepository,
         IEnumerable<INotificationChannelAdapter> adapters,
         ILogger<NotificationDispatcher> logger)
     {
         _channelRepository = channelRepository;
+        _auditLogRepository = auditLogRepository;
         _adapters = adapters.ToDictionary(a => a.ChannelType);
         _logger = logger;
     }
@@ -142,22 +149,29 @@ public class NotificationDispatcher : INotificationService
     public async Task<DeliveryResult> SendTestAsync(
         NotificationChannel channel,
         NotificationEvent evt,
+        Guid? actorId,
         CancellationToken cancellationToken = default)
     {
+        DeliveryResult result;
         if (!_adapters.TryGetValue(channel.Type, out var adapter))
         {
-            return DeliveryResult.Failure($"No adapter registered for channel type {channel.Type}");
+            result = DeliveryResult.Failure($"No adapter registered for channel type {channel.Type}");
+        }
+        else
+        {
+            try
+            {
+                result = await adapter.SendAsync(channel, evt, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Test send threw for channel {ChannelId} ({Name})", channel.Id, channel.Name);
+                result = DeliveryResult.Failure(ex.Message);
+            }
         }
 
-        try
-        {
-            return await adapter.SendAsync(channel, evt, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Test send threw for channel {ChannelId} ({Name})", channel.Id, channel.Name);
-            return DeliveryResult.Failure(ex.Message);
-        }
+        await RecordAuditAsync(channel, evt, result, actorId, cancellationToken);
+        return result;
     }
 
     private async Task DispatchAsync(NotificationEvent evt, CancellationToken cancellationToken)
@@ -177,6 +191,7 @@ public class NotificationDispatcher : INotificationService
             return;
         }
 
+        var auditEntries = new List<AuditLog>(channels.Count);
         foreach (var channel in channels)
         {
             if (!IsSubscribed(channel, evt.Type))
@@ -190,12 +205,14 @@ public class NotificationDispatcher : INotificationService
                     "No adapter for channel {ChannelId} type {ChannelType} — skipping",
                     channel.Id,
                     channel.Type);
+                auditEntries.Add(BuildAuditEntry(channel, evt, DeliveryResult.Failure("No adapter registered"), actorId: null));
                 continue;
             }
 
+            DeliveryResult result;
             try
             {
-                var result = await adapter.SendAsync(channel, evt, cancellationToken);
+                result = await adapter.SendAsync(channel, evt, cancellationToken);
                 if (!result.Success)
                 {
                     _logger.LogWarning(
@@ -212,8 +229,84 @@ public class NotificationDispatcher : INotificationService
                     "Notification delivery to {ChannelName} ({ChannelType}) threw",
                     channel.Name,
                     channel.Type);
+                result = DeliveryResult.Failure(ex.Message);
+            }
+
+            auditEntries.Add(BuildAuditEntry(channel, evt, result, actorId: null));
+        }
+
+        // Persist all audit rows in one round trip so we don't lengthen
+        // the critical path by N SaveChanges calls. The dispatch itself
+        // is best-effort; an audit-log write failure is logged but
+        // doesn't bubble.
+        if (auditEntries.Count > 0)
+        {
+            try
+            {
+                foreach (var entry in auditEntries)
+                {
+                    await _auditLogRepository.AddAsync(entry);
+                }
+                await _auditLogRepository.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist notification audit entries for event {EventType}", evt.Type);
             }
         }
+    }
+
+    private async Task RecordAuditAsync(
+        NotificationChannel channel,
+        NotificationEvent evt,
+        DeliveryResult result,
+        Guid? actorId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _auditLogRepository.AddAsync(BuildAuditEntry(channel, evt, result, actorId));
+            await _auditLogRepository.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to write notification audit for channel {ChannelId} event {EventType}",
+                channel.Id,
+                evt.Type);
+        }
+    }
+
+    private static AuditLog BuildAuditEntry(
+        NotificationChannel channel,
+        NotificationEvent evt,
+        DeliveryResult result,
+        Guid? actorId)
+    {
+        // Details intentionally exclude the rendered message body. The
+        // body can contain agent names, policy names, and error text
+        // that don't belong in a long-retention audit table. Bot tokens
+        // and webhook URLs are never reachable from this surface because
+        // the channel object stays inside the dispatcher.
+        var details = JsonSerializer.Serialize(new
+        {
+            channelName = channel.Name,
+            channelType = channel.Type.ToString(),
+            eventType = evt.Type.ToString(),
+            success = result.Success,
+            error = result.Error,
+        });
+
+        return new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = result.Success ? AuditActionSent : AuditActionFailed,
+            TargetId = channel.Id,
+            Details = details,
+            OccurredAt = DateTime.UtcNow,
+        };
     }
 
     internal static bool IsSubscribed(NotificationChannel channel, NotificationEventType eventType)
