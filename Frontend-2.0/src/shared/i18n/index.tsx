@@ -451,6 +451,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Trace of admin and agent lifecycle actions in the control plane.':
       'История действий администраторов и жизненного цикла агентов в управляющем слое.',
     'Unable to revoke agent': 'Не удалось отозвать токен агента',
+    'Follow system': 'Как в системе',
   },
 }
 

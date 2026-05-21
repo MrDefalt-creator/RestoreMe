@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
-import { useTheme } from '@/app/providers/ThemeProvider'
+import { useTheme, type ThemeMode } from '@/app/providers/ThemeProvider'
 import { changeOwnPassword } from '@/shared/api/auth'
 import { env } from '@/shared/config/env'
 import {
@@ -40,7 +40,7 @@ type PasswordValues = z.infer<typeof passwordSchema>
 
 export function AccountPage() {
   const { dateStyle, language, refreshInterval, setDateStyle, setLanguage, setRefreshInterval, t } = useI18n()
-  const { theme, setTheme } = useTheme()
+  const { themeMode, setThemeMode } = useTheme()
   const user = useAuthStore((state) => state.user)
   const updateUser = useAuthStore((state) => state.updateUser)
   const navigate = useNavigate()
@@ -149,7 +149,8 @@ export function AccountPage() {
               </Field>
 
               <Field label={t('Appearance')}>
-                <Select value={theme} onChange={(event) => setTheme(event.target.value as 'light' | 'dark')}>
+                <Select value={themeMode} onChange={(event) => setThemeMode(event.target.value as ThemeMode)}>
+                  <option value="system">{t('Follow system')}</option>
                   <option value="light">{t('Light theme')}</option>
                   <option value="dark">{t('Dark theme')}</option>
                 </Select>

@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultMode="system">
         <I18nProvider>
           <QueryRefreshPreferences />
           <RouterProvider router={router} />

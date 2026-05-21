@@ -50,7 +50,7 @@ const navigation: NavItem[] = [
 export function AppShell() {
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { theme, setTheme } = useTheme()
+  const { theme, setThemeMode } = useTheme()
   const queryClient = useQueryClient()
   const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
@@ -127,7 +127,7 @@ export function AppShell() {
                 variant="secondary"
                 size={isExpanded ? 'md' : 'icon'}
                 className={cn('w-full', isExpanded ? 'justify-start' : '')}
-                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                onClick={() => setThemeMode(isDark ? 'light' : 'dark')}
                 title={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
               >
                 {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -182,7 +182,7 @@ export function AppShell() {
                 <Button
                   variant="secondary"
                   size="icon"
-                  onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                  onClick={() => setThemeMode(isDark ? 'light' : 'dark')}
                   title={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
                 >
                   {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
