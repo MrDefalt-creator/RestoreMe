@@ -252,6 +252,7 @@ export function AppShell() {
                   onClick={() => void queryClient.invalidateQueries()}
                   disabled={isFetching > 0}
                   title={t('Refresh data')}
+                  aria-label={t('Refresh data')}
                 >
                   <RefreshCw className={cn('h-4 w-4', isFetching > 0 ? 'animate-spin' : '')} />
                 </Button>
@@ -260,6 +261,7 @@ export function AppShell() {
                   size="icon"
                   onClick={() => setThemeMode(isDark ? 'light' : 'dark')}
                   title={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
+                  aria-label={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
                 >
                   {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
