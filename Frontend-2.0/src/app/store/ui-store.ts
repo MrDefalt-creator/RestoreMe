@@ -6,6 +6,10 @@ interface UiStore {
   sidebarState: SidebarState
   setSidebarState: (state: SidebarState) => void
   toggleSidebar: () => void
+  mobileNavOpen: boolean
+  setMobileNavOpen: (open: boolean) => void
+  toggleMobileNav: () => void
+  closeMobileNav: () => void
   policyFilter: 'all' | 'enabled' | 'disabled'
   setPolicyFilter: (filter: 'all' | 'enabled' | 'disabled') => void
 }
@@ -27,6 +31,10 @@ export const useUiStore = create<UiStore>((set) => ({
     set((state) => ({
       sidebarState: state.sidebarState === 'expanded' ? 'collapsed' : 'expanded',
     })),
+  mobileNavOpen: false,
+  setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
+  toggleMobileNav: () => set((state) => ({ mobileNavOpen: !state.mobileNavOpen })),
+  closeMobileNav: () => set({ mobileNavOpen: false }),
   policyFilter: getStoredFilter(),
   setPolicyFilter: (filter) => set({ policyFilter: filter }),
 }))

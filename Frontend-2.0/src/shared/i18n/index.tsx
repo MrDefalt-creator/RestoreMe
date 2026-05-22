@@ -188,6 +188,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Collapse sidebar': 'Свернуть меню',
     'Expand sidebar': 'Развернуть меню',
     'Toggle navigation': 'Переключить навигацию',
+    'Close navigation': 'Закрыть навигацию',
     'Switch to light theme': 'Переключить на светлую тему',
     'Switch to dark theme': 'Переключить на темную тему',
     'Know your data is protected before you need it.': 'Будьте уверены в защите данных еще до того, как они понадобятся.',

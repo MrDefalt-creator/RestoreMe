@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import {
   Archive,
   Bell,
@@ -15,6 +16,7 @@ import {
   UserRound,
   Users,
   Workflow,
+  X,
 } from 'lucide-react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
@@ -57,10 +59,33 @@ export function AppShell() {
   const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
+  const mobileNavOpen = useUiStore((state) => state.mobileNavOpen)
+  const toggleMobileNav = useUiStore((state) => state.toggleMobileNav)
+  const closeMobileNav = useUiStore((state) => state.closeMobileNav)
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
   const isExpanded = sidebarState === 'expanded'
+  const isExpandedView = mobileNavOpen || isExpanded
   const isDark = theme === 'dark'
+
+  useEffect(() => {
+    if (!mobileNavOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMobileNav()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mobileNavOpen, closeMobileNav])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 768px)')
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) closeMobileNav()
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [closeMobileNav])
 
   const availableNavigation = navigation.filter((item) => {
     if (!item.roles) {
@@ -73,29 +98,60 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-transparent text-foreground transition-colors duration-300">
       <div className="flex min-h-screen w-full">
+        {mobileNavOpen ? (
+          <button
+            type="button"
+            aria-label={t('Close navigation')}
+            className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={closeMobileNav}
+          />
+        ) : null}
         <aside
+          id="app-shell-sidebar"
           className={cn(
-            'sticky top-0 hidden h-screen shrink-0 border-r border-border bg-card/92 backdrop-blur-xl transition-[width] duration-200 ease-out md:block',
-            isExpanded ? 'w-[264px]' : 'w-[82px]',
+            'fixed inset-y-0 left-0 z-40 h-screen w-[280px] shrink-0 border-r border-border bg-card/95 backdrop-blur-xl transition-transform duration-200 ease-out',
+            'md:sticky md:top-0 md:translate-x-0 md:transition-[width]',
+            mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
+            isExpanded ? 'md:w-[264px]' : 'md:w-[82px]',
           )}
         >
           <div className="flex h-full flex-col gap-6 p-4">
-            <div className={cn('flex items-center gap-3', isExpanded ? 'justify-between' : 'justify-center')}>
-              <BrandMark compact={!isExpanded} subtitle="RestoreMe" />
+            <div className={cn('flex items-center gap-3', isExpandedView ? 'justify-between' : 'justify-center')}>
+              <BrandMark compact={!isExpandedView} subtitle="RestoreMe" />
+              {mobileNavOpen ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeMobileNav}
+                  title={t('Close navigation')}
+                  aria-label={t('Close navigation')}
+                  className="md:hidden"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              ) : null}
               {isExpanded ? (
-                <Button variant="ghost" size="icon" onClick={toggleSidebar} title={t('Collapse sidebar')}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSidebar}
+                  title={t('Collapse sidebar')}
+                  aria-label={t('Collapse sidebar')}
+                  className="hidden md:inline-flex"
+                >
                   <Menu className="h-4 w-4" />
                 </Button>
               ) : null}
             </div>
 
-            {!isExpanded ? (
+            {!isExpandedView ? (
               <Button
                 variant="ghost"
                 size="icon"
-                className="mx-auto"
+                className="mx-auto hidden md:inline-flex"
                 onClick={toggleSidebar}
                 title={t('Expand sidebar')}
+                aria-label={t('Expand sidebar')}
               >
                 <Menu className="h-4 w-4" />
               </Button>
@@ -107,19 +163,20 @@ export function AppShell() {
                   key={to}
                   to={to}
                   end={end}
+                  onClick={closeMobileNav}
                   className={({ isActive }) =>
                     cn(
                       'group flex h-11 items-center rounded-lg text-sm font-medium transition duration-150 ease-out',
-                      isExpanded ? 'gap-3 px-3' : 'justify-center px-0',
+                      isExpandedView ? 'gap-3 px-3' : 'justify-center px-0',
                       isActive
                         ? 'bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]'
                         : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
                     )
                   }
-                  title={isExpanded ? undefined : t(label)}
+                  title={isExpandedView ? undefined : t(label)}
                 >
                   <Icon className="h-4 w-4 shrink-0" strokeWidth={1.9} />
-                  {isExpanded ? <span className="truncate">{t(label)}</span> : null}
+                  {isExpandedView ? <span className="truncate">{t(label)}</span> : null}
                 </NavLink>
               ))}
             </nav>
@@ -127,22 +184,23 @@ export function AppShell() {
             <div className="space-y-3 border-t border-border pt-4">
               <Button
                 variant="secondary"
-                size={isExpanded ? 'md' : 'icon'}
-                className={cn('w-full', isExpanded ? 'justify-start' : '')}
+                size={isExpandedView ? 'md' : 'icon'}
+                className={cn('w-full', isExpandedView ? 'justify-start' : '')}
                 onClick={() => setThemeMode(isDark ? 'light' : 'dark')}
                 title={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
+                aria-label={isDark ? t('Switch to light theme') : t('Switch to dark theme')}
               >
                 {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {isExpanded ? <span>{isDark ? t('Light theme') : t('Dark theme')}</span> : null}
+                {isExpandedView ? <span>{isDark ? t('Light theme') : t('Dark theme')}</span> : null}
               </Button>
 
               {user ? (
-                <div className={cn('rounded-lg border border-border bg-background/70 p-3', isExpanded ? '' : 'px-2')}>
-                  <div className={cn('flex items-center gap-3', isExpanded ? '' : 'justify-center')}>
+                <div className={cn('rounded-lg border border-border bg-background/70 p-3', isExpandedView ? '' : 'px-2')}>
+                  <div className={cn('flex items-center gap-3', isExpandedView ? '' : 'justify-center')}>
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                       <UserRound className="h-4 w-4" />
                     </span>
-                    {isExpanded ? (
+                    {isExpandedView ? (
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{user.username}</p>
                         <p className="text-xs text-muted-foreground">{formatRoleLabel(normalizeAuthRole(user.role), t)}</p>
@@ -167,8 +225,11 @@ export function AppShell() {
                   variant="secondary"
                   size="icon"
                   className="md:hidden"
-                  onClick={toggleSidebar}
+                  onClick={toggleMobileNav}
                   title={t('Toggle navigation')}
+                  aria-label={t('Toggle navigation')}
+                  aria-expanded={mobileNavOpen}
+                  aria-controls="app-shell-sidebar"
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
