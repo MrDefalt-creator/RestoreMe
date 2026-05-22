@@ -79,3 +79,7 @@ docker-compose/secrets/*.txt
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# AI / tooling local state
+.claude/
+.playwright-mcp/
