@@ -55,7 +55,8 @@ public class PoliciesController : ControllerBase
                 request.Name,
                 request.SourcePath,
                 request.Interval,
-                request.DatabaseSettings);
+                request.DatabaseSettings,
+                request.RetentionDays);
 
             var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
             return Ok(response);
@@ -113,7 +114,8 @@ public class PoliciesController : ControllerBase
                 request.SourcePath,
                 request.IntervalSeconds,
                 request.IsEnabled,
-                request.DatabaseSettings);
+                request.DatabaseSettings,
+                request.RetentionDays);
         }
         catch (InvalidOperationException ex)
         {
@@ -164,7 +166,8 @@ public class PoliciesController : ControllerBase
             policy.CreatedAt,
             policy.NextRunAt,
             policy.LastRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings, includePassword: false));
+            MapDatabaseSettings(policy.DatabaseSettings, includePassword: false),
+            policy.RetentionDays);
     }
 
     private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)

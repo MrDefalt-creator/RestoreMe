@@ -7,5 +7,6 @@ public record CreateBackupPolicyRequest(
     [Required][StringLength(150)] string Name,
     [StringLength(500)] string? SourcePath,
     [Required] int Interval,
-    BackupPolicyDatabaseSettingsDto? DatabaseSettings
+    BackupPolicyDatabaseSettingsDto? DatabaseSettings,
+    [Range(1, 3650)] int? RetentionDays = null
     );

@@ -33,6 +33,7 @@ const policySchema = z.object({
   authMode: z.enum(['integrated', 'credentials']),
   username: z.string(),
   password: z.string(),
+  retentionDays: z.number().int().min(1).max(3650).nullable(),
 }).superRefine((values, context) => {
   if (values.type === 'filesystem' && values.sourcePath.trim().length < 3) {
     context.addIssue({
@@ -100,6 +101,7 @@ const defaultValues: PolicyFormValues = {
   authMode: 'integrated',
   username: '',
   password: '',
+  retentionDays: null,
 }
 
 function secondsToInterval(intervalSeconds: number): Pick<PolicyFormValues, 'intervalValue' | 'intervalUnit'> {
@@ -146,6 +148,7 @@ function toFormValues(policy: BackupPolicy | null, agents: Agent[]): PolicyFormV
     authMode: policy.databaseSettings?.authMode ?? (policy.type === 'mysql' ? 'credentials' : 'integrated'),
     username: policy.databaseSettings?.username ?? '',
     password: policy.databaseSettings?.password ?? '',
+    retentionDays: policy.retentionDays ?? null,
   }
 }
 
@@ -159,6 +162,7 @@ function toPayload(values: PolicyFormValues): UpsertPolicyInput {
     sourcePath: isFilesystem ? values.sourcePath.trim() : '',
     intervalSeconds: intervalToSeconds(values),
     isEnabled: values.isEnabled,
+    retentionDays: values.retentionDays,
     databaseSettings: isFilesystem
       ? null
       : {
@@ -321,6 +325,19 @@ export function PolicyFormDialog({
               <option value="days">{t('Days')}</option>
             </Select>
           </div>
+        </Field>
+
+        <Field label={t('Keep backups for (days)')}>
+          <Input
+            type="number"
+            min={1}
+            max={3650}
+            step={1}
+            placeholder={t('Unlimited')}
+            {...form.register('retentionDays', {
+              setValueAs: (value) => (value === '' || value === null ? null : Number(value)),
+            })}
+          />
         </Field>
 
         <label className="flex items-center gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground">

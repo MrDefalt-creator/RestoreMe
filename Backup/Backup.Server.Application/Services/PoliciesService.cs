@@ -19,12 +19,14 @@ public class PoliciesService
         string name,
         string? sourcePath,
         int interval,
-        BackupPolicyDatabaseSettingsDto? databaseSettingsDto)
+        BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
+        int? retentionDays)
     {
         name = name.Trim();
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
         ValidateInterval(interval);
+        ValidateRetentionDays(retentionDays);
 
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
 
@@ -41,13 +43,14 @@ public class PoliciesService
             Name = name,
             SourcePath = sourcePath,
             IntervalSeconds =  interval,
-            NextRunAt = DateTime.UtcNow
+            NextRunAt = DateTime.UtcNow,
+            RetentionDays = retentionDays
         };
 
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id);
-        
+
         await _policyRepository.AddPolicy(policy);
-        
+
         await _policyRepository.SaveChangesAsync();
 
         return policy;
@@ -85,18 +88,20 @@ public class PoliciesService
         string? sourcePath,
         int intervalSeconds,
         bool isEnabled,
-        BackupPolicyDatabaseSettingsDto? databaseSettingsDto)
+        BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
+        int? retentionDays)
     {
         var policy = await _policyRepository.GetPolicyById(policyId);
         if (policy == null)
         {
             throw new KeyNotFoundException("Policy not found");
         }
-        
+
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
         ValidateInterval(intervalSeconds);
-        
+        ValidateRetentionDays(retentionDays);
+
         policy.AgentId = agentId;
         policy.Type = policyType;
         policy.Name = name.Trim();
@@ -104,8 +109,9 @@ public class PoliciesService
         policy.IntervalSeconds = intervalSeconds;
         policy.IsEnabled = isEnabled;
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
+        policy.RetentionDays = retentionDays;
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id, policy.DatabaseSettings);
-        
+
         await _policyRepository.UpdatePolicy(policy);
         await _policyRepository.SaveChangesAsync();
 
@@ -286,6 +292,14 @@ public class PoliciesService
         if (intervalSeconds <= 0)
         {
             throw new InvalidOperationException("Policy interval must be greater than zero seconds.");
+        }
+    }
+
+    private static void ValidateRetentionDays(int? retentionDays)
+    {
+        if (retentionDays.HasValue && retentionDays.Value < 1)
+        {
+            throw new InvalidOperationException("Retention days must be at least 1 when set.");
         }
     }
 }

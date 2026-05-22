@@ -21,6 +21,7 @@ export interface BackupPolicy {
   lastRunAt: string | null
   createdAt: string
   updatedAt?: string
+  retentionDays: number | null
 }
 
 export type UpsertPolicyInput = {
@@ -31,6 +32,7 @@ export type UpsertPolicyInput = {
   intervalSeconds: number
   isEnabled: boolean
   databaseSettings: BackupPolicy['databaseSettings']
+  retentionDays: number | null
 }
 
 export async function getPolicies(): Promise<BackupPolicy[]> {
@@ -50,6 +52,7 @@ export async function createPolicy(input: UpsertPolicyInput): Promise<BackupPoli
     sourcePath: input.sourcePath || null,
     interval: input.intervalSeconds,
     databaseSettings: input.databaseSettings,
+    retentionDays: input.retentionDays,
   })
   const policyId = response.data.policyId ?? response.data.id
   if (!policyId) {
@@ -59,7 +62,16 @@ export async function createPolicy(input: UpsertPolicyInput): Promise<BackupPoli
 }
 
 export async function updatePolicy(policyId: string, policy: UpsertPolicyInput): Promise<BackupPolicy> {
-  const response = await apiClient.put(`/api/policies/${policyId}`, policy)
+  const response = await apiClient.put(`/api/policies/${policyId}`, {
+    agentId: policy.agentId,
+    type: policy.type,
+    name: policy.name,
+    sourcePath: policy.sourcePath,
+    intervalSeconds: policy.intervalSeconds,
+    isEnabled: policy.isEnabled,
+    databaseSettings: policy.databaseSettings,
+    retentionDays: policy.retentionDays,
+  })
   return response.data
 }
 

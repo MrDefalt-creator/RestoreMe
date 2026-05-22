@@ -13,5 +13,6 @@ public record AdminBackupPolicyDto(
     [Required] DateTime CreatedAt,
     [Required] DateTime NextRunAt,
     DateTime? LastRunAt,
-    BackupPolicyDatabaseSettingsDto? DatabaseSettings
+    BackupPolicyDatabaseSettingsDto? DatabaseSettings,
+    int? RetentionDays
 );
