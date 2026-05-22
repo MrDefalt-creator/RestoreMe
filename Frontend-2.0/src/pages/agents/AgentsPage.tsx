@@ -25,6 +25,7 @@ import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelative
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Dialog } from '@/shared/ui/Dialog'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
@@ -328,6 +329,8 @@ function AgentMetric({
 function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] }) {
   const { t } = useI18n()
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [revokeOpen, setRevokeOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const policyCount = policies.length
   const enabledPolicyCount = policies.filter((policy) => policy.isEnabled).length
   const currentUser = useAuthStore((state) => state.user)
@@ -338,6 +341,7 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
     mutationFn: revokeAgent,
     onSuccess: () => {
       toast.success(t('Agent token revoked'))
+      setRevokeOpen(false)
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
     },
     onError: (error) => {
@@ -349,6 +353,7 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
     mutationFn: deleteAgent,
     onSuccess: () => {
       toast.success(t('Agent deleted'))
+      setDeleteOpen(false)
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
     },
     onError: (error) => {
@@ -408,10 +413,7 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
                   size="sm"
                   disabled={revokeMutation.isPending}
                   title={t('Revokes the agent access token. The row stays in the list and history is preserved; the agent must re-enroll to continue working.')}
-                  onClick={() => {
-                    if (!window.confirm(t('Revoke agent token? The agent will need to re-enroll. The row stays in the list and history is preserved.'))) return
-                    revokeMutation.mutate(agent.id)
-                  }}
+                  onClick={() => setRevokeOpen(true)}
                 >
                   {t('Revoke')}
                 </Button>
@@ -420,12 +422,7 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
                   size="sm"
                   disabled={deleteMutation.isPending}
                   title={t('Permanently deletes the agent, its policies, jobs, artifacts, and restore history.')}
-                  onClick={() => {
-                    if (!window.confirm(
-                      t('This permanently deletes the agent "{name}" and ALL of its backup jobs, artifacts, policies, and restore history. Stored backup files in object storage will be removed on a best-effort basis. This cannot be undone. Continue?', { name: agent.name }),
-                    )) return
-                    deleteMutation.mutate(agent.id)
-                  }}
+                  onClick={() => setDeleteOpen(true)}
                 >
                   {t('Delete')}
                 </Button>
@@ -440,6 +437,29 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
         policies={policies}
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={revokeOpen}
+        onClose={() => setRevokeOpen(false)}
+        onConfirm={() => revokeMutation.mutate(agent.id)}
+        title={t('Revoke agent token')}
+        description={t('The agent will need to re-enroll. The row stays in the list and history is preserved.')}
+        confirmLabel={revokeMutation.isPending ? t('Revoking...') : t('Revoke')}
+        variant="danger"
+        isLoading={revokeMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => deleteMutation.mutate(agent.id)}
+        title={t('Delete agent')}
+        description={t('This permanently removes the agent and ALL of its backup jobs, artifacts, policies, and restore history. Stored backup files in object storage will be removed on a best-effort basis. This cannot be undone.')}
+        confirmLabel={deleteMutation.isPending ? t('Deleting...') : t('Delete agent')}
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        requireTypeName={agent.name}
       />
     </>
   )
