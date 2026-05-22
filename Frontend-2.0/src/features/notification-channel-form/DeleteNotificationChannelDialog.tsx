@@ -2,8 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { deleteNotificationChannel, type NotificationChannel } from '@/shared/api/notifications'
-import { Button } from '@/shared/ui/Button'
-import { Dialog } from '@/shared/ui/Dialog'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { queryKeys } from '@/shared/lib/query'
 import { useI18n } from '@/shared/i18n'
 
@@ -29,36 +28,24 @@ export function DeleteNotificationChannelDialog({ channel, onClose }: Props) {
   })
 
   return (
-    <Dialog
+    <ConfirmDialog
       open={channel !== null}
-      onClose={mutation.isPending ? () => {} : onClose}
+      onClose={onClose}
+      onConfirm={() => channel && mutation.mutate(channel.id)}
       title={t('Delete notification channel')}
       description={
         channel
-          ? t("Delete '{name}'? Notifications will stop reaching this destination immediately.", {
-              name: channel.name,
-            })
+          ? t("Delete '{name}'? Notifications will stop reaching this destination immediately.", { name: channel.name })
           : ''
       }
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={mutation.isPending}>
-            {t('Cancel')}
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            disabled={mutation.isPending || !channel}
-            onClick={() => channel && mutation.mutate(channel.id)}
-          >
-            {t('Delete channel')}
-          </Button>
-        </div>
+      body={
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t('Existing audit log entries for past deliveries are preserved.')}
+        </p>
       }
-    >
-      <p className="text-sm leading-6 text-muted-foreground">
-        {t('Existing audit log entries for past deliveries are preserved.')}
-      </p>
-    </Dialog>
+      confirmLabel={t('Delete channel')}
+      variant="danger"
+      isLoading={mutation.isPending}
+    />
   )
 }

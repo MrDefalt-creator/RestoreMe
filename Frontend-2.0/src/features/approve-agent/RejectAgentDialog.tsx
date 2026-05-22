@@ -4,8 +4,7 @@ import { toast } from 'sonner'
 
 import { rejectAgent, type PendingAgent } from '@/shared/api/agents'
 import { queryKeys } from '@/shared/lib/query'
-import { Button } from '@/shared/ui/Button'
-import { Dialog } from '@/shared/ui/Dialog'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { useI18n } from '@/shared/i18n'
 
 type RejectAgentDialogProps = {
@@ -44,40 +43,28 @@ export function RejectAgentDialog({ open, pendingAgent, onClose }: RejectAgentDi
   })
 
   return (
-    <Dialog
-      open={open}
+    <ConfirmDialog
+      open={open && pendingAgent !== null}
       onClose={onClose}
+      onConfirm={() => pendingAgent && mutation.mutate(pendingAgent.id)}
       title={t('Reject pending agent')}
       description={t('The agent will be told that this registration request was rejected and will stop waiting for approval.')}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            {t('Cancel')}
-          </Button>
-          <Button
-            variant="danger"
-            disabled={!pendingAgent || mutation.isPending}
-            onClick={() => {
-              if (!pendingAgent) return
-              mutation.mutate(pendingAgent.id)
-            }}
-          >
-            {mutation.isPending ? t('Rejecting...') : t('Reject agent')}
-          </Button>
-        </>
-      }
-    >
-      <div className="rounded-lg border border-destructive/20 bg-destructive/8 p-4">
-        <div className="flex items-start gap-3">
-          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-          <div>
-            <p className="font-medium text-foreground">{pendingAgent?.machineName}</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {t('This action keeps the machine out of backup policy assignment until it registers again under a pending request.')}
-            </p>
+      body={
+        <div className="rounded-lg border border-destructive/20 bg-destructive/8 p-4">
+          <div className="flex items-start gap-3">
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-medium text-foreground">{pendingAgent?.machineName}</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {t('This action keeps the machine out of backup policy assignment until it registers again under a pending request.')}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </Dialog>
+      }
+      confirmLabel={mutation.isPending ? t('Rejecting...') : t('Reject agent')}
+      variant="danger"
+      isLoading={mutation.isPending}
+    />
   )
 }
