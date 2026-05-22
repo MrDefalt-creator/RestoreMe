@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { useTheme } from '@/app/providers/ThemeProvider'
@@ -29,6 +30,7 @@ import { Button } from '@/shared/ui/Button'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 import { cn } from '@/shared/lib/cn'
 import { normalizeAuthRole, logout } from '@/shared/api/auth'
+import { authEvents } from '@/shared/lib/auth-events'
 import { formatRoleLabel, useI18n } from '@/shared/i18n'
 
 type NavItem = {
@@ -88,6 +90,15 @@ export function AppShell() {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [closeMobileNav])
+
+  useEffect(() => {
+    return authEvents.onUnauthorized(() => {
+      toast.error(t('Session expired. Please sign in again.'))
+      if (location.pathname !== '/login') {
+        navigate('/login', { replace: true })
+      }
+    })
+  }, [navigate, location.pathname, t])
 
   const availableNavigation = navigation.filter((item) => {
     if (!item.roles) {
