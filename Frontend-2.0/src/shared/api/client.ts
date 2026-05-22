@@ -2,9 +2,10 @@ import axios, { type AxiosInstance, type AxiosError } from 'axios'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { normalizeApiError } from '@/shared/api/errors'
+import { env } from '@/shared/config/env'
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: env.apiBaseUrl,
   timeout: 30000,
   withCredentials: true,
   headers: {
