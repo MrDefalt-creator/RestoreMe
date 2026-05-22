@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { RefreshCw } from 'lucide-react'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { getAuditLogs } from '@/entities/audit-log'
 import { useI18n } from '@/shared/i18n'
+import { cn } from '@/shared/lib/cn'
 import { formatDateTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
@@ -103,6 +105,18 @@ export function AuditLogPage() {
                 {t('Clear')}
               </Button>
             ) : null}
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="ml-auto"
+              onClick={() => void query.refetch()}
+              disabled={query.isFetching}
+              title={t('Refresh data')}
+              aria-label={t('Refresh data')}
+            >
+              <RefreshCw className={cn('h-4 w-4', query.isFetching ? 'animate-spin' : '')} />
+            </Button>
           </form>
         </CardContent>
       </Card>
