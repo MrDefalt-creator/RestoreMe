@@ -9,11 +9,13 @@ namespace Backup.Server.Api.Controllers;
 [Route("api/[controller]")]
 public class DashboardController : ControllerBase
 {
-    private readonly DashboardMetricsService _service;
+    private readonly DashboardMetricsService _metrics;
+    private readonly DashboardSummaryService _summary;
 
-    public DashboardController(DashboardMetricsService service)
+    public DashboardController(DashboardMetricsService metrics, DashboardSummaryService summary)
     {
-        _service = service;
+        _metrics = metrics;
+        _summary = summary;
     }
 
     /// <summary>
@@ -36,7 +38,21 @@ public class DashboardController : ControllerBase
             _ => 30,
         };
 
-        var metrics = await _service.GetMetricsAsync(periodDays);
+        var metrics = await _metrics.GetMetricsAsync(periodDays);
         return Ok(metrics);
+    }
+
+    /// <summary>
+    /// Instant dashboard snapshot — agent / policy / job / artifact counts,
+    /// the 7-day job-volume strip, the unresolved-failure list and the
+    /// latest-activity preview. Replaces the previous client-side pattern
+    /// of fetching every list endpoint just to count things.
+    /// </summary>
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
+    [HttpGet("summary")]
+    public async Task<IActionResult> Summary()
+    {
+        var summary = await _summary.GetSummaryAsync();
+        return Ok(summary);
     }
 }

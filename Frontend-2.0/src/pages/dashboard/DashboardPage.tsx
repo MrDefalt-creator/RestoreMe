@@ -14,11 +14,12 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { getAgents, getPendingAgents } from '@/shared/api/agents'
-import { getArtifacts } from '@/shared/api/artifacts'
-import { getDashboardMetrics, type DashboardPeriod } from '@/shared/api/dashboard'
-import { getJobs } from '@/shared/api/jobs'
-import { getPolicies } from '@/shared/api/policies'
+import {
+  getDashboardMetrics,
+  getDashboardSummary,
+  type DashboardPeriod,
+  type DashboardSummary,
+} from '@/shared/api/dashboard'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { TrendBarChart } from '@/shared/ui/charts/TrendBarChart'
@@ -28,7 +29,10 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { cn } from '@/shared/lib/cn'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
-import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import {
+  useLiveQueryOptions,
+  useLiveQueryOptionsWithFloor,
+} from '@/shared/lib/useLiveQueryOptions'
 import { useI18n, type Language } from '@/shared/i18n'
 
 type AttentionItem = {
@@ -38,63 +42,44 @@ type AttentionItem = {
 }
 
 const PERIOD_OPTIONS: DashboardPeriod[] = ['7d', '30d', '90d']
+const DASHBOARD_SUMMARY_MIN_INTERVAL_MS = 30_000
+
+const EMPTY_SUMMARY: DashboardSummary = {
+  agents: { online: 0, stale: 0, offline: 0, total: 0 },
+  pendingAgentsCount: 0,
+  policies: { active: 0, total: 0, byType: { filesystem: 0, postgres: 0, mysql: 0 } },
+  jobs: {
+    completed: 0,
+    running: 0,
+    failed: 0,
+    total: 0,
+    last7Days: [],
+    unresolvedFailures: [],
+    recent: [],
+  },
+  artifacts: { total: 0, totalSize: 0, recent: [] },
+}
 
 export function DashboardPage() {
   const { language, t } = useI18n()
-  const liveQueryOptions = useLiveQueryOptions()
+  const summaryOptions = useLiveQueryOptionsWithFloor(DASHBOARD_SUMMARY_MIN_INTERVAL_MS)
+  const metricsOptions = useLiveQueryOptions()
   const [period, setPeriod] = useState<DashboardPeriod>('30d')
+
+  const summaryQuery = useQuery({
+    queryKey: [...queryKeys.dashboard, 'summary'] as const,
+    queryFn: getDashboardSummary,
+    ...summaryOptions,
+  })
   const metricsQuery = useQuery({
     queryKey: [...queryKeys.dashboard, 'metrics', period] as const,
     queryFn: () => getDashboardMetrics(period),
-    ...liveQueryOptions,
-  })
-  const agentsQuery = useQuery({
-    queryKey: queryKeys.agents,
-    queryFn: getAgents,
-    ...liveQueryOptions,
-  })
-  const pendingAgentsQuery = useQuery({
-    queryKey: queryKeys.pendingAgents,
-    queryFn: getPendingAgents,
-    ...liveQueryOptions,
-  })
-  const policiesQuery = useQuery({
-    queryKey: queryKeys.policies,
-    queryFn: getPolicies,
-    ...liveQueryOptions,
-  })
-  const jobsQuery = useQuery({
-    queryKey: queryKeys.jobs,
-    queryFn: getJobs,
-    ...liveQueryOptions,
-  })
-  const artifactsQuery = useQuery({
-    queryKey: queryKeys.artifacts,
-    queryFn: getArtifacts,
-    ...liveQueryOptions,
+    ...metricsOptions,
   })
 
-  const agents = agentsQuery.data ?? []
-  const pendingAgents = pendingAgentsQuery.data ?? []
-  const policies = policiesQuery.data ?? []
-  const jobs = jobsQuery.data ?? []
-  const artifacts = artifactsQuery.data ?? []
-  const hasApiIssue = [
-    agentsQuery,
-    pendingAgentsQuery,
-    policiesQuery,
-    jobsQuery,
-    artifactsQuery,
-  ].some((query) => query.isError)
-
-  const onlineAgents = agents.filter((agent) => agent.status === 'online').length
-  const staleAgents = agents.filter((agent) => agent.status === 'stale').length
-  const offlineAgents = agents.filter((agent) => agent.status === 'offline').length
-  const activePolicies = policies.filter((policy) => policy.isEnabled).length
-  const failedJobs = jobs.filter((job) => job.status === 'failed')
-  const unresolvedFailedJobs = getUnresolvedFailedJobs(jobs)
-  const runningJobs = jobs.filter((job) => job.status === 'running').length
-  const totalArtifactSize = artifacts.reduce((sum, artifact) => sum + artifact.size, 0)
+  const summary = summaryQuery.data ?? EMPTY_SUMMARY
+  const { agents, pendingAgentsCount, policies, jobs, artifacts } = summary
+  const hasApiIssue = summaryQuery.isError
 
   const attentionItems: AttentionItem[] = [
     ...(hasApiIssue
@@ -104,24 +89,24 @@ export function DashboardPage() {
           tone: 'destructive' as const,
         }]
       : []),
-    ...(pendingAgents.length
+    ...(pendingAgentsCount
       ? [{
-          title: t('{count} agent request{plural} waiting', { count: pendingAgents.length, plural: pendingAgents.length === 1 ? '' : 's' }),
+          title: t('{count} agent request{plural} waiting', { count: pendingAgentsCount, plural: pendingAgentsCount === 1 ? '' : 's' }),
           detail: t('Review pending machines before they can run backup policies.'),
           tone: 'warning' as const,
         }]
       : []),
-    ...(offlineAgents || staleAgents
+    ...(agents.offline || agents.stale
       ? [{
-          title: t('{count} agent{plural} not fully healthy', { count: offlineAgents + staleAgents, plural: offlineAgents + staleAgents === 1 ? '' : 's' }),
-          detail: t('{offline} offline / {stale} stale', { offline: offlineAgents, stale: staleAgents }),
+          title: t('{count} agent{plural} not fully healthy', { count: agents.offline + agents.stale, plural: agents.offline + agents.stale === 1 ? '' : 's' }),
+          detail: t('{offline} offline / {stale} stale', { offline: agents.offline, stale: agents.stale }),
           tone: 'warning' as const,
         }]
       : []),
-    ...(unresolvedFailedJobs.length
+    ...(jobs.unresolvedFailures.length
       ? [{
-          title: t('{count} active backup issue{plural}', { count: unresolvedFailedJobs.length, plural: unresolvedFailedJobs.length === 1 ? '' : 's' }),
-          detail: unresolvedFailedJobs[0]?.errorMessage ?? t('Open Jobs to inspect the latest unresolved failure.'),
+          title: t('{count} active backup issue{plural}', { count: jobs.unresolvedFailures.length, plural: jobs.unresolvedFailures.length === 1 ? '' : 's' }),
+          detail: jobs.unresolvedFailures[0]?.errorMessage ?? t('Open Jobs to inspect the latest unresolved failure.'),
           tone: 'destructive' as const,
         }]
       : []),
@@ -131,30 +116,26 @@ export function DashboardPage() {
     ? t('Needs connection')
     : attentionItems.length
       ? t('Needs attention')
-      : agents.length || activePolicies
+      : agents.total || policies.active
         ? t('Protected')
         : t('Ready to set up')
 
   const jobStatusRows = [
-    { label: t('Completed'), value: jobs.filter((job) => job.status === 'completed').length, tone: 'success' as const },
-    { label: t('Running'), value: runningJobs, tone: 'accent' as const },
-    { label: t('Failed'), value: failedJobs.length, tone: 'destructive' as const },
+    { label: t('Completed'), value: jobs.completed, tone: 'success' as const },
+    { label: t('Running'), value: jobs.running, tone: 'accent' as const },
+    { label: t('Failed'), value: jobs.failed, tone: 'destructive' as const },
   ]
   const agentHealthRows = [
-    { label: t('Online'), value: onlineAgents, tone: 'success' as const },
-    { label: t('Stale'), value: staleAgents, tone: 'warning' as const },
-    { label: t('Offline'), value: offlineAgents, tone: 'neutral' as const },
+    { label: t('Online'), value: agents.online, tone: 'success' as const },
+    { label: t('Stale'), value: agents.stale, tone: 'warning' as const },
+    { label: t('Offline'), value: agents.offline, tone: 'neutral' as const },
   ]
   const policyRows = [
-    { label: t('Filesystem'), value: policies.filter((policy) => policy.type === 'filesystem').length, tone: 'accent' as const },
-    { label: 'PostgreSQL', value: policies.filter((policy) => policy.type === 'postgres').length, tone: 'success' as const },
-    { label: 'MySQL', value: policies.filter((policy) => policy.type === 'mysql').length, tone: 'warning' as const },
+    { label: t('Filesystem'), value: policies.byType.filesystem, tone: 'accent' as const },
+    { label: 'PostgreSQL', value: policies.byType.postgres, tone: 'success' as const },
+    { label: 'MySQL', value: policies.byType.mysql, tone: 'warning' as const },
   ]
-  const backupTrend = buildSevenDayTrend(jobs, language)
-  const agentsById = new Map(agents.map((agent) => [agent.id, agent]))
-  const policiesById = new Map(policies.map((policy) => [policy.id, policy]))
-  const latestJobs = [...jobs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)).slice(0, 5)
-  const latestArtifacts = [...artifacts].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 5)
+  const backupTrend = buildSevenDayTrend(jobs.last7Days, language)
 
   const metrics = metricsQuery.data
   const storageGrowthSeries = metrics?.storageGrowthTimeseries ?? []
@@ -188,10 +169,10 @@ export function DashboardPage() {
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric icon={Server} label={t('Agents online')} value={`${onlineAgents}/${agents.length}`} detail={t('{count} offline', { count: offlineAgents })} />
-              <Metric icon={ShieldCheck} label={t('Active policies')} value={activePolicies} detail={t('{count} total', { count: policies.length })} />
-              <Metric icon={Clock3} label={t('Running jobs')} value={runningJobs} detail={t('{count} recorded', { count: jobs.length })} />
-              <Metric icon={Archive} label={t('Artifacts')} value={artifacts.length} detail={artifacts.length ? formatFileSize(totalArtifactSize) : t('None yet')} />
+              <Metric icon={Server} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} />
+              <Metric icon={ShieldCheck} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} />
+              <Metric icon={Clock3} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} />
+              <Metric icon={Archive} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
             </div>
           </CardContent>
         </Card>
@@ -240,9 +221,9 @@ export function DashboardPage() {
                 <TrendBarChart data={backupTrend} seriesLabel={t('Recorded runs')} />
               </div>
               <div className="grid gap-3">
-                <InsightTile icon={Activity} label={t('Recorded runs')} value={jobs.length} detail={t('Across all known policies')} />
-                <InsightTile icon={CheckCircle2} label={t('Success ratio')} value={formatPercent(jobStatusRows[0].value, jobs.length)} detail={t('Completed jobs')} />
-                <InsightTile icon={Database} label={t('Stored data')} value={formatFileSize(totalArtifactSize)} detail={t('{count} artifacts', { count: artifacts.length })} />
+                <InsightTile icon={Activity} label={t('Recorded runs')} value={jobs.total} detail={t('Across all known policies')} />
+                <InsightTile icon={CheckCircle2} label={t('Success ratio')} value={formatPercent(jobs.completed, jobs.total)} detail={t('Completed jobs')} />
+                <InsightTile icon={Database} label={t('Stored data')} value={formatFileSize(artifacts.totalSize)} detail={t('{count} artifacts', { count: artifacts.total })} />
               </div>
             </div>
           </CardContent>
@@ -256,9 +237,9 @@ export function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
-            <ProgressGroup title={t('Agent health')} total={agents.length} rows={agentHealthRows} totalLabel={t('{count} total', { count: agents.length })} />
-            <ProgressGroup title={t('Job outcomes')} total={jobs.length} rows={jobStatusRows} totalLabel={t('{count} total', { count: jobs.length })} />
-            <ProgressGroup title={t('Policy types')} total={policies.length} rows={policyRows} totalLabel={t('{count} total', { count: policies.length })} />
+            <ProgressGroup title={t('Agent health')} total={agents.total} rows={agentHealthRows} totalLabel={t('{count} total', { count: agents.total })} />
+            <ProgressGroup title={t('Job outcomes')} total={jobs.total} rows={jobStatusRows} totalLabel={t('{count} total', { count: jobs.total })} />
+            <ProgressGroup title={t('Policy types')} total={policies.total} rows={policyRows} totalLabel={t('{count} total', { count: policies.total })} />
           </CardContent>
         </Card>
       </section>
@@ -350,19 +331,13 @@ export function DashboardPage() {
             <CardTitle>{t('Latest activity')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {jobs.length ? (
+            {jobs.recent.length ? (
               <div className="divide-y divide-border">
-                {latestJobs.map((job) => {
-                  const policy = policiesById.get(job.policyId)
-                  const agent = agentsById.get(job.agentId)
-                  const jobTitle = job.policyName || job.name || policy?.name || `Backup job ${shortId(job.id)}`
-                  const agentLabel = job.agentName || agent?.name || agent?.machineName || `Agent ${shortId(job.agentId)}`
-
-                  return (
+                {jobs.recent.map((job) => (
                   <div key={job.id} className="flex items-center justify-between gap-4 py-3">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">{jobTitle}</p>
-                      <p className="text-sm text-muted-foreground">{agentLabel}</p>
+                      <p className="truncate font-medium text-foreground">{job.title}</p>
+                      <p className="text-sm text-muted-foreground">{job.agentName}</p>
                     </div>
                     <div className="shrink-0 text-right">
                       <Badge variant={job.status === 'completed' ? 'success' : job.status === 'failed' ? 'destructive' : 'accent'}>
@@ -371,8 +346,7 @@ export function DashboardPage() {
                       <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(job.startedAt)}</p>
                     </div>
                   </div>
-                  )
-                })}
+                ))}
               </div>
             ) : (
               <EmptyState
@@ -389,28 +363,22 @@ export function DashboardPage() {
             <CardTitle>{t('Recoverable backups')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {artifacts.length ? (
+            {artifacts.recent.length ? (
               <div className="divide-y divide-border">
-                {latestArtifacts.map((artifact) => {
-                  const job = jobs.find((item) => item.id === artifact.jobId)
-                  const policy = job ? policiesById.get(job.policyId) : undefined
-                  const displayName = artifact.fileName || artifact.name || policy?.name || `Artifact ${shortId(artifact.id)}`
-
-                  return (
-                    <div key={artifact.id} className="flex items-center justify-between gap-4 py-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                          <HardDriveDownload className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">{displayName}</p>
-                          <p className="text-sm text-muted-foreground">{formatDateTime(artifact.createdAt)}</p>
-                        </div>
+                {artifacts.recent.map((artifact) => (
+                  <div key={artifact.id} className="flex items-center justify-between gap-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
+                        <HardDriveDownload className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{artifact.displayName}</p>
+                        <p className="text-sm text-muted-foreground">{formatDateTime(artifact.createdAt)}</p>
                       </div>
-                      <p className="shrink-0 text-sm text-muted-foreground">{formatFileSize(artifact.size)}</p>
                     </div>
-                  )
-                })}
+                    <p className="shrink-0 text-sm text-muted-foreground">{formatFileSize(artifact.size)}</p>
+                  </div>
+                ))}
               </div>
             ) : (
               <EmptyState
@@ -459,53 +427,15 @@ type ProgressRow = {
   tone: ProgressTone
 }
 
-function buildSevenDayTrend(jobs: { startedAt: string }[], language: Language) {
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date()
-    date.setHours(0, 0, 0, 0)
-    date.setDate(date.getDate() - (6 - index))
+function buildSevenDayTrend(last7Days: { date: string; count: number }[], language: Language) {
+  return last7Days.map((bucket) => {
+    const date = new Date(`${bucket.date}T00:00:00Z`)
     return {
-      key: toLocalDateKey(date),
+      key: bucket.date,
       label: date.toLocaleDateString(language === 'ru' ? 'ru-RU' : undefined, { weekday: 'short' }),
-      value: 0,
+      value: bucket.count,
     }
   })
-
-  const byKey = new Map(days.map((day) => [day.key, day]))
-  jobs.forEach((job) => {
-    const date = new Date(job.startedAt)
-    if (Number.isNaN(date.getTime())) {
-      return
-    }
-    const key = toLocalDateKey(date)
-    const day = byKey.get(key)
-    if (day) {
-      day.value += 1
-    }
-  })
-
-  return days
-}
-
-function getUnresolvedFailedJobs<T extends { policyId: string; status: string; startedAt: string }>(jobs: T[]) {
-  const latestByPolicy = new Map<string, T>()
-
-  jobs.forEach((job) => {
-    const current = latestByPolicy.get(job.policyId)
-    if (!current || Date.parse(job.startedAt) > Date.parse(current.startedAt)) {
-      latestByPolicy.set(job.policyId, job)
-    }
-  })
-
-  return [...latestByPolicy.values()].filter((job) => job.status === 'failed')
-}
-
-function toLocalDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
 }
 
 function InsightTile({
@@ -593,14 +523,6 @@ function formatPercent(value: number, total: number) {
   }
 
   return `${Math.round((value / total) * 100)}%`
-}
-
-function shortId(id: string | undefined) {
-  if (!id) {
-    return 'unknown'
-  }
-
-  return id.slice(0, 8)
 }
 
 function PeriodSelector({
