@@ -29,14 +29,27 @@ export function ApproveAgentDialog({ open, pendingAgent, onClose }: ApproveAgent
 
   const mutation = useMutation({
     mutationFn: approveAgent,
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.pendingAgents })
+      const previous = queryClient.getQueryData<PendingAgent[]>(queryKeys.pendingAgents)
+      queryClient.setQueryData<PendingAgent[]>(queryKeys.pendingAgents, (old) =>
+        (old ?? []).filter((agent) => agent.id !== input.pendingId),
+      )
+      onClose()
+      return { previous }
+    },
     onSuccess: () => {
       toast.success(t('Agent approved'))
+    },
+    onError: (error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.pendingAgents, context.previous)
+      }
+      toast.error(error instanceof Error ? error.message : t('Failed to approve agent'))
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.pendingAgents })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
-      onClose()
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Failed to approve agent'))
     },
   })
 

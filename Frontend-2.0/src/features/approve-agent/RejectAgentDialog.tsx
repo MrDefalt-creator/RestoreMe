@@ -20,13 +20,26 @@ export function RejectAgentDialog({ open, pendingAgent, onClose }: RejectAgentDi
 
   const mutation = useMutation({
     mutationFn: rejectAgent,
+    onMutate: async (pendingId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.pendingAgents })
+      const previous = queryClient.getQueryData<PendingAgent[]>(queryKeys.pendingAgents)
+      queryClient.setQueryData<PendingAgent[]>(queryKeys.pendingAgents, (old) =>
+        (old ?? []).filter((agent) => agent.id !== pendingId),
+      )
+      onClose()
+      return { previous }
+    },
     onSuccess: () => {
       toast.success(t('Agent rejected'))
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pendingAgents })
-      onClose()
     },
-    onError: (error) => {
+    onError: (error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.pendingAgents, context.previous)
+      }
       toast.error(error instanceof Error ? error.message : t('Failed to reject agent'))
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pendingAgents })
     },
   })
 

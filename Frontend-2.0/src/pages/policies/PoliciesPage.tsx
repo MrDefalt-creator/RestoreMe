@@ -42,13 +42,26 @@ export function PoliciesPage() {
   const toggleMutation = useMutation({
     mutationFn: (policy: { id: string; isEnabled: boolean }) =>
       togglePolicy(policy.id),
+    onMutate: async (policy) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.policies })
+      const previous = queryClient.getQueryData<BackupPolicy[]>(queryKeys.policies)
+      queryClient.setQueryData<BackupPolicy[]>(queryKeys.policies, (old) =>
+        (old ?? []).map((p) => (p.id === policy.id ? { ...p, isEnabled: !policy.isEnabled } : p)),
+      )
+      return { previous }
+    },
+    onError: (error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.policies, context.previous)
+      }
+      toast.error(error instanceof Error ? error.message : t('Unable to update policy'))
+    },
     onSuccess: () => {
       toast.success(t('Policy state updated'))
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.policies })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Unable to update policy'))
     },
   })
 
