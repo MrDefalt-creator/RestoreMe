@@ -19,13 +19,14 @@ import {
   X,
 } from 'lucide-react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { useTheme } from '@/app/providers/ThemeProvider'
 import { useUiStore } from '@/app/store/ui-store'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 import { cn } from '@/shared/lib/cn'
 import { normalizeAuthRole, logout } from '@/shared/api/auth'
 import { formatRoleLabel, useI18n } from '@/shared/i18n'
@@ -53,6 +54,7 @@ const navigation: NavItem[] = [
 
 export function AppShell() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useI18n()
   const { theme, setThemeMode } = useTheme()
   const queryClient = useQueryClient()
@@ -268,7 +270,9 @@ export function AppShell() {
 
           <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 md:px-8 md:py-8">
             <div className="mx-auto w-full max-w-[1680px] animate-fade-in">
-              <Outlet />
+              <ErrorBoundary resetKey={location.pathname}>
+                <Outlet />
+              </ErrorBoundary>
             </div>
           </main>
         </div>
