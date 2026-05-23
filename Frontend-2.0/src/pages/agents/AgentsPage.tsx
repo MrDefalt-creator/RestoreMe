@@ -30,6 +30,7 @@ import { Dialog } from '@/shared/ui/Dialog'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
+import { StatTile } from '@/shared/ui/StatTile'
 import { Select } from '@/shared/ui/Select'
 import { SkeletonCard } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
@@ -142,10 +143,10 @@ export function AgentsPage() {
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <AgentMetric icon={<Server />} label={t('Registered')} value={stats.total} />
-        <AgentMetric icon={<Wifi />} label={t('Online now')} value={stats.online} tone="success" />
-        <AgentMetric icon={<AlertTriangle />} label={t('Need review')} value={stats.stale + stats.offline} tone="warning" />
-        <AgentMetric icon={<ShieldCheck />} label={t('Policies')} value={stats.policies} />
+        <StatTile icon={<Server className="h-4 w-4" />} label={t('Registered')} value={stats.total} />
+        <StatTile icon={<Wifi className="h-4 w-4" />} label={t('Online now')} value={stats.online} tone="success" />
+        <StatTile icon={<AlertTriangle className="h-4 w-4" />} label={t('Need review')} value={stats.stale + stats.offline} tone="warning" />
+        <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Policies')} value={stats.policies} />
       </div>
 
       <Card>
@@ -292,39 +293,6 @@ function FilterField({
   )
 }
 
-function AgentMetric({
-  icon,
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  icon: ReactNode
-  label: string
-  value: number
-  tone?: 'neutral' | 'success' | 'warning'
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <CardContent className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
-        </div>
-        <div
-          className={
-            tone === 'success'
-              ? 'flex h-11 w-11 items-center justify-center rounded-lg bg-success/12 text-success'
-              : tone === 'warning'
-                ? 'flex h-11 w-11 items-center justify-center rounded-lg bg-warning/12 text-warning'
-                : 'flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-muted-foreground'
-          }
-        >
-          {icon}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] }) {
   const { t } = useI18n()

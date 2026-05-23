@@ -22,11 +22,12 @@ import {
 } from '@/shared/api/dashboard'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
+import { StatTile } from '@/shared/ui/StatTile'
+import { SegmentedControl } from '@/shared/ui/SegmentedControl'
 import { TrendBarChart } from '@/shared/ui/charts/TrendBarChart'
 import { StorageGrowthChart } from '@/shared/ui/charts/StorageGrowthChart'
 import { TopFailingPoliciesChart } from '@/shared/ui/charts/TopFailingPoliciesChart'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { cn } from '@/shared/lib/cn'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import {
@@ -169,10 +170,10 @@ export function DashboardPage() {
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric icon={Server} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} />
-              <Metric icon={ShieldCheck} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} />
-              <Metric icon={Clock3} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} />
-              <Metric icon={Archive} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
+              <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} tone="success" />
+              <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} tone="primary" />
+              <StatTile icon={<Clock3 className="h-4 w-4" />} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} tone="accent" />
+              <StatTile icon={<Archive className="h-4 w-4" />} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
             </div>
           </CardContent>
         </Card>
@@ -221,9 +222,9 @@ export function DashboardPage() {
                 <TrendBarChart data={backupTrend} seriesLabel={t('Recorded runs')} />
               </div>
               <div className="grid gap-3">
-                <InsightTile icon={Activity} label={t('Recorded runs')} value={jobs.total} detail={t('Across all known policies')} />
-                <InsightTile icon={CheckCircle2} label={t('Success ratio')} value={formatPercent(jobs.completed, jobs.total)} detail={t('Completed jobs')} />
-                <InsightTile icon={Database} label={t('Stored data')} value={formatFileSize(artifacts.totalSize)} detail={t('{count} artifacts', { count: artifacts.total })} />
+                <StatTile icon={<Activity className="h-4 w-4" />} label={t('Recorded runs')} value={jobs.total} detail={t('Across all known policies')} />
+                <StatTile icon={<CheckCircle2 className="h-4 w-4" />} label={t('Success ratio')} value={formatPercent(jobs.completed, jobs.total)} detail={t('Completed jobs')} tone="success" />
+                <StatTile icon={<Database className="h-4 w-4" />} label={t('Stored data')} value={formatFileSize(artifacts.totalSize)} detail={t('{count} artifacts', { count: artifacts.total })} tone="accent" />
               </div>
             </div>
           </CardContent>
@@ -254,7 +255,15 @@ export function DashboardPage() {
               {t('Aggregated trends from the selected lookback window.')}
             </p>
           </div>
-          <PeriodSelector value={period} onChange={setPeriod} t={t} />
+          <SegmentedControl
+            value={period}
+            onChange={setPeriod}
+            options={PERIOD_OPTIONS.map((p) => ({
+              value: p,
+              label: ({ '7d': t('7 days'), '30d': t('30 days'), '90d': t('90 days') } as Record<string, string>)[p],
+            }))}
+            aria-label={t('Period')}
+          />
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
@@ -394,30 +403,6 @@ export function DashboardPage() {
   )
 }
 
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Server
-  label: string
-  value: number | string
-  detail: string
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-background/70 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      </div>
-      <p className="mt-4 text-sm font-medium text-foreground">{label}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
-    </div>
-  )
-}
 
 type ProgressTone = 'success' | 'accent' | 'warning' | 'destructive' | 'neutral'
 
@@ -438,32 +423,6 @@ function buildSevenDayTrend(last7Days: { date: string; count: number }[], langua
   })
 }
 
-function InsightTile({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Server
-  label: string
-  value: number | string
-  detail: string
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-background/55 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-        </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">{detail}</p>
-    </div>
-  )
-}
 
 function ProgressGroup({
   title,
@@ -525,47 +484,3 @@ function formatPercent(value: number, total: number) {
   return `${Math.round((value / total) * 100)}%`
 }
 
-function PeriodSelector({
-  value,
-  onChange,
-  t,
-}: {
-  value: DashboardPeriod
-  onChange: (next: DashboardPeriod) => void
-  t: (key: string) => string
-}) {
-  const labels: Record<DashboardPeriod, string> = {
-    '7d': t('7 days'),
-    '30d': t('30 days'),
-    '90d': t('90 days'),
-  }
-
-  return (
-    <div
-      role="radiogroup"
-      aria-label={t('Period')}
-      className="inline-flex rounded-lg border border-border bg-background/70 p-1 text-sm"
-    >
-      {PERIOD_OPTIONS.map((option) => {
-        const selected = option === value
-        return (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(option)}
-            className={cn(
-              'rounded-md px-3 py-1.5 font-medium transition-colors',
-              selected
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {labels[option]}
-          </button>
-        )
-      })}
-    </div>
-  )
-}

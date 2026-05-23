@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
+import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDurationSeconds, formatDateTime } from '@/shared/lib/format'
@@ -89,17 +90,11 @@ export function PoliciesPage() {
 
   return (
     <div className="space-y-8">
-      {/* Section Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              {t('Backup Policies')}
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              {t('Create and manage backup schedules')}
-            </p>
-          </div>
+      <SectionHeading
+        eyebrow={t('Schedules')}
+        title={t('Policies')}
+        description={t('Backup schedules and what each one protects.')}
+        action={
           <div className="flex items-center gap-3">
             <Badge variant="success">{t('{count} policies', { count: filteredPolicies.length })}</Badge>
             {canWrite ? (
@@ -113,8 +108,8 @@ export function PoliciesPage() {
               </Button>
             ) : null}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters */}
       <Card>
