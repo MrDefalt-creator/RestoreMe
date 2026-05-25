@@ -36,10 +36,7 @@ import { Skeleton, SkeletonCard } from '@/shared/ui/Skeleton'
 import { FirstRunCard } from '@/widgets/first-run'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
-import {
-  useLiveQueryOptions,
-  useLiveQueryOptionsWithFloor,
-} from '@/shared/lib/useLiveQueryOptions'
+import { useLiveQueryOptionsWithFloor } from '@/shared/lib/useLiveQueryOptions'
 import { useI18n, type Language } from '@/shared/i18n'
 
 type AttentionItem = {
@@ -52,6 +49,7 @@ type AttentionItem = {
 
 const PERIOD_OPTIONS: DashboardPeriod[] = ['7d', '30d', '90d']
 const DASHBOARD_SUMMARY_MIN_INTERVAL_MS = 30_000
+const DASHBOARD_METRICS_MIN_INTERVAL_MS = 60_000
 
 const EMPTY_SUMMARY: DashboardSummary = {
   agents: { online: 0, stale: 0, offline: 0, total: 0 },
@@ -72,7 +70,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 export function DashboardPage() {
   const { language, t } = useI18n()
   const summaryOptions = useLiveQueryOptionsWithFloor(DASHBOARD_SUMMARY_MIN_INTERVAL_MS)
-  const metricsOptions = useLiveQueryOptions()
+  const metricsOptions = useLiveQueryOptionsWithFloor(DASHBOARD_METRICS_MIN_INTERVAL_MS)
   const [period, setPeriod] = useState<DashboardPeriod>('30d')
 
   const summaryQuery = useQuery({
