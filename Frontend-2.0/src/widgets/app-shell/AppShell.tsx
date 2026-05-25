@@ -36,6 +36,7 @@ import { formatRoleLabel, useI18n } from '@/shared/i18n'
 import { CommandPalette, useCommandPalette } from '@/widgets/command-palette'
 import { InstallAgentDialog } from '@/features/install-agent'
 import { RestoreDrawer } from '@/widgets/restore-drawer'
+import { KeyboardSheet } from '@/shared/ui/KeyboardSheet'
 
 type NavItem = {
   to: string
@@ -334,6 +335,7 @@ export function AppShell() {
       </div>
       <CommandPalette />
       <RestoreDrawer />
+      <KeyboardSheet />
       {canInstall ? (
         <InstallAgentDialog open={installAgentDialogOpen} onClose={() => setInstallAgentDialogOpen(false)} />
       ) : null}

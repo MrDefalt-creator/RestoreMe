@@ -23,6 +23,8 @@ interface UiStore {
   setActiveRestoreJobId: (id: string | null) => void
   firstRunDismissed: boolean
   setFirstRunDismissed: (dismissed: boolean) => void
+  keyboardSheetOpen: boolean
+  setKeyboardSheetOpen: (open: boolean) => void
 }
 
 const getStoredState = (): SidebarState => {
@@ -67,6 +69,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setActiveRestoreJobId: (id) => set({ activeRestoreJobId: id }),
   firstRunDismissed: getStoredFirstRunDismissed(),
   setFirstRunDismissed: (dismissed) => set({ firstRunDismissed: dismissed }),
+  keyboardSheetOpen: false,
+  setKeyboardSheetOpen: (open) => set({ keyboardSheetOpen: open }),
 }))
 
 // Persist sidebar state
