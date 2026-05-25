@@ -21,6 +21,8 @@ interface UiStore {
   setInstallAgentDialogOpen: (open: boolean) => void
   activeRestoreJobId: string | null
   setActiveRestoreJobId: (id: string | null) => void
+  firstRunDismissed: boolean
+  setFirstRunDismissed: (dismissed: boolean) => void
 }
 
 const getStoredState = (): SidebarState => {
@@ -36,6 +38,10 @@ const getStoredFilter = (): 'all' | 'enabled' | 'disabled' => {
 const getStoredDensity = (): Density => {
   const stored = localStorage.getItem('ui:density')
   return stored === 'compact' ? 'compact' : 'comfy'
+}
+
+const getStoredFirstRunDismissed = (): boolean => {
+  return localStorage.getItem('ui:firstRunDismissed') === 'true'
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -59,6 +65,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setInstallAgentDialogOpen: (open) => set({ installAgentDialogOpen: open }),
   activeRestoreJobId: null,
   setActiveRestoreJobId: (id) => set({ activeRestoreJobId: id }),
+  firstRunDismissed: getStoredFirstRunDismissed(),
+  setFirstRunDismissed: (dismissed) => set({ firstRunDismissed: dismissed }),
 }))
 
 // Persist sidebar state
@@ -74,4 +82,9 @@ useUiStore.subscribe((state) => {
 // Persist density
 useUiStore.subscribe((state) => {
   localStorage.setItem('ui:density', state.density)
+})
+
+// Persist firstRunDismissed
+useUiStore.subscribe((state) => {
+  localStorage.setItem('ui:firstRunDismissed', String(state.firstRunDismissed))
 })

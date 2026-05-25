@@ -21,6 +21,7 @@ import {
   type DashboardPeriod,
   type DashboardSummary,
 } from '@/shared/api/dashboard'
+import { useUiStore } from '@/app/store/ui-store'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
@@ -31,6 +32,7 @@ import { StorageGrowthChart } from '@/shared/ui/charts/StorageGrowthChart'
 import { TopFailingPoliciesChart } from '@/shared/ui/charts/TopFailingPoliciesChart'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Skeleton, SkeletonCard } from '@/shared/ui/Skeleton'
+import { FirstRunCard } from '@/widgets/first-run'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import {
@@ -85,6 +87,8 @@ export function DashboardPage() {
 
   const summary = summaryQuery.data ?? EMPTY_SUMMARY
   const isFirstLoad = summaryQuery.isLoading && !summaryQuery.data
+  const firstRunDismissed = useUiStore((state) => state.firstRunDismissed)
+  const showFirstRun = !isFirstLoad && summary.agents.total === 0 && !firstRunDismissed
   const { agents, pendingAgentsCount, policies, jobs, artifacts } = summary
   const hasApiIssue = summaryQuery.isError
 
@@ -159,9 +163,12 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {showFirstRun ? (
+        <FirstRunCard summary={summary} />
+      ) : null}
       {isFirstLoad ? (
         <HeroSkeleton />
-      ) : (
+      ) : showFirstRun ? null : (
         <section className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
           <Card className="overflow-hidden">
             <CardContent className="p-6">
