@@ -1,14 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ShieldAlert } from 'lucide-react'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { getAuditLogs } from '@/entities/audit-log'
+import type { AuditLogEntry } from '@/entities/audit-log'
 import { useI18n } from '@/shared/i18n'
 import { cn } from '@/shared/lib/cn'
-import { formatDateTime } from '@/shared/lib/format'
+import { formatDateTime, formatRelativeTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
-import { Badge } from '@/shared/ui/Badge'
+import {
+  categorize,
+  renderAuditMessage,
+  actorHue,
+  type AuditCategory,
+} from '@/shared/lib/audit-templates'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -16,6 +22,7 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 
 const PAGE_SIZE = 50
+const CATEGORIES: AuditCategory[] = ['Users', 'Agents', 'Policies', 'Restores', 'Security', 'Other']
 
 export function AuditLogPage() {
   const { t } = useI18n()
@@ -25,6 +32,7 @@ export function AuditLogPage() {
   const [page, setPage] = useState(1)
   const [actionFilter, setActionFilter] = useState('')
   const [pendingAction, setPendingAction] = useState('')
+  const [activeCategories, setActiveCategories] = useState<AuditCategory[]>([])
 
   const query = useQuery({
     queryKey: queryKeys.auditLogs(page, PAGE_SIZE, actionFilter || undefined),
@@ -37,6 +45,22 @@ export function AuditLogPage() {
     enabled: isAdmin,
     placeholderData: keepPreviousData,
   })
+
+  const data = query.data
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const visibleItems = useMemo(() => {
+    if (activeCategories.length === 0) return items
+    return items.filter((entry) => activeCategories.includes(categorize(entry.action)))
+  }, [items, activeCategories])
+
+  function toggleCategory(cat: AuditCategory) {
+    setActiveCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    )
+  }
 
   if (!isAdmin) {
     return (
@@ -54,11 +78,6 @@ export function AuditLogPage() {
     )
   }
 
-  const data = query.data
-  const items = data?.items ?? []
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
   return (
     <div className="space-y-8">
       <SectionHeading
@@ -69,98 +88,73 @@ export function AuditLogPage() {
 
       <Card>
         <CardContent>
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setPage(1)
-              setActionFilter(pendingAction.trim())
-            }}
-          >
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-muted-foreground" htmlFor="audit-action">
-                {t('Action')}
-              </label>
-              <Input
-                id="audit-action"
-                value={pendingAction}
-                onChange={(event) => setPendingAction(event.target.value)}
-                placeholder="user.create"
-                className="min-w-[220px]"
-              />
-            </div>
-            <Button type="submit" variant="secondary">
-              {t('Apply')}
-            </Button>
-            {actionFilter ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {CATEGORIES.map((cat) => (
               <Button
+                key={cat}
                 type="button"
-                variant="ghost"
-                onClick={() => {
-                  setPendingAction('')
-                  setActionFilter('')
+                variant={activeCategories.includes(cat) ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => toggleCategory(cat)}
+              >
+                {t(cat)}
+              </Button>
+            ))}
+            <div className="ml-auto flex items-center gap-2">
+              <form
+                className="flex gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
                   setPage(1)
+                  setActionFilter(pendingAction.trim())
                 }}
               >
-                {t('Clear')}
+                <Input
+                  value={pendingAction}
+                  onChange={(event) => setPendingAction(event.target.value)}
+                  placeholder={t('Filter by action...')}
+                  className="min-w-[180px]"
+                />
+                <Button type="submit" variant="secondary" size="sm">{t('Apply')}</Button>
+                {actionFilter ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setPendingAction(''); setActionFilter(''); setPage(1) }}
+                  >
+                    {t('Clear')}
+                  </Button>
+                ) : null}
+              </form>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                onClick={() => void query.refetch()}
+                disabled={query.isFetching}
+                title={t('Refresh data')}
+                aria-label={t('Refresh data')}
+              >
+                <RefreshCw className={cn('h-4 w-4', query.isFetching ? 'animate-spin' : '')} />
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              className="ml-auto"
-              onClick={() => void query.refetch()}
-              disabled={query.isFetching}
-              title={t('Refresh data')}
-              aria-label={t('Refresh data')}
-            >
-              <RefreshCw className={cn('h-4 w-4', query.isFetching ? 'animate-spin' : '')} />
-            </Button>
-          </form>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {items.length ? (
+      {visibleItems.length ? (
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm align-middle">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    {['When', 'Actor', 'Action', 'Target', 'Details'].map((label) => (
-                      <th key={label} className="px-4 py-3 font-medium align-middle">
-                        {t(label)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((entry) => (
-                    <tr key={entry.id} className="border-t border-border align-top">
-                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                        {formatDateTime(entry.occurredAtUtc)}
-                      </td>
-                      <td className="px-4 py-3 text-foreground">
-                        {entry.actorUsername ?? (
-                          <span className="text-muted-foreground/70">{t('System')}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="neutral">{entry.action}</Badge>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {entry.targetId ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{entry.details ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-border">
+              {visibleItems.map((entry) => (
+                <AuditRow key={entry.id} entry={entry} t={t} />
+              ))}
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
               <span>
                 {t('Page')} {page} / {totalPages} · {total} {t('records')}
+                {activeCategories.length > 0 && ` · ${visibleItems.length} ${t('shown')}`}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -186,9 +180,44 @@ export function AuditLogPage() {
       ) : (
         <EmptyState
           title={t('No audit records found')}
-          description={t('Audit events appear here as administrators and agents act on the system.')}
+          description={
+            activeCategories.length > 0
+              ? t('No events in the selected categories on this page.')
+              : t('Audit events appear here as administrators and agents act on the system.')
+          }
         />
       )}
+    </div>
+  )
+}
+
+function AuditRow({ entry, t }: { entry: AuditLogEntry; t: (key: string) => string }) {
+  const isSystem = !entry.actorUsername
+  const hue = isSystem ? null : actorHue(entry.actorUsername!)
+
+  return (
+    <div className="flex items-start gap-4 px-4 py-3">
+      <div
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+        style={
+          isSystem
+            ? { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }
+            : { background: `hsl(${hue} 60% 50% / 0.15)`, color: `hsl(${hue} 60% 40%)` }
+        }
+      >
+        {isSystem ? (
+          <ShieldAlert className="h-3.5 w-3.5" />
+        ) : (
+          entry.actorUsername!.charAt(0).toUpperCase()
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-foreground">{renderAuditMessage(entry)}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {formatDateTime(entry.occurredAtUtc)} · {formatRelativeTime(entry.occurredAtUtc)}
+          {entry.targetId ? ` · ${entry.targetId.slice(0, 8)}` : ''}
+        </p>
+      </div>
     </div>
   )
 }
