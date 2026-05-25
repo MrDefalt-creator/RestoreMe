@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -27,6 +28,7 @@ import { SegmentedControl } from '@/shared/ui/SegmentedControl'
 import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { JobDrawer } from '@/widgets/job-drawer'
 
 type StatusFilter = 'all' | Job['status']
 type AgentLookup = Awaited<ReturnType<typeof getAgents>>[number]
@@ -48,6 +50,7 @@ export function JobsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs,
     queryFn: getJobs,
@@ -178,6 +181,7 @@ export function JobsPage() {
                   agentLabel={formatAgentLabel(job, agentsById)}
                   title={formatJobTitle(job, policiesById)}
                   t={t}
+                  onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('id', job.id); return next })}
                 />
               ))}
             </div>
@@ -193,6 +197,8 @@ export function JobsPage() {
           }
         />
       )}
+
+      <JobDrawer />
     </div>
   )
 }
@@ -203,11 +209,13 @@ function JobRow({
   title,
   agentLabel,
   t,
+  onClick,
 }: {
   job: Job
   title: string
   agentLabel: string
   t: (key: string) => string
+  onClick?: () => void
 }) {
   const hasDuration = job.completedAt && job.startedAt
   const durationSeconds = hasDuration
@@ -215,7 +223,13 @@ function JobRow({
     : null
 
   return (
-    <div className="grid gap-4 p-4 transition hover:bg-secondary/35 lg:grid-cols-[1.3fr_1fr_auto] lg:items-center">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.() }}
+      className="grid cursor-pointer gap-4 p-4 transition hover:bg-secondary/35 lg:grid-cols-[1.3fr_1fr_auto] lg:items-center"
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-medium text-foreground">{title}</p>
