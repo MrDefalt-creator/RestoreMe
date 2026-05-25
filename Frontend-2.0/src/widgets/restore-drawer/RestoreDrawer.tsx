@@ -47,7 +47,7 @@ export function RestoreDrawer() {
       completedRef.current = true
       toast.error(t('Restore job failed'))
     }
-  }, [status?.status, queryClient, setActiveRestoreJobId, t])
+  }, [status, queryClient, setActiveRestoreJobId, t])
 
   useEffect(() => {
     if (!activeRestoreJobId) completedRef.current = false

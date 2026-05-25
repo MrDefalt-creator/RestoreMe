@@ -59,7 +59,6 @@ export function AgentsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const installOpen = useUiStore((state) => state.installAgentDialogOpen)
   const setInstallOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [osFilter, setOsFilter] = useState('all')

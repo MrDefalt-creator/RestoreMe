@@ -47,14 +47,14 @@ export function AuditLogPage() {
   })
 
   const data = query.data
-  const items = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const visibleItems = useMemo(() => {
-    if (activeCategories.length === 0) return items
-    return items.filter((entry) => activeCategories.includes(categorize(entry.action)))
-  }, [items, activeCategories])
+    const entries = data?.items ?? []
+    if (activeCategories.length === 0) return entries
+    return entries.filter((entry) => activeCategories.includes(categorize(entry.action)))
+  }, [data?.items, activeCategories])
 
   function toggleCategory(cat: AuditCategory) {
     setActiveCategories((prev) =>
@@ -148,7 +148,7 @@ export function AuditLogPage() {
           <CardContent className="p-0">
             <div className="divide-y divide-border">
               {visibleItems.map((entry) => (
-                <AuditRow key={entry.id} entry={entry} t={t} />
+                <AuditRow key={entry.id} entry={entry} />
               ))}
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
@@ -191,7 +191,7 @@ export function AuditLogPage() {
   )
 }
 
-function AuditRow({ entry, t }: { entry: AuditLogEntry; t: (key: string) => string }) {
+function AuditRow({ entry }: { entry: AuditLogEntry }) {
   const isSystem = !entry.actorUsername
   const hue = isSystem ? null : actorHue(entry.actorUsername!)
 

@@ -50,7 +50,7 @@ export function JobsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [, setSearchParams] = useSearchParams()
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs,
     queryFn: getJobs,

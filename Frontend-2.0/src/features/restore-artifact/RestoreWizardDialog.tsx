@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 
 import { getAgents } from '@/shared/api/agents'
-import { getRestoreStatus, requestRestore, type Artifact } from '@/shared/api/artifacts'
+import { requestRestore, type Artifact } from '@/shared/api/artifacts'
 import { queryKeys } from '@/shared/lib/query'
 import { formatFileSize, formatRelativeTime } from '@/shared/lib/format'
 import { useUiStore } from '@/app/store/ui-store'
@@ -26,16 +26,34 @@ function getDisplayName(artifact: Artifact): string {
   return artifact.name ?? artifact.fileName ?? artifact.objectKey?.split('/').pop() ?? artifact.id.slice(0, 8)
 }
 
+type WizardState = {
+  step: Step
+  useOtherAgent: boolean
+  targetAgentId: string
+  targetName: string
+  dryRun: boolean
+  confirmName: string
+}
+
+const INITIAL_WIZARD: WizardState = {
+  step: 'source',
+  useOtherAgent: false,
+  targetAgentId: '',
+  targetName: '',
+  dryRun: false,
+  confirmName: '',
+}
+
 export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
   const { t } = useI18n()
   const setActiveRestoreJobId = useUiStore((state) => state.setActiveRestoreJobId)
 
-  const [step, setStep] = useState<Step>('source')
-  const [useOtherAgent, setUseOtherAgent] = useState(false)
-  const [targetAgentId, setTargetAgentId] = useState('')
-  const [targetName, setTargetName] = useState('')
-  const [dryRun, setDryRun] = useState(false)
-  const [confirmName, setConfirmName] = useState('')
+  const [wiz, setWiz] = useState<WizardState>(INITIAL_WIZARD)
+  const { step, useOtherAgent, targetAgentId, targetName, dryRun, confirmName } = wiz
+
+  function patch(update: Partial<WizardState>) {
+    setWiz((prev) => ({ ...prev, ...update }))
+  }
 
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
@@ -64,13 +82,11 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
 
   useEffect(() => {
     if (!open) {
-      setStep('source')
-      setConfirmName('')
-      setUseOtherAgent(false)
-      setTargetAgentId('')
-      setDryRun(false)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setWiz(INITIAL_WIZARD)
     } else if (artifact) {
-      setTargetName(artifact.name ?? artifact.fileName ?? '')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setWiz({ ...INITIAL_WIZARD, targetName: artifact.name ?? artifact.fileName ?? '' })
     }
   }, [open, artifact])
 
@@ -87,7 +103,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
 
   const footer = (
     <div className="flex w-full items-center justify-between gap-3">
-      <Button variant="ghost" onClick={step === 'source' ? onClose : () => setStep(step === 'confirm' ? 'target' : 'source')}>
+      <Button variant="ghost" onClick={step === 'source' ? onClose : () => patch({ step: step === 'confirm' ? 'target' : 'source' })}>
         {step === 'source' ? t('Cancel') : t('Back')}
       </Button>
       <div className="flex gap-2">
@@ -95,7 +111,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
           {step === 'source' ? '1/3' : step === 'target' ? '2/3' : '3/3'}
         </span>
         {step !== 'confirm' ? (
-          <Button variant="primary" onClick={() => setStep(step === 'source' ? 'target' : 'confirm')}>
+          <Button variant="primary" onClick={() => patch({ step: step === 'source' ? 'target' : 'confirm' })}>
             {t('Next')}
           </Button>
         ) : (
@@ -155,7 +171,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
                 <input
                   type="radio"
                   checked={!useOtherAgent}
-                  onChange={() => { setUseOtherAgent(false); setTargetAgentId('') }}
+                  onChange={() => patch({ useOtherAgent: false, targetAgentId: '' })}
                   className="accent-primary"
                 />
                 <span className="text-sm">{t('Originating agent (default)')}</span>
@@ -164,7 +180,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
                 <input
                   type="radio"
                   checked={useOtherAgent}
-                  onChange={() => setUseOtherAgent(true)}
+                  onChange={() => patch({ useOtherAgent: true })}
                   className="accent-primary"
                 />
                 <span className="text-sm">{t('Different agent')}</span>
@@ -173,7 +189,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
             {useOtherAgent && (
               <Select
                 value={targetAgentId}
-                onChange={(e) => setTargetAgentId(e.target.value)}
+                onChange={(e) => patch({ targetAgentId: e.target.value })}
                 className="mt-2"
               >
                 <option value="">{t('Select agent...')}</option>
@@ -190,7 +206,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
             <label className="text-sm font-medium">{t('Target path / name')}</label>
             <Input
               value={targetName}
-              onChange={(e) => setTargetName(e.target.value)}
+              onChange={(e) => patch({ targetName: e.target.value })}
               placeholder={displayName}
             />
             <p className="text-xs text-muted-foreground">{t('Leave blank to restore to original location.')}</p>
@@ -207,7 +223,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
             <input
               type="checkbox"
               checked={dryRun}
-              onChange={(e) => setDryRun(e.target.checked)}
+              onChange={(e) => patch({ dryRun: e.target.checked })}
               className="accent-primary"
             />
             <span className="text-sm">{t('Dry run (verify only, no data written)')}</span>
@@ -254,7 +270,7 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
             </label>
             <Input
               value={confirmName}
-              onChange={(e) => setConfirmName(e.target.value)}
+              onChange={(e) => patch({ confirmName: e.target.value })}
               placeholder={displayName}
               autoFocus
             />
