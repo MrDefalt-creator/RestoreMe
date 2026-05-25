@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import {
   getDashboardMetrics,
@@ -21,6 +22,7 @@ import {
   type DashboardSummary,
 } from '@/shared/api/dashboard'
 import { Badge } from '@/shared/ui/Badge'
+import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { StatTile } from '@/shared/ui/StatTile'
 import { SegmentedControl } from '@/shared/ui/SegmentedControl'
@@ -28,6 +30,7 @@ import { TrendBarChart } from '@/shared/ui/charts/TrendBarChart'
 import { StorageGrowthChart } from '@/shared/ui/charts/StorageGrowthChart'
 import { TopFailingPoliciesChart } from '@/shared/ui/charts/TopFailingPoliciesChart'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { Skeleton, SkeletonCard } from '@/shared/ui/Skeleton'
 import { formatDateTime, formatFileSize } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import {
@@ -40,6 +43,8 @@ type AttentionItem = {
   title: string
   detail: string
   tone: 'warning' | 'destructive' | 'neutral'
+  href?: string
+  actionLabel?: string
 }
 
 const PERIOD_OPTIONS: DashboardPeriod[] = ['7d', '30d', '90d']
@@ -79,6 +84,7 @@ export function DashboardPage() {
   })
 
   const summary = summaryQuery.data ?? EMPTY_SUMMARY
+  const isFirstLoad = summaryQuery.isLoading && !summaryQuery.data
   const { agents, pendingAgentsCount, policies, jobs, artifacts } = summary
   const hasApiIssue = summaryQuery.isError
 
@@ -95,6 +101,8 @@ export function DashboardPage() {
           title: t('{count} agent request{plural} waiting', { count: pendingAgentsCount, plural: pendingAgentsCount === 1 ? '' : 's' }),
           detail: t('Review pending machines before they can run backup policies.'),
           tone: 'warning' as const,
+          href: '/pending-agents',
+          actionLabel: t('Review'),
         }]
       : []),
     ...(agents.offline || agents.stale
@@ -102,6 +110,8 @@ export function DashboardPage() {
           title: t('{count} agent{plural} not fully healthy', { count: agents.offline + agents.stale, plural: agents.offline + agents.stale === 1 ? '' : 's' }),
           detail: t('{offline} offline / {stale} stale', { offline: agents.offline, stale: agents.stale }),
           tone: 'warning' as const,
+          href: '/agents',
+          actionLabel: t('Open'),
         }]
       : []),
     ...(jobs.unresolvedFailures.length
@@ -109,6 +119,8 @@ export function DashboardPage() {
           title: t('{count} active backup issue{plural}', { count: jobs.unresolvedFailures.length, plural: jobs.unresolvedFailures.length === 1 ? '' : 's' }),
           detail: jobs.unresolvedFailures[0]?.errorMessage ?? t('Open Jobs to inspect the latest unresolved failure.'),
           tone: 'destructive' as const,
+          href: '/jobs?status=failed',
+          actionLabel: t('Open'),
         }]
       : []),
   ]
@@ -147,66 +159,82 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
-        <Card className="overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-              <div className="max-w-2xl space-y-4">
-                <Badge variant={attentionItems.length || hasApiIssue ? 'warning' : 'success'}>
-                  {protectionState}
-                </Badge>
-                <div>
-                  <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                    {t('Backup protection, at a glance.')}
-                  </h1>
-                  <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
-                    {t('RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.')}
-                  </p>
+      {isFirstLoad ? (
+        <HeroSkeleton />
+      ) : (
+        <section className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
+          <Card className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+                <div className="max-w-2xl space-y-4">
+                  <Badge variant={attentionItems.length || hasApiIssue ? 'warning' : 'success'}>
+                    {protectionState}
+                  </Badge>
+                  <div>
+                    <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+                      {t('Backup protection, at a glance.')}
+                    </h1>
+                    <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
+                      {t('RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
+                  <ShieldCheck className="h-8 w-8" strokeWidth={1.8} />
                 </div>
               </div>
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                <ShieldCheck className="h-8 w-8" strokeWidth={1.8} />
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} tone="success" />
+                <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} tone="primary" />
+                <StatTile icon={<Clock3 className="h-4 w-4" />} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} tone="accent" />
+                <StatTile icon={<Archive className="h-4 w-4" />} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} tone="success" />
-              <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} tone="primary" />
-              <StatTile icon={<Clock3 className="h-4 w-4" />} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} tone="accent" />
-              <StatTile icon={<Archive className="h-4 w-4" />} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('Needs attention')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {attentionItems.length ? (
-              <div className="space-y-3">
-                {attentionItems.map((item) => (
-                  <div key={item.title} className="rounded-lg border border-border bg-background/70 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                      <div className="min-w-0">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex-1">{t('Needs attention')}</CardTitle>
+                <Badge variant={attentionItems.length ? 'warning' : 'success'}>{attentionItems.length}</Badge>
+                <Link to="/jobs?status=failed" className="text-sm text-muted-foreground hover:text-foreground">
+                  {t('View all')} →
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {attentionItems.length ? (
+                <div className="divide-y divide-border">
+                  {attentionItems.map((item) => (
+                    <div key={item.title} className="relative flex items-center gap-3 py-3 pl-4">
+                      <div
+                        className="absolute bottom-0 left-0 top-0 w-1 rounded-r"
+                        style={{ background: `hsl(var(--${item.tone === 'neutral' ? 'muted-foreground' : item.tone}))` }}
+                      />
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium text-foreground">{item.title}</p>
-                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.detail}</p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{item.detail}</p>
                       </div>
+                      {item.href && item.actionLabel ? (
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link to={item.href}>{item.actionLabel}</Link>
+                        </Button>
+                      ) : null}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={<CheckCircle2 className="h-7 w-7 text-success" />}
-                title={t('Everything looks calm')}
-                description={t('No visible issues require operator attention right now.')}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </section>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<CheckCircle2 className="h-7 w-7 text-success" />}
+                  title={t('Everything looks calm')}
+                  description={t('No visible issues require operator attention right now.')}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         <Card>
@@ -482,5 +510,36 @@ function formatPercent(value: number, total: number) {
   }
 
   return `${Math.round((value / total) * 100)}%`
+}
+
+function HeroSkeleton() {
+  return (
+    <section className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
+      <Card>
+        <CardContent className="p-6">
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-9 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-14 rounded-lg" />
+          <Skeleton className="h-14 rounded-lg" />
+        </CardContent>
+      </Card>
+    </section>
+  )
 }
 

@@ -9,7 +9,6 @@ import {
   LogOut,
   Menu,
   Moon,
-  RefreshCw,
   ScrollText,
   ShieldCheck,
   Sun,
@@ -18,7 +17,6 @@ import {
   Workflow,
   X,
 } from 'lucide-react'
-import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -27,6 +25,7 @@ import { useTheme } from '@/app/providers/ThemeProvider'
 import { useUiStore } from '@/app/store/ui-store'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
+import { LiveBadge } from '@/shared/ui/LiveBadge'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 import { cn } from '@/shared/lib/cn'
 import { normalizeAuthRole, logout } from '@/shared/api/auth'
@@ -59,8 +58,6 @@ export function AppShell() {
   const location = useLocation()
   const { t } = useI18n()
   const { theme, setThemeMode } = useTheme()
-  const queryClient = useQueryClient()
-  const isFetching = useIsFetching()
   const sidebarState = useUiStore((state) => state.sidebarState)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
   const mobileNavOpen = useUiStore((state) => state.mobileNavOpen)
@@ -246,16 +243,7 @@ export function AppShell() {
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  onClick={() => void queryClient.invalidateQueries()}
-                  disabled={isFetching > 0}
-                  title={t('Refresh data')}
-                  aria-label={t('Refresh data')}
-                >
-                  <RefreshCw className={cn('h-4 w-4', isFetching > 0 ? 'animate-spin' : '')} />
-                </Button>
+                <LiveBadge />
                 <Button
                   variant="secondary"
                   size="icon"
