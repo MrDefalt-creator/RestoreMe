@@ -112,6 +112,11 @@ export function AccountPage() {
               <CardTitle>{t('Change password')}</CardTitle>
             </CardHeader>
             <CardContent>
+              {user?.mustChangePassword ? (
+                <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
+                  {t('Your account uses a default password. Please set a personal password to secure access.')}
+                </div>
+              ) : null}
               <form className="space-y-5" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
                 <Field label={t('Current password')} error={formError(form.formState.errors.currentPassword?.message)}>
                   <Input type="password" placeholder={t('Enter current password')} {...form.register('currentPassword')} />

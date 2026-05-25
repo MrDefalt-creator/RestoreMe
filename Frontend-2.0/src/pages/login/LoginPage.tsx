@@ -42,6 +42,15 @@ export function LoginPage() {
     onSuccess: (response) => {
       setSession(response.user, response.rememberMe)
       toast.success(t('Welcome, {username}!', { username: response.user.username }))
+      if (response.user.mustChangePassword) {
+        toast.warning(t('Please change your default password'), {
+          action: {
+            label: t('Change password'),
+            onClick: () => navigate('/account'),
+          },
+          duration: 8000,
+        })
+      }
       navigate('/', { replace: true })
     },
     onError: (error) => {

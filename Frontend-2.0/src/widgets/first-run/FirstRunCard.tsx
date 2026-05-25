@@ -12,18 +12,20 @@ type StepStatus = 'idle' | 'active' | 'done'
 
 interface Props {
   summary: DashboardSummary
+  mustChangePassword?: boolean
 }
 
-export function FirstRunCard({ summary }: Props) {
+export function FirstRunCard({ summary, mustChangePassword }: Props) {
   const { t } = useI18n()
   const navigate = useNavigate()
   const setInstallAgentDialogOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
   const setFirstRunDismissed = useUiStore((state) => state.setFirstRunDismissed)
 
+  const passwordStep: StepStatus = mustChangePassword ? 'active' : 'done'
   const step1: StepStatus = summary.agents.total > 0 ? 'done' : 'active'
   const step2: StepStatus = summary.agents.total > 0 ? 'done' : summary.pendingAgentsCount > 0 ? 'active' : 'idle'
   const step3: StepStatus = summary.policies.active > 0 ? 'done' : summary.agents.total > 0 ? 'active' : 'idle'
-  const allDone = step1 === 'done' && step2 === 'done' && step3 === 'done'
+  const allDone = passwordStep === 'done' && step1 === 'done' && step2 === 'done' && step3 === 'done'
 
   useEffect(() => {
     if (allDone) {
@@ -33,6 +35,18 @@ export function FirstRunCard({ summary }: Props) {
   }, [allDone, setFirstRunDismissed])
 
   const steps = [
+    ...(mustChangePassword
+      ? [{
+          status: passwordStep,
+          title: t('Change your default password'),
+          description: t('Your account uses a default password. Set a personal one to secure access.'),
+          action: (
+            <Button variant="primary" size="sm" onClick={() => navigate('/account')}>
+              {t('Change password')}
+            </Button>
+          ),
+        }]
+      : []),
     {
       status: step1,
       title: t('Install your first agent'),

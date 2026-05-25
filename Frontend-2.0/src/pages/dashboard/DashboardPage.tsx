@@ -21,6 +21,7 @@ import {
   type DashboardPeriod,
   type DashboardSummary,
 } from '@/shared/api/dashboard'
+import { useAuthStore } from '@/app/store/auth-store'
 import { useUiStore } from '@/app/store/ui-store'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -85,6 +86,7 @@ export function DashboardPage() {
     ...metricsOptions,
   })
 
+  const user = useAuthStore((state) => state.user)
   const summary = summaryQuery.data ?? EMPTY_SUMMARY
   const isFirstLoad = summaryQuery.isLoading && !summaryQuery.data
   const firstRunDismissed = useUiStore((state) => state.firstRunDismissed)
@@ -164,7 +166,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       {showFirstRun ? (
-        <FirstRunCard summary={summary} />
+        <FirstRunCard summary={summary} mustChangePassword={Boolean(user?.mustChangePassword)} />
       ) : null}
       {isFirstLoad ? (
         <HeroSkeleton />

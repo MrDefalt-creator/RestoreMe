@@ -195,15 +195,13 @@ export function AppShell() {
                         to={to}
                         end={end}
                         onClick={closeMobileNav}
-                        className={({ isActive }) =>
-                          cn(
-                            'group flex h-11 items-center rounded-lg text-sm font-medium transition duration-150 ease-out',
-                            isExpandedView ? 'gap-3 px-3' : 'justify-center px-0',
-                            isActive
-                              ? 'bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]'
-                              : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                          )
-                        }
+                        className={cn(
+                          'group flex h-11 items-center rounded-lg text-sm font-medium transition duration-150 ease-out',
+                          isExpandedView ? 'gap-3 px-3' : 'justify-center px-0',
+                          'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                          'aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground',
+                          'aria-[current=page]:shadow-[0_10px_28px_hsl(var(--primary)/0.18)]',
+                        )}
                         title={isExpandedView ? undefined : t(label)}
                       >
                         <Icon className="h-4 w-4 shrink-0" strokeWidth={1.9} />
