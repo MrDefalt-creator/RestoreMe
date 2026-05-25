@@ -66,6 +66,17 @@
   /* Animation duration */
   --transition-fast: 150ms;
   --transition-normal: 300ms;
+
+  /* Density tokens */
+  --space-card-py: 1rem;
+  --row-min-h: 44px;
+  --text-row: 0.875rem;
+}
+
+[data-density="compact"] {
+  --space-card-py: 0.75rem;
+  --row-min-h: 36px;
+  --text-row: 0.75rem;
 }
 
 [data-theme="dark"] {

@@ -1,18 +1,23 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import {
   AlertTriangle,
   Clock3,
+  Copy,
   Download,
   Laptop,
+  MoreHorizontal,
   Search,
   Server,
   ShieldCheck,
+  ShieldOff,
   SlidersHorizontal,
+  Trash2,
   Wifi,
   X,
 } from 'lucide-react'
@@ -374,28 +379,50 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
             <Button variant="outline" size="sm" onClick={() => setDetailsOpen(true)}>
               {t('Details')}
             </Button>
-            {isAdmin ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={revokeMutation.isPending}
-                  title={t('Revokes the agent access token. The row stays in the list and history is preserved; the agent must re-enroll to continue working.')}
-                  onClick={() => setRevokeOpen(true)}
-                >
-                  {t('Revoke')}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button variant="ghost" size="icon" title={t('More actions')} aria-label={t('More actions')}>
+                  <MoreHorizontal className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  disabled={deleteMutation.isPending}
-                  title={t('Permanently deletes the agent, its policies, jobs, artifacts, and restore history.')}
-                  onClick={() => setDeleteOpen(true)}
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="end"
+                  sideOffset={4}
+                  className="z-50 min-w-[176px] rounded-lg border border-border bg-card p-1 shadow-[var(--shadow-lg)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
                 >
-                  {t('Delete')}
-                </Button>
-              </>
-            ) : null}
+                  <DropdownMenu.Item
+                    className="flex cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none data-[highlighted]:bg-secondary"
+                    onSelect={() => {
+                      void navigator.clipboard.writeText(agent.id)
+                      toast.success(t('Agent ID copied'))
+                    }}
+                  >
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                    {t('Copy agent ID')}
+                  </DropdownMenu.Item>
+                  {isAdmin ? (
+                    <>
+                      <DropdownMenu.Separator className="-mx-1 my-1 h-px bg-border" />
+                      <DropdownMenu.Item
+                        className="flex cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none data-[highlighted]:bg-secondary"
+                        onSelect={() => setRevokeOpen(true)}
+                      >
+                        <ShieldOff className="h-4 w-4 text-muted-foreground" />
+                        {t('Revoke token')}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className="flex cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive outline-none data-[highlighted]:bg-destructive/10"
+                        onSelect={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('Delete agent…')}
+                      </DropdownMenu.Item>
+                    </>
+                  ) : null}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
         </CardContent>
       </Card>

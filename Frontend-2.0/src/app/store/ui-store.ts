@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 type SidebarState = 'collapsed' | 'expanded'
+export type Density = 'comfy' | 'compact'
 
 interface UiStore {
   sidebarState: SidebarState
@@ -12,6 +13,8 @@ interface UiStore {
   closeMobileNav: () => void
   policyFilter: 'all' | 'enabled' | 'disabled'
   setPolicyFilter: (filter: 'all' | 'enabled' | 'disabled') => void
+  density: Density
+  setDensity: (density: Density) => void
 }
 
 const getStoredState = (): SidebarState => {
@@ -22,6 +25,11 @@ const getStoredState = (): SidebarState => {
 const getStoredFilter = (): 'all' | 'enabled' | 'disabled' => {
   const stored = localStorage.getItem('ui:policyFilter')
   return stored ? (stored as 'all' | 'enabled' | 'disabled') : 'all'
+}
+
+const getStoredDensity = (): Density => {
+  const stored = localStorage.getItem('ui:density')
+  return stored === 'compact' ? 'compact' : 'comfy'
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -37,6 +45,8 @@ export const useUiStore = create<UiStore>((set) => ({
   closeMobileNav: () => set({ mobileNavOpen: false }),
   policyFilter: getStoredFilter(),
   setPolicyFilter: (filter) => set({ policyFilter: filter }),
+  density: getStoredDensity(),
+  setDensity: (density) => set({ density }),
 }))
 
 // Persist sidebar state
@@ -47,4 +57,9 @@ useUiStore.subscribe((state) => {
 // Persist policy filter
 useUiStore.subscribe((state) => {
   localStorage.setItem('ui:policyFilter', state.policyFilter)
+})
+
+// Persist density
+useUiStore.subscribe((state) => {
+  localStorage.setItem('ui:density', state.density)
 })

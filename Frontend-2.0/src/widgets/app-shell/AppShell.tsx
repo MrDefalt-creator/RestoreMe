@@ -17,15 +17,17 @@ import {
   Workflow,
   X,
 } from 'lucide-react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { useTheme } from '@/app/providers/ThemeProvider'
-import { useUiStore } from '@/app/store/ui-store'
+import { useUiStore, type Density } from '@/app/store/ui-store'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { LiveBadge } from '@/shared/ui/LiveBadge'
+import { SegmentedControl } from '@/shared/ui/SegmentedControl'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 import { cn } from '@/shared/lib/cn'
 import { normalizeAuthRole, logout } from '@/shared/api/auth'
@@ -63,6 +65,8 @@ export function AppShell() {
   const mobileNavOpen = useUiStore((state) => state.mobileNavOpen)
   const toggleMobileNav = useUiStore((state) => state.toggleMobileNav)
   const closeMobileNav = useUiStore((state) => state.closeMobileNav)
+  const density = useUiStore((state) => state.density)
+  const setDensity = useUiStore((state) => state.setDensity)
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
   const isExpanded = sidebarState === 'expanded'
@@ -87,6 +91,10 @@ export function AppShell() {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [closeMobileNav])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-density', density)
+  }, [density])
 
   useEffect(() => {
     return authEvents.onUnauthorized(() => {
@@ -167,29 +175,46 @@ export function AppShell() {
               </Button>
             ) : null}
 
-            <nav className="flex flex-1 flex-col gap-1">
-              {availableNavigation.map(({ to, label, icon: Icon, end }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={end}
-                  onClick={closeMobileNav}
-                  className={({ isActive }) =>
-                    cn(
-                      'group flex h-11 items-center rounded-lg text-sm font-medium transition duration-150 ease-out',
-                      isExpandedView ? 'gap-3 px-3' : 'justify-center px-0',
-                      isActive
-                        ? 'bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]'
-                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                    )
-                  }
-                  title={isExpandedView ? undefined : t(label)}
-                >
-                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.9} />
-                  {isExpandedView ? <span className="truncate">{t(label)}</span> : null}
-                </NavLink>
-              ))}
-            </nav>
+            <Tooltip.Provider delayDuration={200}>
+              <nav className="flex flex-1 flex-col gap-1">
+                {availableNavigation.map(({ to, label, icon: Icon, end }) => (
+                  <Tooltip.Root key={to}>
+                    <Tooltip.Trigger asChild>
+                      <NavLink
+                        to={to}
+                        end={end}
+                        onClick={closeMobileNav}
+                        className={({ isActive }) =>
+                          cn(
+                            'group flex h-11 items-center rounded-lg text-sm font-medium transition duration-150 ease-out',
+                            isExpandedView ? 'gap-3 px-3' : 'justify-center px-0',
+                            isActive
+                              ? 'bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]'
+                              : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                          )
+                        }
+                        title={isExpandedView ? undefined : t(label)}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.9} />
+                        {isExpandedView ? <span className="truncate">{t(label)}</span> : null}
+                      </NavLink>
+                    </Tooltip.Trigger>
+                    {!isExpandedView ? (
+                      <Tooltip.Portal>
+                        <Tooltip.Content
+                          side="right"
+                          sideOffset={12}
+                          className="z-50 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground shadow-[var(--shadow-md)]"
+                        >
+                          {t(label)}
+                          <Tooltip.Arrow className="fill-border" />
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    ) : null}
+                  </Tooltip.Root>
+                ))}
+              </nav>
+            </Tooltip.Provider>
 
             <div className="space-y-3 border-t border-border pt-4">
               <Button
@@ -244,6 +269,15 @@ export function AppShell() {
                   <Menu className="h-4 w-4" />
                 </Button>
                 <LiveBadge />
+                <SegmentedControl<Density>
+                  value={density}
+                  onChange={setDensity}
+                  aria-label={t('Density')}
+                  options={[
+                    { value: 'comfy', label: t('Comfy') },
+                    { value: 'compact', label: t('Compact') },
+                  ]}
+                />
                 <Button
                   variant="secondary"
                   size="icon"
