@@ -160,3 +160,13 @@ html[data-theme="dark"] body {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--secondary));
 }
+
+/* cmdk command palette */
+[cmdk-group-heading] {
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}

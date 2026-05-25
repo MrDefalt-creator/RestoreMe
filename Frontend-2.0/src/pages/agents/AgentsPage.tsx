@@ -5,6 +5,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
+import { useUiStore } from '@/app/store/ui-store'
 import {
   AlertTriangle,
   Clock3,
@@ -23,7 +24,6 @@ import {
 } from 'lucide-react'
 
 import { deleteAgent, getAgents, revokeAgent, type Agent } from '@/shared/api/agents'
-import { InstallAgentDialog } from '@/features/install-agent'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
@@ -59,7 +59,8 @@ export function AgentsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [installOpen, setInstallOpen] = useState(false)
+  const installOpen = useUiStore((state) => state.installAgentDialogOpen)
+  const setInstallOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [osFilter, setOsFilter] = useState('all')
   const [policyCoverageFilter, setPolicyCoverageFilter] = useState<PolicyCoverageFilter>('all')
@@ -274,9 +275,6 @@ export function AgentsPage() {
         />
       )}
 
-      {canInstall ? (
-        <InstallAgentDialog open={installOpen} onClose={() => setInstallOpen(false)} />
-      ) : null}
     </div>
   )
 }

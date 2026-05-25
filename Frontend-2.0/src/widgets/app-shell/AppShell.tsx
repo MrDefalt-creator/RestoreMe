@@ -33,6 +33,8 @@ import { cn } from '@/shared/lib/cn'
 import { normalizeAuthRole, logout } from '@/shared/api/auth'
 import { authEvents } from '@/shared/lib/auth-events'
 import { formatRoleLabel, useI18n } from '@/shared/i18n'
+import { CommandPalette, useCommandPalette } from '@/widgets/command-palette'
+import { InstallAgentDialog } from '@/features/install-agent'
 
 type NavItem = {
   to: string
@@ -67,11 +69,16 @@ export function AppShell() {
   const closeMobileNav = useUiStore((state) => state.closeMobileNav)
   const density = useUiStore((state) => state.density)
   const setDensity = useUiStore((state) => state.setDensity)
+  const installAgentDialogOpen = useUiStore((state) => state.installAgentDialogOpen)
+  const setInstallAgentDialogOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
   const isExpanded = sidebarState === 'expanded'
   const isExpandedView = mobileNavOpen || isExpanded
   const isDark = theme === 'dark'
+  const canInstall = user?.role === 'admin' || user?.role === 'operator'
+
+  useCommandPalette()
 
   useEffect(() => {
     if (!mobileNavOpen) return
@@ -312,6 +319,10 @@ export function AppShell() {
           </main>
         </div>
       </div>
+      <CommandPalette />
+      {canInstall ? (
+        <InstallAgentDialog open={installAgentDialogOpen} onClose={() => setInstallAgentDialogOpen(false)} />
+      ) : null}
     </div>
   )
 }

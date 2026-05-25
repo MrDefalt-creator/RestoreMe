@@ -15,6 +15,10 @@ interface UiStore {
   setPolicyFilter: (filter: 'all' | 'enabled' | 'disabled') => void
   density: Density
   setDensity: (density: Density) => void
+  commandPaletteOpen: boolean
+  setCommandPaletteOpen: (open: boolean) => void
+  installAgentDialogOpen: boolean
+  setInstallAgentDialogOpen: (open: boolean) => void
 }
 
 const getStoredState = (): SidebarState => {
@@ -47,6 +51,10 @@ export const useUiStore = create<UiStore>((set) => ({
   setPolicyFilter: (filter) => set({ policyFilter: filter }),
   density: getStoredDensity(),
   setDensity: (density) => set({ density }),
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+  installAgentDialogOpen: false,
+  setInstallAgentDialogOpen: (open) => set({ installAgentDialogOpen: open }),
 }))
 
 // Persist sidebar state
