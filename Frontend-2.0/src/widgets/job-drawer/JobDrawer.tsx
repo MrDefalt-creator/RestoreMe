@@ -96,7 +96,7 @@ export function JobDrawer() {
                   </div>
                 )}
               </div>
-              <Button variant="ghost" size="icon" onClick={close}>
+              <Button variant="ghost" size="icon" onClick={close} aria-label={t('Close')}>
                 <X className="h-4 w-4" />
               </Button>
             </div>

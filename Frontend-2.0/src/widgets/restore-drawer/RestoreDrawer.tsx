@@ -79,7 +79,7 @@ export function RestoreDrawer() {
                   </p>
                 )}
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setActiveRestoreJobId(null)}>
+              <Button variant="ghost" size="icon" onClick={() => setActiveRestoreJobId(null)} aria-label={t('Close')}>
                 <X className="h-4 w-4" />
               </Button>
             </div>

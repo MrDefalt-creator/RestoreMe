@@ -61,7 +61,7 @@ export function KeyboardSheet() {
           <RadixDialog.Title className="sr-only">{t('Keyboard shortcuts')}</RadixDialog.Title>
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <p className="font-semibold text-foreground">{t('Keyboard shortcuts')}</p>
-            <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
+            <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label={t('Close')}>
               <X className="h-4 w-4" />
             </Button>
           </div>
