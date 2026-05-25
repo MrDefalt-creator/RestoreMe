@@ -35,6 +35,7 @@ import { authEvents } from '@/shared/lib/auth-events'
 import { formatRoleLabel, useI18n } from '@/shared/i18n'
 import { CommandPalette, useCommandPalette } from '@/widgets/command-palette'
 import { InstallAgentDialog } from '@/features/install-agent'
+import { RestoreDrawer } from '@/widgets/restore-drawer'
 
 type NavItem = {
   to: string
@@ -71,6 +72,8 @@ export function AppShell() {
   const setDensity = useUiStore((state) => state.setDensity)
   const installAgentDialogOpen = useUiStore((state) => state.installAgentDialogOpen)
   const setInstallAgentDialogOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
+  const activeRestoreJobId = useUiStore((state) => state.activeRestoreJobId)
+  const setActiveRestoreJobId = useUiStore((state) => state.setActiveRestoreJobId)
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
   const isExpanded = sidebarState === 'expanded'
@@ -276,6 +279,16 @@ export function AppShell() {
                   <Menu className="h-4 w-4" />
                 </Button>
                 <LiveBadge />
+                {activeRestoreJobId ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveRestoreJobId(activeRestoreJobId)}
+                    className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    {t('Restoring...')}
+                  </button>
+                ) : null}
                 <SegmentedControl<Density>
                   value={density}
                   onChange={setDensity}
@@ -320,6 +333,7 @@ export function AppShell() {
         </div>
       </div>
       <CommandPalette />
+      <RestoreDrawer />
       {canInstall ? (
         <InstallAgentDialog open={installAgentDialogOpen} onClose={() => setInstallAgentDialogOpen(false)} />
       ) : null}

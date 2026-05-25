@@ -20,12 +20,27 @@ public class RestoreController : ControllerBase
 
     [Authorize(Policy = AuthConstants.AdminWritePolicy)]
     [HttpPost]
-    public async Task<IActionResult> CreateRestore([FromQuery] Guid artifactId)
+    public async Task<IActionResult> CreateRestore([FromBody] CreateRestoreRequest request)
     {
         try
         {
-            var jobId = await _service.CreateRestoreAsync(artifactId, HttpContext.RequestAborted);
-            return Ok(new { jobId });
+            var restoreJobId = await _service.CreateRestoreAsync(request, HttpContext.RequestAborted);
+            return Ok(new { restoreJobId });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
+    [HttpGet("{restoreJobId:guid}/status")]
+    public async Task<IActionResult> GetStatus([FromRoute] Guid restoreJobId)
+    {
+        try
+        {
+            var status = await _service.GetStatusAsync(restoreJobId, HttpContext.RequestAborted);
+            return Ok(status);
         }
         catch (KeyNotFoundException ex)
         {

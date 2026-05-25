@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { downloadArtifact, getArtifacts, requestRestore, type Artifact } from '@/shared/api/artifacts'
+import { downloadArtifact, getArtifacts, type Artifact } from '@/shared/api/artifacts'
+import { RestoreWizardDialog } from '@/features/restore-artifact'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
@@ -37,7 +38,7 @@ export function ArtifactsPage() {
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [wizardArtifact, setWizardArtifact] = useState<Artifact | null>(null)
 
   const artifactsQuery = useQuery({
     queryKey: queryKeys.artifacts,
@@ -67,19 +68,6 @@ export function ArtifactsPage() {
     onSettled: () => setDownloadingId(null),
   })
 
-  const restoreMutation = useMutation({
-    mutationFn: async (artifact: Artifact) => {
-      setRestoringId(artifact.id)
-      await requestRestore(artifact.id)
-    },
-    onSuccess: (_, artifact) => {
-      toast.success(t('Restore job queued for {name}', { name: getArtifactDisplayName(artifact) }))
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Restore request failed'))
-    },
-    onSettled: () => setRestoringId(null),
-  })
 
   const artifacts = artifactsQuery.data ?? EMPTY_ARTIFACTS
   const normalizedQuery = query.trim().toLowerCase()
@@ -188,9 +176,9 @@ export function ArtifactsPage() {
                   key={artifact.id}
                   artifact={artifact}
                   isDownloading={downloadingId === artifact.id}
-                  isRestoring={restoringId === artifact.id}
+                  isRestoring={false}
                   onDownload={() => downloadMutation.mutate(artifact)}
-                  onRestore={() => restoreMutation.mutate(artifact)}
+                  onRestore={() => setWizardArtifact(artifact)}
                   t={t}
                 />
               ))}
@@ -208,6 +196,12 @@ export function ArtifactsPage() {
           }
         />
       )}
+
+      <RestoreWizardDialog
+        open={wizardArtifact !== null}
+        artifact={wizardArtifact}
+        onClose={() => setWizardArtifact(null)}
+      />
     </div>
   )
 }

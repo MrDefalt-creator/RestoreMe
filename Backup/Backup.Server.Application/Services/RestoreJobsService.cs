@@ -28,10 +28,10 @@ public class RestoreJobsService
         _notificationService = notificationService;
     }
 
-    public async Task<Guid> CreateRestoreAsync(Guid artifactId, CancellationToken cancellationToken = default)
+    public async Task<Guid> CreateRestoreAsync(CreateRestoreRequest request, CancellationToken cancellationToken = default)
     {
-        var artifact = await _artifactRepository.GetArtifactByIdAsync(artifactId)
-            ?? throw new KeyNotFoundException($"Artifact {artifactId} not found.");
+        var artifact = await _artifactRepository.GetArtifactByIdAsync(request.ArtifactId)
+            ?? throw new KeyNotFoundException($"Artifact {request.ArtifactId} not found.");
 
         var backupJob = await _backupJobRepository.GetBackupJob(artifact.JobId)
             ?? throw new KeyNotFoundException($"Backup job {artifact.JobId} not found.");
@@ -39,8 +39,12 @@ public class RestoreJobsService
         var job = new RestoreJob
         {
             Id = Guid.NewGuid(),
-            ArtifactId = artifactId,
-            AgentId = backupJob.AgentId,
+            ArtifactId = request.ArtifactId,
+            AgentId = request.TargetAgentId ?? backupJob.AgentId,
+            TargetAgentId = request.TargetAgentId,
+            TargetName = request.TargetName,
+            DryRun = request.DryRun,
+            Force = request.Force,
             Status = RestoreJobStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -49,6 +53,30 @@ public class RestoreJobsService
         await _restoreJobRepository.SaveChangesAsync();
 
         return job.Id;
+    }
+
+    public async Task<RestoreStatusResponse> GetStatusAsync(Guid restoreJobId, CancellationToken cancellationToken = default)
+    {
+        var job = await _restoreJobRepository.GetByIdAsync(restoreJobId)
+            ?? throw new KeyNotFoundException($"Restore job {restoreJobId} not found.");
+
+        var statusStr = job.Status switch
+        {
+            RestoreJobStatus.Pending => "pending",
+            RestoreJobStatus.Running => "running",
+            RestoreJobStatus.Completed => "completed",
+            RestoreJobStatus.Failed => "failed",
+            _ => "pending"
+        };
+
+        return new RestoreStatusResponse(
+            job.Id,
+            statusStr,
+            job.Progress,
+            job.BytesTotal,
+            job.BytesDone,
+            job.LogTail,
+            job.EtaSeconds);
     }
 
     public async Task<PendingRestoreResponse?> GetPendingForAgentAsync(Guid agentId)

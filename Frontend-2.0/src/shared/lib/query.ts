@@ -9,4 +9,5 @@ export const queryKeys = {
   notificationChannels: ['notification-channels'] as const,
   auditLogs: (page: number, pageSize: number, action?: string) =>
     ['audit-logs', page, pageSize, action ?? null] as const,
+  restoreStatus: (id: string) => ['restore', id] as const,
 }

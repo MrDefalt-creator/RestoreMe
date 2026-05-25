@@ -19,6 +19,8 @@ interface UiStore {
   setCommandPaletteOpen: (open: boolean) => void
   installAgentDialogOpen: boolean
   setInstallAgentDialogOpen: (open: boolean) => void
+  activeRestoreJobId: string | null
+  setActiveRestoreJobId: (id: string | null) => void
 }
 
 const getStoredState = (): SidebarState => {
@@ -55,6 +57,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   installAgentDialogOpen: false,
   setInstallAgentDialogOpen: (open) => set({ installAgentDialogOpen: open }),
+  activeRestoreJobId: null,
+  setActiveRestoreJobId: (id) => set({ activeRestoreJobId: id }),
 }))
 
 // Persist sidebar state
