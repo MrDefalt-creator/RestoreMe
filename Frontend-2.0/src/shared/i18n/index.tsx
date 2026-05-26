@@ -102,6 +102,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Save changes': 'Сохранить изменения',
     'Save password': 'Сохранить пароль',
     'Search policies...': 'Поиск политик...',
+    'Search or type a command...': 'Поиск или ввод команды…',
+    'Filter by action...': 'Фильтр по действию…',
     Security: 'Безопасность',
     'Sign in': 'Войти',
     'Sign out': 'Выйти',
