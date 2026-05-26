@@ -32,16 +32,24 @@ export function LiveBadge() {
     return () => clearInterval(id)
   }, [])
 
-  const fetchedQueries = queryClient
+  // Only consider queries that some mounted component is currently
+  // observing. The previous "min over every cached query" pulled in
+  // stale data from pages the user had already left (Jobs, Policies,
+  // …) — once those crossed 180 s the badge flipped to Offline even
+  // though the active page kept refetching.
+  // Among the live ones, take the *newest* update: if anything on the
+  // page has refreshed within STALE_THRESHOLD, the operator is looking
+  // at fresh data and the badge should say so.
+  const observedQueries = queryClient
     .getQueryCache()
     .findAll()
-    .filter((q) => q.state.dataUpdatedAt > 0)
-  const minUpdatedAt =
-    fetchedQueries.length > 0
-      ? Math.min(...fetchedQueries.map((q) => q.state.dataUpdatedAt))
+    .filter((q) => q.getObserversCount() > 0 && q.state.dataUpdatedAt > 0)
+  const latestUpdatedAt =
+    observedQueries.length > 0
+      ? Math.max(...observedQueries.map((q) => q.state.dataUpdatedAt))
       : 0
 
-  const ageMs = minUpdatedAt > 0 ? now - minUpdatedAt : Number.POSITIVE_INFINITY
+  const ageMs = latestUpdatedAt > 0 ? now - latestUpdatedAt : Number.POSITIVE_INFINITY
 
   let dot: 'destructive' | 'warning' | 'success'
   let label: string
