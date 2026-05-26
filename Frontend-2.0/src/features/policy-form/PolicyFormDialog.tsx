@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm, useWatch } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { Switch } from '@/shared/ui/Switch'
 import { useI18n } from '@/shared/i18n'
 
 const policySchema = z.object({
@@ -340,14 +341,23 @@ export function PolicyFormDialog({
           />
         </Field>
 
-        <label className="flex items-center gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
-            {...form.register('isEnabled')}
-          />
-          <span>{t('Enable scheduling immediately')}</span>
-        </label>
+        <Controller
+          name="isEnabled"
+          control={form.control}
+          render={({ field }) => (
+            <label
+              htmlFor="policy-enabled"
+              className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground"
+            >
+              <span>{t('Enable scheduling immediately')}</span>
+              <Switch
+                id="policy-enabled"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            </label>
+          )}
+        />
 
         {policyType === 'filesystem' ? (
           <Field label={t('Source path')} error={formError(form.formState.errors.sourcePath?.message)} className="md:col-span-2">

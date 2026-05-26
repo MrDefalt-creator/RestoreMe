@@ -13,6 +13,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { Switch } from '@/shared/ui/Switch'
 import { queryKeys } from '@/shared/lib/query'
 import { useI18n } from '@/shared/i18n'
 
@@ -203,33 +204,39 @@ export function NotificationChannelDialog({ open, channel, onClose }: Notificati
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">{t('Subscribed events')}</p>
           <div className="grid gap-2 sm:grid-cols-2">
-            {ALL_EVENTS.map((event) => (
-              <label
-                key={event}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.events.has(event)}
-                  onChange={() => toggleEvent(event)}
-                  disabled={isBusy}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <span className="text-foreground">{t(eventLabelKey(event))}</span>
-              </label>
-            ))}
+            {ALL_EVENTS.map((event) => {
+              const switchId = `channel-event-${event}`
+              return (
+                <label
+                  key={event}
+                  htmlFor={switchId}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm"
+                >
+                  <span className="text-foreground">{t(eventLabelKey(event))}</span>
+                  <Switch
+                    id={switchId}
+                    size="sm"
+                    checked={form.events.has(event)}
+                    onCheckedChange={() => toggleEvent(event)}
+                    disabled={isBusy}
+                  />
+                </label>
+              )
+            })}
           </div>
         </div>
 
-        <label className="flex items-center gap-3 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.isEnabled}
-            onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
-            disabled={isBusy}
-            className="h-4 w-4 rounded border-input"
-          />
+        <label
+          htmlFor="channel-enabled"
+          className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm"
+        >
           <span className="text-foreground">{t('Enabled (delivers notifications)')}</span>
+          <Switch
+            id="channel-enabled"
+            checked={form.isEnabled}
+            onCheckedChange={(value) => setForm({ ...form, isEnabled: value })}
+            disabled={isBusy}
+          />
         </label>
       </form>
     </Dialog>

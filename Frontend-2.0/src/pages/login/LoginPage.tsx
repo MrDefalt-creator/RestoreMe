@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Lock, Mail, ShieldCheck } from 'lucide-react'
@@ -10,6 +10,7 @@ import { useI18n } from '@/shared/i18n'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
+import { Switch } from '@/shared/ui/Switch'
 
 type LoginFormData = {
   username: string
@@ -41,16 +42,14 @@ export function LoginPage() {
     },
     onSuccess: (response) => {
       setSession(response.user, response.rememberMe)
-      toast.success(t('Welcome, {username}!', { username: response.user.username }))
-      if (response.user.mustChangePassword) {
-        toast.warning(t('Please change your default password'), {
-          action: {
-            label: t('Change password'),
-            onClick: () => navigate('/account'),
-          },
-          duration: 8000,
-        })
-      }
+      toast.success(t('Welcome, {username}!', { username: response.user.username }), {
+        ...(response.user.mustChangePassword
+          ? {
+              description: t('Default password active — change it in Account settings.'),
+              action: { label: t('Account'), onClick: () => navigate('/account') },
+            }
+          : {}),
+      })
       navigate('/', { replace: true })
     },
     onError: (error) => {
@@ -148,14 +147,23 @@ export function LoginPage() {
                   )}
                 </div>
 
-                <label className="flex items-center gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
-                    {...form.register('rememberMe')}
-                  />
-                  <span>{t('Remember me on this device')}</span>
-                </label>
+                <Controller
+                  name="rememberMe"
+                  control={form.control}
+                  render={({ field }) => (
+                    <label
+                      htmlFor="login-remember"
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground"
+                    >
+                      <span>{t('Remember me on this device')}</span>
+                      <Switch
+                        id="login-remember"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </label>
+                  )}
+                />
 
                 <Button
                   type="submit"

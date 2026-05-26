@@ -12,6 +12,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { Switch } from '@/shared/ui/Switch'
 import { useI18n } from '@/shared/i18n'
 
 type Step = 'source' | 'target' | 'confirm'
@@ -218,14 +219,16 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
             </p>
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
+          <label
+            htmlFor="restore-dry-run"
+            className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/60 px-4 py-3 text-sm"
+          >
+            <span>{t('Dry run (verify only, no data written)')}</span>
+            <Switch
+              id="restore-dry-run"
               checked={dryRun}
-              onChange={(e) => patch({ dryRun: e.target.checked })}
-              className="accent-primary"
+              onCheckedChange={(value) => patch({ dryRun: value })}
             />
-            <span className="text-sm">{t('Dry run (verify only, no data written)')}</span>
           </label>
         </div>
       )}
