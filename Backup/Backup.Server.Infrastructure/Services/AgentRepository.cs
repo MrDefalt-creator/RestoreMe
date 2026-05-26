@@ -144,16 +144,29 @@ public class AgentRepository : IAgentRepository
         }
         else
         {
-            // Detach restore rows: capture snapshots, drop FK references.
-            // Done as a tracked update so EF can write all the snapshot
-            // columns in a single batch.
-            var restoreRows = await _dbContext.RestoreJobs
-                .Where(r => r.AgentId == agentId
-                    || (r.Artifact != null && r.Artifact.Job != null && r.Artifact.Job.AgentId == agentId))
+            // Two distinct cases when we want to *keep* restore history:
+            //
+            // (a) Rows where THIS agent was the executor (r.AgentId ==
+            //     agentId). Snapshot the agent display name and null
+            //     the AgentId FK.
+            //
+            // (b) Rows where a *different* agent restored an artifact
+            //     that THIS agent owned. AgentId stays untouched
+            //     (that's a different machine and its history must
+            //     remain accurate); we only snapshot artifact strings
+            //     so the row keeps reading meaningfully after the
+            //     artifact is gone.
+            //
+            // Splitting into two queries avoids the original bug where
+            // every matched row had its AgentId nulled and its
+            // AgentNameSnapshot stamped with the deleted agent's name —
+            // corrupting cross-agent restore history.
+            var executorRows = await _dbContext.RestoreJobs
+                .Where(r => r.AgentId == agentId)
                 .Include(r => r.Artifact)
                 .ToListAsync(cancellationToken);
 
-            foreach (var row in restoreRows)
+            foreach (var row in executorRows)
             {
                 row.AgentNameSnapshot ??= agent.Name;
                 if (row.Artifact is not null)
@@ -164,6 +177,27 @@ public class AgentRepository : IAgentRepository
                 row.AgentId = null;
                 if (options.PurgeBackupHistory)
                 {
+                    row.ArtifactId = null;
+                }
+            }
+
+            if (options.PurgeBackupHistory)
+            {
+                var artifactDependentRows = await _dbContext.RestoreJobs
+                    .Where(r => (r.AgentId == null || r.AgentId != agentId)
+                        && r.Artifact != null
+                        && r.Artifact.Job != null
+                        && r.Artifact.Job.AgentId == agentId)
+                    .Include(r => r.Artifact)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var row in artifactDependentRows)
+                {
+                    if (row.Artifact is not null)
+                    {
+                        row.ArtifactFileNameSnapshot ??= row.Artifact.FileName;
+                        row.ArtifactObjectKeySnapshot ??= row.Artifact.ObjectKey;
+                    }
                     row.ArtifactId = null;
                 }
             }
