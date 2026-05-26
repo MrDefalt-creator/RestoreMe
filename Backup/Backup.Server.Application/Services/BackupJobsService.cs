@@ -14,6 +14,7 @@ public class BackupJobsService
     private readonly IBackupArtifactRepository _backupArtifactRepository;
     private readonly IStorageAccessService _storageAccessService;
     private readonly INotificationService _notificationService;
+    private readonly IAuditLogRepository _auditLogRepository;
 
     public BackupJobsService(
         IPolicyRepository policyRepository,
@@ -21,7 +22,8 @@ public class BackupJobsService
         IBackupJobRepository backupJobRepository,
         IBackupArtifactRepository backupArtifactRepository,
         IStorageAccessService storageAccessService,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IAuditLogRepository auditLogRepository)
     {
         _policyRepository = policyRepository;
         _agentRepository = agentRepository;
@@ -29,6 +31,7 @@ public class BackupJobsService
         _backupArtifactRepository = backupArtifactRepository;
         _storageAccessService = storageAccessService;
         _notificationService = notificationService;
+        _auditLogRepository = auditLogRepository;
     }
     
     public async Task<List<BackupJob>> GetAllJobs()
@@ -60,12 +63,12 @@ public class BackupJobsService
     public async Task<Guid> Start(Guid agentId, Guid policyId)
     {
         var agent = await _agentRepository.GetAgentByIdAsync(agentId);
-        
+
         if (agent == null)
         {
             throw new ApplicationException($"Agent with id {agentId} does not exist");
         }
-        
+
         var policy = await _policyRepository.GetPolicyById(policyId);
 
         if (policy == null)
@@ -80,12 +83,16 @@ public class BackupJobsService
             PolicyId = policyId,
             AgentId = agentId,
         };
-        
+
         await _backupJobRepository.AddBackupJob(backupJob);
+        await _auditLogRepository.AddAsync(Audit(
+            agentId,
+            "job.started",
+            backupJob.Id,
+            $"policy={policy.Name} agent={agent.Name}"));
         await _backupJobRepository.SaveChangesAsync();
-        
+
         return backupJob.Id;
-        
     }
 
     public async Task Complete(Guid jobId)
@@ -123,6 +130,11 @@ public class BackupJobsService
             job.ErrorMessage = null;
 
             await _backupJobRepository.UpdateBackupJob(job);
+            await _auditLogRepository.AddAsync(Audit(
+                job.AgentId,
+                "job.completed",
+                job.Id,
+                $"policy={job.PolicyId} artifacts={artifactCount}"));
             await _backupJobRepository.SaveChangesAsync();
 
             policyId = job.PolicyId;
@@ -155,6 +167,11 @@ public class BackupJobsService
         job.ErrorMessage = errorMessage;
 
         await _backupJobRepository.UpdateBackupJob(job);
+        await _auditLogRepository.AddAsync(Audit(
+            job.AgentId,
+            "job.failed",
+            job.Id,
+            $"policy={job.PolicyId} error={TruncateForAudit(errorMessage)}"));
         await _backupJobRepository.SaveChangesAsync();
 
         await _notificationService.NotifyBackupFailedAsync(jobId, job.PolicyId, job.AgentId, errorMessage);
@@ -210,10 +227,32 @@ public class BackupJobsService
             Checksum = checksum,
             JobId = jobId,
         };
-        
+
         await _backupArtifactRepository.AddArtifact(backupArtifact);
+        await _auditLogRepository.AddAsync(Audit(
+            job.AgentId,
+            "artifact.added",
+            backupArtifact.Id,
+            $"job={jobId} size={size}"));
         await _backupArtifactRepository.SaveChanges();
-        
+    }
+
+    private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = action,
+            TargetId = targetId,
+            Details = details,
+            OccurredAt = DateTime.UtcNow
+        };
+
+    private static string TruncateForAudit(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        const int max = 240;
+        return text.Length <= max ? text : text[..max] + "…";
     }
     
     public async Task<UploadTicketResponse> RequestUploadTicketAsync(
