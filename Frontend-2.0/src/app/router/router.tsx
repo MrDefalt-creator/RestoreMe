@@ -22,7 +22,7 @@ function withSuspense(node: ReactNode) {
   return (
     <Suspense
       fallback={
-        <div className="rounded-3xl border border-slate-200 bg-white/75 p-8 text-sm text-slate-700 shadow-xl animate-fade-in dark:border-slate-800 dark:bg-slate-900/75 dark:text-slate-300">
+        <div className="rounded-3xl border border-border bg-card/75 p-8 text-sm text-muted-foreground shadow-[var(--shadow-xl)] animate-fade-in">
           Loading workspace...
         </div>
       }

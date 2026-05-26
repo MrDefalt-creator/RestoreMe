@@ -224,9 +224,9 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
             <p className="text-xs text-muted-foreground">{t('Leave blank to restore to original location.')}</p>
           </div>
 
-          <div className="rounded-lg border border-warning/40 bg-warning/8 px-4 py-3 flex items-start gap-3">
+          <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 flex items-start gap-3">
             <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
-            <p className="text-sm text-warning-foreground">
+            <p className="text-sm text-foreground">
               {t('This will overwrite existing data at the target location. Size: {size}', { size: formatFileSize(artifact.size) })}
             </p>
           </div>

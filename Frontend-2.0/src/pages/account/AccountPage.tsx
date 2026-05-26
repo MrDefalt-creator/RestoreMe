@@ -113,7 +113,7 @@ export function AccountPage() {
             </CardHeader>
             <CardContent>
               {user?.mustChangePassword ? (
-                <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
+                <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
                   {t('Your account uses a default password. Please set a personal password to secure access.')}
                 </div>
               ) : null}
