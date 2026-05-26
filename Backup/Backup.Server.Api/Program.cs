@@ -42,7 +42,6 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ExceptionToStatusFilter>();
-    options.Filters.Add<MustChangePasswordFilter>();
 });
 
 // Persist DataProtection keys so any payload that uses Protect/Unprotect

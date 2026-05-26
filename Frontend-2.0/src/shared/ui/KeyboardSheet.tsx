@@ -5,6 +5,9 @@ import { X } from 'lucide-react'
 import { useUiStore } from '@/app/store/ui-store'
 import { Button } from '@/shared/ui/Button'
 import { useI18n } from '@/shared/i18n'
+import { getModKeyLabel } from '@/shared/lib/platform'
+
+const MOD = getModKeyLabel()
 
 const SECTIONS = [
   {
@@ -15,16 +18,16 @@ const SECTIONS = [
       { keys: ['g', 'j'], description: 'Go to Jobs' },
       { keys: ['g', 'b'], description: 'Go to Backups' },
       { keys: ['g', 'd'], description: 'Go to Dashboard' },
-      { keys: ['⌘', 'K'], description: 'Open command palette' },
+      { keys: [MOD, 'K'], description: 'Open command palette' },
     ],
   },
   {
     heading: 'Actions',
     shortcuts: [
-      { keys: ['⌘', 'K'], description: 'Install agent (via palette)' },
-      { keys: ['⌘', 'K'], description: 'Create policy (via palette)' },
-      { keys: ['⌘', 'K'], description: 'Toggle theme (via palette)' },
-      { keys: ['⌘', 'K'], description: 'Sign out (via palette)' },
+      { keys: [MOD, 'K'], description: 'Install agent (via palette)' },
+      { keys: [MOD, 'K'], description: 'Create policy (via palette)' },
+      { keys: [MOD, 'K'], description: 'Toggle theme (via palette)' },
+      { keys: [MOD, 'K'], description: 'Sign out (via palette)' },
     ],
   },
   {

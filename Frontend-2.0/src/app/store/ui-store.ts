@@ -25,6 +25,15 @@ interface UiStore {
   setFirstRunDismissed: (dismissed: boolean) => void
   keyboardSheetOpen: boolean
   setKeyboardSheetOpen: (open: boolean) => void
+  onboardingSeen: boolean
+  setOnboardingSeen: (seen: boolean) => void
+  onboardingDone: boolean
+  setOnboardingDone: (done: boolean) => void
+  onboardingModalOpen: boolean
+  setOnboardingModalOpen: (open: boolean) => void
+  onboardingWidgetExpanded: boolean
+  setOnboardingWidgetExpanded: (expanded: boolean) => void
+  reopenOnboardingTour: () => void
 }
 
 const getStoredState = (): SidebarState => {
@@ -44,6 +53,14 @@ const getStoredDensity = (): Density => {
 
 const getStoredFirstRunDismissed = (): boolean => {
   return localStorage.getItem('ui:firstRunDismissed') === 'true'
+}
+
+const getStoredOnboardingSeen = (): boolean => {
+  return localStorage.getItem('onboarding_seen') === 'true'
+}
+
+const getStoredOnboardingDone = (): boolean => {
+  return localStorage.getItem('onboarding_done') === 'true'
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -71,6 +88,16 @@ export const useUiStore = create<UiStore>((set) => ({
   setFirstRunDismissed: (dismissed) => set({ firstRunDismissed: dismissed }),
   keyboardSheetOpen: false,
   setKeyboardSheetOpen: (open) => set({ keyboardSheetOpen: open }),
+  onboardingSeen: getStoredOnboardingSeen(),
+  setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
+  onboardingDone: getStoredOnboardingDone(),
+  setOnboardingDone: (done) => set({ onboardingDone: done }),
+  onboardingModalOpen: false,
+  setOnboardingModalOpen: (open) => set({ onboardingModalOpen: open }),
+  onboardingWidgetExpanded: false,
+  setOnboardingWidgetExpanded: (expanded) => set({ onboardingWidgetExpanded: expanded }),
+  reopenOnboardingTour: () =>
+    set({ onboardingModalOpen: true, onboardingDone: false, onboardingSeen: false, onboardingWidgetExpanded: false }),
 }))
 
 // Persist sidebar state
@@ -91,4 +118,13 @@ useUiStore.subscribe((state) => {
 // Persist firstRunDismissed
 useUiStore.subscribe((state) => {
   localStorage.setItem('ui:firstRunDismissed', String(state.firstRunDismissed))
+})
+
+// Persist onboarding flags
+useUiStore.subscribe((state) => {
+  localStorage.setItem('onboarding_seen', String(state.onboardingSeen))
+})
+
+useUiStore.subscribe((state) => {
+  localStorage.setItem('onboarding_done', String(state.onboardingDone))
 })

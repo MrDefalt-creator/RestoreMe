@@ -3,11 +3,13 @@ import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 
 import { Badge } from './Badge'
+import { useI18n } from '@/shared/i18n'
 
 export function LiveBadge() {
   const queryClient = useQueryClient()
   const isFetching = useIsFetching()
   const [now, setNow] = useState(() => Date.now())
+  const { t } = useI18n()
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -25,17 +27,20 @@ export function LiveBadge() {
 
   const ageSeconds = minUpdatedAt > 0 ? (now - minUpdatedAt) / 1000 : Infinity
 
-  let variant: 'success' | 'warning' | 'destructive'
+  let dot: 'destructive' | 'warning' | 'success'
   let label: string
 
-  if (ageSeconds > 120) {
-    variant = 'destructive'
-    label = 'Offline'
-  } else if (ageSeconds > 30) {
-    variant = 'warning'
-    label = `Stale · ${Math.floor(ageSeconds / 60)}m`
+  // Thresholds are tuned to dashboard's 30s refetch floor + worst-case
+  // 60s for metrics queries. Anything below 60s is "live", up to 3 min
+  // is "stale" (operator might want to refresh), beyond that = "offline".
+  if (ageSeconds > 180) {
+    dot = 'destructive'
+    label = t('Offline')
+  } else if (ageSeconds > 60) {
+    dot = 'warning'
+    label = `${t('Stale')} · ${Math.floor(ageSeconds / 60)}m`
   } else {
-    variant = 'success'
+    dot = 'success'
     label = `Live · ${Math.floor(ageSeconds)}s`
   }
 
@@ -44,12 +49,12 @@ export function LiveBadge() {
       type="button"
       onClick={() => void queryClient.invalidateQueries()}
       className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      title="Refresh all data"
-      aria-label="Refresh all data"
+      title={t('Refresh data')}
+      aria-label={t('Refresh data')}
     >
-      <Badge variant={variant} className="cursor-pointer gap-1.5">
+      <Badge variant="outlineDot" dot={dot} className="cursor-pointer">
         {label}
-        {isFetching > 0 ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
+        {isFetching > 0 ? <RefreshCw className="ml-1 h-3 w-3 animate-spin" /> : null}
       </Badge>
     </button>
   )

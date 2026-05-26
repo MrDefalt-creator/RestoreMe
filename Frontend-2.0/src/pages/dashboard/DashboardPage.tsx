@@ -2,6 +2,7 @@ import {
   Activity,
   AlertTriangle,
   Archive,
+  BarChart3,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -21,8 +22,6 @@ import {
   type DashboardPeriod,
   type DashboardSummary,
 } from '@/shared/api/dashboard'
-import { useAuthStore } from '@/app/store/auth-store'
-import { useUiStore } from '@/app/store/ui-store'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
@@ -33,10 +32,10 @@ import { StorageGrowthChart } from '@/shared/ui/charts/StorageGrowthChart'
 import { TopFailingPoliciesChart } from '@/shared/ui/charts/TopFailingPoliciesChart'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Skeleton, SkeletonCard } from '@/shared/ui/Skeleton'
-import { FirstRunCard } from '@/widgets/first-run'
 import { formatDateTime, formatFileSize, formatRelativeTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { useLiveQueryOptionsWithFloor } from '@/shared/lib/useLiveQueryOptions'
+import { getModKeyLabel } from '@/shared/lib/platform'
 import { useI18n, type Language } from '@/shared/i18n'
 
 type AttentionItem = {
@@ -69,6 +68,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 
 export function DashboardPage() {
   const { language, t } = useI18n()
+  const modKey = getModKeyLabel()
   const summaryOptions = useLiveQueryOptionsWithFloor(DASHBOARD_SUMMARY_MIN_INTERVAL_MS)
   const metricsOptions = useLiveQueryOptionsWithFloor(DASHBOARD_METRICS_MIN_INTERVAL_MS)
   const [period, setPeriod] = useState<DashboardPeriod>('30d')
@@ -84,11 +84,8 @@ export function DashboardPage() {
     ...metricsOptions,
   })
 
-  const user = useAuthStore((state) => state.user)
   const summary = summaryQuery.data ?? EMPTY_SUMMARY
   const isFirstLoad = summaryQuery.isLoading && !summaryQuery.data
-  const firstRunDismissed = useUiStore((state) => state.firstRunDismissed)
-  const showFirstRun = !isFirstLoad && summary.agents.total === 0 && !firstRunDismissed
   const { agents, pendingAgentsCount, policies, jobs, artifacts } = summary
   const hasApiIssue = summaryQuery.isError
 
@@ -168,12 +165,9 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {showFirstRun ? (
-        <FirstRunCard summary={summary} mustChangePassword={Boolean(user?.mustChangePassword)} />
-      ) : null}
       {isFirstLoad ? (
         <HeroSkeleton />
-      ) : showFirstRun ? null : (
+      ) : (
         <section className="space-y-5">
           {/* Hero status banner */}
           <Card className="overflow-hidden">
@@ -183,7 +177,15 @@ export function DashboardPage() {
                 background: `linear-gradient(90deg, hsl(var(--${attentionItems.length || hasApiIssue ? 'warning' : 'success'}) / 0.10), transparent 60%)`,
               }}
             >
-              <Badge variant={attentionItems.length || hasApiIssue ? 'warning' : 'success'}>
+              <Badge
+                variant={attentionItems.length || hasApiIssue ? 'warning' : 'success'}
+                className="gap-1.5"
+              >
+                {attentionItems.length || hasApiIssue ? (
+                  <AlertTriangle className="h-3 w-3" />
+                ) : (
+                  <CheckCircle2 className="h-3 w-3" />
+                )}
                 {protectionState}
               </Badge>
               {lastSuccessfulJob ? (
@@ -195,18 +197,18 @@ export function DashboardPage() {
                 </div>
               ) : null}
               <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1 font-mono text-[10px]">⌘</kbd>
-                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1 font-mono text-[10px]">K</kbd>
+                <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border bg-card px-1.5 font-mono text-[10px]">{modKey}</kbd>
+                <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border bg-card px-1.5 font-mono text-[10px]">K</kbd>
                 <span className="ml-1">{t('quick actions')}</span>
               </div>
             </div>
             <CardContent className="p-6">
               <div className="grid items-end gap-6 sm:grid-cols-[1fr_220px]">
                 <div>
-                  <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+                  <h1 className="text-3xl font-semibold tracking-tight text-foreground [text-wrap:balance]">
                     {t('Backup protection, at a glance.')}
                   </h1>
-                  <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                     {t('RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.')}
                   </p>
                 </div>
@@ -293,9 +295,35 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid min-h-64 gap-5 lg:grid-cols-[1fr_220px]">
-              <div className="rounded-lg border border-border bg-background/55 p-3">
-                <TrendBarChart data={backupTrend} seriesLabel={t('Recorded runs')} />
-              </div>
+              {hasApiIssue ? (
+                <EmptyState
+                  icon={<AlertTriangle className="h-7 w-7 text-warning" />}
+                  title={t('Could not load dashboard')}
+                  description={t('The backend is unreachable. Check connectivity and retry.')}
+                  className="min-h-52"
+                  action={
+                    <Button variant="secondary" size="sm" onClick={() => summaryQuery.refetch()}>
+                      {t('Retry')}
+                    </Button>
+                  }
+                />
+              ) : backupTrend.some((row) => row.value > 0) ? (
+                <div className="rounded-lg border border-border bg-background/55 p-3">
+                  <TrendBarChart data={backupTrend} seriesLabel={t('Recorded runs')} />
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<BarChart3 className="h-7 w-7 text-primary" />}
+                  title={t('Backup trend is empty')}
+                  description={t('Once you create a policy and the first job runs, the activity chart fills up here.')}
+                  className="min-h-52"
+                  action={
+                    <Button variant="primary" size="sm" asChild>
+                      <Link to="/policies">{t('Create policy')}</Link>
+                    </Button>
+                  }
+                />
+              )}
               <div className="grid gap-3">
                 <StatTile icon={<Activity className="h-4 w-4" />} label={t('Recorded runs')} value={jobs.total} detail={t('Across all known policies')} />
                 <StatTile icon={<CheckCircle2 className="h-4 w-4" />} label={t('Success ratio')} value={formatPercent(jobs.completed, jobs.total)} detail={t('Completed jobs')} tone="success" />
@@ -333,6 +361,7 @@ export function DashboardPage() {
           <SegmentedControl
             value={period}
             onChange={setPeriod}
+            variant="primary"
             options={PERIOD_OPTIONS.map((p) => ({
               value: p,
               label: ({ '7d': t('7 days'), '30d': t('30 days'), '90d': t('90 days') } as Record<string, string>)[p],

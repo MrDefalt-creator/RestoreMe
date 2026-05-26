@@ -121,6 +121,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     Viewer: 'Наблюдатель',
     'View and manage backup schedules': 'Просмотр и управление расписаниями резервного копирования',
     'Welcome, {username}!': 'Добро пожаловать, {username}!',
+    'Default password active — change it in Account settings.': 'Используется пароль по умолчанию — смените его в настройках аккаунта.',
     'Everything looks calm': 'Все спокойно',
     'No visible issues require operator attention right now.': 'Сейчас нет видимых проблем, требующих внимания оператора.',
     'RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.': 'RestoreMe держит операционную картину под контролем: агенты, политики, последние задания и восстанавливаемые артефакты собраны в одном месте.',
@@ -297,6 +298,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Could not generate install token.': 'Не удалось сгенерировать install-токен.',
     'Could not load the enrollment token.': 'Не удалось загрузить токен регистрации.',
     'Install new agent': 'Установить агента',
+    'Install agent': 'Установить агента',
     'Generate a single-use install command. Run it on the machine you want to back up — the agent connects and shows up here automatically.':
       'Сгенерируйте одноразовую установочную команду. Запустите её на машине, которую нужно бэкапить — агент подключится и появится здесь автоматически.',
     'Run this command on the target machine. The token is single-use and expires shortly.':
@@ -543,6 +545,54 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Backup completed': 'Бэкап завершен',
     'Agent offline': 'Агент офлайн',
     'Agent back online': 'Агент снова онлайн',
+
+    // First-run + onboarding (modal & floating widget)
+    'Welcome to RestoreMe': 'Добро пожаловать в RestoreMe',
+    'Complete these steps to protect your first machine.': 'Пройдите шаги, чтобы защитить первую машину.',
+    'Protect your first machine in 3 steps': 'Защитим первую машину за 3 шага',
+    'Polling for new agents': 'Ждём подключения новых агентов',
+    Done: 'Готово',
+    Locked: 'Заблокировано',
+    'Get started': 'Начать',
+    'Later': 'Позже',
+    'Product tour': 'Тур по продукту',
+    'Setup': 'Настройка',
+    'All set': 'Готово',
+    '{done} of {total} steps': '{done} из {total} шагов',
+    'Step {current} of {total}': 'Шаг {current} из {total}',
+    'Setup complete': 'Настройка завершена',
+    'Show setup checklist': 'Показать чек-лист настройки',
+    'Hide setup checklist': 'Свернуть чек-лист настройки',
+    'Continue setup': 'Продолжить настройку',
+    'Install your first agent': 'Установите первого агента',
+    'Deploy the RestoreMe agent on a machine you want to protect.': 'Установите агента RestoreMe на машину, которую нужно защищать.',
+    'Approve the pending request': 'Подтвердите заявку',
+    'Once installed, the agent appears here for review. Approve it to activate.': 'После установки агент появится здесь для проверки. Подтвердите его, чтобы активировать.',
+    'Create your first backup policy': 'Создайте первую политику',
+    'Define what to back up, where to store it, and how often.': 'Опишите, что копировать, куда складывать и как часто.',
+    'Change your default password': 'Смените пароль по умолчанию',
+    'Your account uses a default password. Set a personal one to secure access.': 'Аккаунт использует пароль по умолчанию. Задайте свой, чтобы защитить доступ.',
+
+    // Dashboard hero / sparkline
+    'Last backup': 'Последняя копия',
+    '7-day jobs': 'Задания за 7 дней',
+    total: 'всего',
+    'quick actions': 'быстрые действия',
+
+    // Density toggle
+    Comfy: 'Просторно',
+    Compact: 'Компактно',
+    Density: 'Плотность',
+
+    // Generic CTAs and statuses
+    Open: 'Открыть',
+    'View all': 'Все',
+
+    // Dashboard empty / error split
+    'Backup trend is empty': 'Пока нечего показать на графике',
+    'Once you create a policy and the first job runs, the activity chart fills up here.': 'Как только появится политика и пройдёт первый запуск, здесь нарисуется график активности.',
+    'Could not load dashboard': 'Не удалось загрузить дашборд',
+    'The backend is unreachable. Check connectivity and retry.': 'Бэкенд недоступен. Проверьте подключение и попробуйте снова.',
   },
 }
 

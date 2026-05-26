@@ -14,6 +14,7 @@ import {
   Sun,
   UserRound,
   Users,
+  Sparkles,
   Workflow,
   X,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ import { CommandPalette, useCommandPalette } from '@/widgets/command-palette'
 import { InstallAgentDialog } from '@/features/install-agent'
 import { RestoreDrawer } from '@/widgets/restore-drawer'
 import { KeyboardSheet } from '@/shared/ui/KeyboardSheet'
+import { OnboardingHost } from '@/widgets/onboarding'
 
 type NavItem = {
   to: string
@@ -77,6 +79,7 @@ export function AppShell() {
   const setActiveRestoreJobId = useUiStore((state) => state.setActiveRestoreJobId)
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
+  const reopenOnboardingTour = useUiStore((state) => state.reopenOnboardingTour)
   const isExpanded = sidebarState === 'expanded'
   const isExpandedView = mobileNavOpen || isExpanded
   const isDark = theme === 'dark'
@@ -251,6 +254,19 @@ export function AppShell() {
                       </div>
                     ) : null}
                   </div>
+                  <button
+                    type="button"
+                    onClick={reopenOnboardingTour}
+                    className={cn(
+                      'mt-3 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
+                      isExpandedView ? '' : 'justify-center',
+                    )}
+                    title={t('Product tour')}
+                    aria-label={t('Product tour')}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                    {isExpandedView ? <span>{t('Product tour')}</span> : null}
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -337,6 +353,7 @@ export function AppShell() {
       {canInstall ? (
         <InstallAgentDialog open={installAgentDialogOpen} onClose={() => setInstallAgentDialogOpen(false)} />
       ) : null}
+      <OnboardingHost />
     </div>
   )
 }

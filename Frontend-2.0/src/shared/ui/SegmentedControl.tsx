@@ -16,6 +16,14 @@ interface SegmentedControlProps<T extends string> {
   options: SegmentOption<T>[]
   'aria-label': string
   className?: string
+  /**
+   * Visual weight of the selected option.
+   *  - `subtle` (default): card-coloured pill with thin ring; pairs well with
+   *    secondary surfaces like the density toggle in the header.
+   *  - `primary`: solid primary fill, used for in-content filters (period,
+   *    status, etc.) where the active selection must read at a glance.
+   */
+  variant?: 'subtle' | 'primary'
 }
 
 const pillTone: Record<SegmentTone, string> = {
@@ -33,6 +41,7 @@ export function SegmentedControl<T extends string>({
   options,
   'aria-label': ariaLabel,
   className,
+  variant = 'subtle',
 }: SegmentedControlProps<T>) {
   const refs = React.useRef<(HTMLButtonElement | null)[]>([])
 
@@ -55,13 +64,17 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex rounded-lg border border-border bg-secondary/50 p-1 text-sm',
+        'inline-flex rounded-lg border border-border bg-secondary/40 p-0.5 text-sm',
         className,
       )}
     >
       {options.map((option, index) => {
         const selected = option.value === value
         const tone = option.tone ?? 'neutral'
+        const selectedClass =
+          variant === 'primary'
+            ? 'bg-primary text-primary-foreground shadow-[0_4px_12px_hsl(var(--primary)/0.30)]'
+            : 'bg-card text-foreground shadow-[var(--shadow-sm)] ring-1 ring-border'
         return (
           <button
             key={option.value}
@@ -73,15 +86,25 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors',
+              'inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               selected
-                ? 'bg-primary text-primary-foreground shadow-sm'
+                ? selectedClass
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {option.label}
             {option.count != null && (
-              <span className={cn('rounded-full px-1.5 py-0.5 text-xs leading-none', selected ? 'bg-primary-foreground/20 text-primary-foreground' : pillTone[tone])}>
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-0.5 text-xs leading-none',
+                  selected
+                    ? variant === 'primary'
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-secondary text-foreground'
+                    : pillTone[tone],
+                )}
+              >
                 {option.count}
               </span>
             )}
