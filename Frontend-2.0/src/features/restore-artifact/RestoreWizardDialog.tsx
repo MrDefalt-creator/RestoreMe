@@ -85,7 +85,6 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setWiz(INITIAL_WIZARD)
     } else if (artifact) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWiz({ ...INITIAL_WIZARD, targetName: artifact.name ?? artifact.fileName ?? '' })
     }
   }, [open, artifact])

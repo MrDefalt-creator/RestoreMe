@@ -34,7 +34,7 @@ import { TopFailingPoliciesChart } from '@/shared/ui/charts/TopFailingPoliciesCh
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Skeleton, SkeletonCard } from '@/shared/ui/Skeleton'
 import { FirstRunCard } from '@/widgets/first-run'
-import { formatDateTime, formatFileSize } from '@/shared/lib/format'
+import { formatDateTime, formatFileSize, formatRelativeTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { useLiveQueryOptionsWithFloor } from '@/shared/lib/useLiveQueryOptions'
 import { useI18n, type Language } from '@/shared/i18n'
@@ -154,6 +154,11 @@ export function DashboardPage() {
   ]
   const backupTrend = buildSevenDayTrend(jobs.last7Days, language)
 
+  const lastSuccessfulJob = jobs.recent.find((j) => j.status === 'completed')
+  const sparkPoints = jobs.last7Days.map((d) => d.count)
+  const sparklinePath = buildSparklinePath(sparkPoints)
+  const sparklineAreaPath = buildSparklineAreaPath(sparkPoints)
+
   const metrics = metricsQuery.data
   const storageGrowthSeries = metrics?.storageGrowthTimeseries ?? []
   const topFailingSeries = metrics?.topFailingPolicies ?? []
@@ -169,37 +174,72 @@ export function DashboardPage() {
       {isFirstLoad ? (
         <HeroSkeleton />
       ) : showFirstRun ? null : (
-        <section className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
+        <section className="space-y-5">
+          {/* Hero status banner */}
           <Card className="overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-                <div className="max-w-2xl space-y-4">
-                  <Badge variant={attentionItems.length || hasApiIssue ? 'warning' : 'success'}>
-                    {protectionState}
-                  </Badge>
-                  <div>
-                    <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                      {t('Backup protection, at a glance.')}
-                    </h1>
-                    <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
-                      {t('RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.')}
-                    </p>
-                  </div>
+            <div
+              className="flex flex-wrap items-center gap-4 border-b border-border px-6 py-3.5"
+              style={{
+                background: `linear-gradient(90deg, hsl(var(--${attentionItems.length || hasApiIssue ? 'warning' : 'success'}) / 0.10), transparent 60%)`,
+              }}
+            >
+              <Badge variant={attentionItems.length || hasApiIssue ? 'warning' : 'success'}>
+                {protectionState}
+              </Badge>
+              {lastSuccessfulJob ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">{t('Last backup')}</span>
+                  <span className="font-medium text-foreground">{formatRelativeTime(lastSuccessfulJob.startedAt)}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="font-medium text-foreground">{lastSuccessfulJob.agentName}</span>
                 </div>
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                  <ShieldCheck className="h-8 w-8" strokeWidth={1.8} />
-                </div>
+              ) : null}
+              <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1 font-mono text-[10px]">⌘</kbd>
+                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1 font-mono text-[10px]">K</kbd>
+                <span className="ml-1">{t('quick actions')}</span>
               </div>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} tone="success" />
-                <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} tone="primary" />
-                <StatTile icon={<Clock3 className="h-4 w-4" />} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} tone="accent" />
-                <StatTile icon={<Archive className="h-4 w-4" />} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
+            </div>
+            <CardContent className="p-6">
+              <div className="grid items-end gap-6 sm:grid-cols-[1fr_220px]">
+                <div>
+                  <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+                    {t('Backup protection, at a glance.')}
+                  </h1>
+                  <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
+                    {t('RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.')}
+                  </p>
+                </div>
+                {sparklinePath ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('7-day jobs')}</p>
+                    <svg viewBox="0 0 220 48" className="mt-1 w-full">
+                      <path d={sparklineAreaPath} fill="hsl(var(--primary) / 0.12)" />
+                      <path d={sparklinePath} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{jobs.total} {t('total')}</span>
+                      <span className="text-success">{formatPercent(jobs.completed, jobs.total)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-secondary text-primary">
+                    <ShieldCheck className="h-8 w-8" strokeWidth={1.8} />
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
+          {/* Stat tile grid */}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} tone="success" />
+            <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} tone="primary" />
+            <StatTile icon={<Clock3 className="h-4 w-4" />} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} tone="accent" />
+            <StatTile icon={<Archive className="h-4 w-4" />} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
+          </div>
+
+          {/* Needs attention */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -517,6 +557,22 @@ function formatPercent(value: number, total: number) {
   }
 
   return `${Math.round((value / total) * 100)}%`
+}
+
+function buildSparklinePath(points: number[], width = 220, height = 48): string {
+  if (points.length < 2) return ''
+  const max = Math.max(...points, 1)
+  const step = width / (points.length - 1)
+  return points
+    .map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(height - (v / max) * (height - 4) - 2).toFixed(1)}`)
+    .join(' ')
+}
+
+function buildSparklineAreaPath(points: number[], width = 220, height = 48): string {
+  if (points.length < 2) return ''
+  const line = buildSparklinePath(points, width, height)
+  const lastX = ((points.length - 1) * width / (points.length - 1)).toFixed(1)
+  return `${line} L${lastX},${height} L0,${height} Z`
 }
 
 function HeroSkeleton() {
