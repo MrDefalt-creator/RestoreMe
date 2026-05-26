@@ -1,4 +1,5 @@
 using Backup.Server.Domain.Entities;
+using Backup.Shared.Contracts.DTOs.Agents;
 
 namespace Backup.Server.Application.Interfaces;
 
@@ -13,11 +14,21 @@ public interface IAgentRepository
     Task<int?> GetTokenVersionAsync(Guid agentId);
 
     /// <summary>
-    /// Deletes the agent together with everything that references it
-    /// (policies → jobs → artifacts, and any restore jobs that point at
-    /// either this agent or its artifacts) in a single transaction.
-    /// Returns the MinIO object keys of the deleted artifacts so the caller
-    /// can fire best-effort storage cleanup after the DB commit.
+    /// Counts the rows that depend on an agent so the UI can show the
+    /// operator exactly what will disappear (or be detached) before they
+    /// hit Delete.
     /// </summary>
-    Task<List<string>> DeleteAgentWithCascadeAsync(Guid agentId, CancellationToken cancellationToken);
+    Task<AgentDeletionImpact> GetDeletionImpactAsync(Guid agentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the agent. The options control whether jobs / artifacts /
+    /// restore rows go with it or stay behind as orphaned history rows
+    /// (with snapshot strings preserving display names). Returns the
+    /// MinIO object keys that the caller should attempt to remove from
+    /// storage; for "keep files" the list is empty.
+    /// </summary>
+    Task<List<string>> DeleteAgentAsync(
+        Guid agentId,
+        DeleteAgentOptions options,
+        CancellationToken cancellationToken);
 }

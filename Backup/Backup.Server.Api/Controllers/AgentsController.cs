@@ -154,9 +154,34 @@ public class AgentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.UserManagementPolicy)]
+    [HttpGet("{agentId:guid}/deletion-impact")]
+    public async Task<IActionResult> GetDeletionImpact([FromRoute] Guid agentId)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var agent = await _agentService.GetAgentById(agentId);
+            _ = agent;
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+
+        var impact = await _agentService.GetDeletionImpactAsync(agentId, HttpContext.RequestAborted);
+        return Ok(impact);
+    }
+
+    [Authorize(Policy = AuthConstants.UserManagementPolicy)]
     [HttpDelete("{agentId:guid}")]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid agentId,
+        [FromBody] DeleteAgentOptions? options,
         [FromServices] IStorageAccessService storage,
         [FromServices] ILogger<AgentsController> logger)
     {
@@ -166,14 +191,24 @@ public class AgentsController : ControllerBase
             return Unauthorized();
         }
 
+        var effectiveOptions = options ?? new DeleteAgentOptions();
+
         List<string> storageKeys;
         try
         {
-            storageKeys = await _agentService.DeleteAgentAsync(agentId, actorUserId.Value, HttpContext.RequestAborted);
+            storageKeys = await _agentService.DeleteAgentAsync(
+                agentId,
+                actorUserId.Value,
+                effectiveOptions,
+                HttpContext.RequestAborted);
         }
         catch (KeyNotFoundException)
         {
             return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
         }
 
         // Best-effort MinIO cleanup after the DB commit. A storage failure

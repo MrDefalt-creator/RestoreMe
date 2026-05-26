@@ -1,6 +1,8 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Domain.Enums;
 using Backup.Server.Infrastructure.Configuration;
+using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backup.Server.Infrastructure.Services;
@@ -12,7 +14,7 @@ public class AgentRepository : IAgentRepository
     {
         _dbContext = dbContext;
     }
-    
+
     public async Task<List<Agent>> GetAllAgentsAsync()
     {
         return await _dbContext.Agents
@@ -20,7 +22,7 @@ public class AgentRepository : IAgentRepository
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
     }
-    
+
     public async Task<Agent?> GetByMachineNameAsync(string machineName)
     {
         return await _dbContext.Agents
@@ -59,50 +61,153 @@ public class AgentRepository : IAgentRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<List<string>> DeleteAgentWithCascadeAsync(Guid agentId, CancellationToken cancellationToken)
+    public async Task<AgentDeletionImpact> GetDeletionImpactAsync(Guid agentId, CancellationToken cancellationToken)
+    {
+        var policyCount = await _dbContext.BackupPolicies
+            .AsNoTracking()
+            .CountAsync(p => p.AgentId == agentId, cancellationToken);
+
+        var jobCount = await _dbContext.BackupJobs
+            .AsNoTracking()
+            .CountAsync(j => j.AgentId == agentId, cancellationToken);
+
+        var artifactQuery = _dbContext.BackupArtifacts
+            .AsNoTracking()
+            .Where(a => a.Job != null && a.Job.AgentId == agentId);
+
+        var artifactCount = await artifactQuery.CountAsync(cancellationToken);
+        var totalBytes = artifactCount == 0
+            ? 0L
+            : await artifactQuery.SumAsync(a => a.SizeBytes, cancellationToken);
+
+        var restoreCount = await _dbContext.RestoreJobs
+            .AsNoTracking()
+            .CountAsync(r => r.AgentId == agentId, cancellationToken);
+
+        var pendingRestoreCount = await _dbContext.RestoreJobs
+            .AsNoTracking()
+            .CountAsync(
+                r => r.AgentId == agentId
+                    && (r.Status == RestoreJobStatus.Pending || r.Status == RestoreJobStatus.Running),
+                cancellationToken);
+
+        return new AgentDeletionImpact(
+            policyCount,
+            jobCount,
+            artifactCount,
+            totalBytes,
+            restoreCount,
+            pendingRestoreCount);
+    }
+
+    public async Task<List<string>> DeleteAgentAsync(
+        Guid agentId,
+        DeleteAgentOptions options,
+        CancellationToken cancellationToken)
     {
         await using var tx = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         var agent = await _dbContext.Agents.FirstOrDefaultAsync(a => a.Id == agentId, cancellationToken)
             ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
 
-        // Collect MinIO object keys before the cascade nukes the rows so the
-        // caller can fire best-effort storage cleanup after we commit.
-        var objectKeys = await _dbContext.BackupArtifacts
-            .Where(a => a.Job.Policy.AgentId == agentId)
-            .Select(a => a.ObjectKey)
-            .ToListAsync(cancellationToken);
-
-        var artifactIds = await _dbContext.BackupArtifacts
-            .Where(a => a.Job.Policy.AgentId == agentId)
-            .Select(a => a.Id)
-            .ToListAsync(cancellationToken);
-
-        // RestoreJob.Artifact uses OnDelete(Restrict) (see
-        // RestoreJobConfiguration), so the artifact cascade below would fail
-        // on FK violation unless we manually drop the restore-job rows that
-        // reference any of this agent's artifacts first.
-        if (artifactIds.Count > 0)
+        if (!options.PurgeRestoreHistory)
         {
-            await _dbContext.RestoreJobs
-                .Where(r => r.ArtifactId.HasValue && artifactIds.Contains(r.ArtifactId.Value))
-                .ExecuteDeleteAsync(cancellationToken);
+            var pending = await _dbContext.RestoreJobs
+                .AsNoTracking()
+                .AnyAsync(
+                    r => r.AgentId == agentId
+                        && (r.Status == RestoreJobStatus.Pending || r.Status == RestoreJobStatus.Running),
+                    cancellationToken);
+            if (pending)
+            {
+                throw new InvalidOperationException(
+                    "Pending or running restore jobs reference this agent. Cancel them first, or enable 'Delete restore history'.");
+            }
         }
 
-        // RestoreJob.AgentId has no FK relationship, so cascades from Agent
-        // delete don't reach it. Wipe by agent id directly.
-        await _dbContext.RestoreJobs
-            .Where(r => r.AgentId == agentId)
-            .ExecuteDeleteAsync(cancellationToken);
+        // Object keys are collected before any deletion so the API can
+        // attempt the best-effort storage cleanup after we commit.
+        var storageKeys = options.PurgeStorageFiles && options.PurgeBackupHistory
+            ? await _dbContext.BackupArtifacts
+                .AsNoTracking()
+                .Where(a => a.Job != null && a.Job.AgentId == agentId)
+                .Select(a => a.ObjectKey)
+                .ToListAsync(cancellationToken)
+            : new List<string>();
 
+        // 1. Restore jobs that reference this agent's artifacts / agent id
+        if (options.PurgeRestoreHistory)
+        {
+            await _dbContext.RestoreJobs
+                .Where(r => r.AgentId == agentId)
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+        else
+        {
+            // Detach restore rows: capture snapshots, drop FK references.
+            // Done as a tracked update so EF can write all the snapshot
+            // columns in a single batch.
+            var restoreRows = await _dbContext.RestoreJobs
+                .Where(r => r.AgentId == agentId
+                    || (r.Artifact != null && r.Artifact.Job != null && r.Artifact.Job.AgentId == agentId))
+                .Include(r => r.Artifact)
+                .ToListAsync(cancellationToken);
+
+            foreach (var row in restoreRows)
+            {
+                row.AgentNameSnapshot ??= agent.Name;
+                if (row.Artifact is not null)
+                {
+                    row.ArtifactFileNameSnapshot ??= row.Artifact.FileName;
+                    row.ArtifactObjectKeySnapshot ??= row.Artifact.ObjectKey;
+                }
+                row.AgentId = null;
+                if (options.PurgeBackupHistory)
+                {
+                    row.ArtifactId = null;
+                }
+            }
+        }
+
+        // 2. Backup jobs and their artifacts
+        if (options.PurgeBackupHistory)
+        {
+            // Cascade via Agent → Policy → BackupJob → BackupArtifact
+            // happens on Remove(agent) below. We also wipe any jobs that
+            // referenced this agent directly via Job.AgentId (they would
+            // SetNull otherwise and become orphans we don't want).
+            await _dbContext.BackupJobs
+                .Where(j => j.AgentId == agentId)
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+        else
+        {
+            // Detach jobs from the agent, snapshotting display names
+            // before the FK goes null.
+            var detachedJobs = await _dbContext.BackupJobs
+                .Where(j => j.AgentId == agentId)
+                .Include(j => j.Policy)
+                .ToListAsync(cancellationToken);
+
+            foreach (var job in detachedJobs)
+            {
+                job.AgentNameSnapshot ??= agent.Name;
+                job.PolicyNameSnapshot ??= job.Policy?.Name;
+                job.AgentId = null;
+                // Policies cascade-delete with the agent, so we must also
+                // unhook the job from its policy before that happens.
+                job.PolicyId = null;
+            }
+        }
+
+        // 3. The agent itself (and its policies, via Agent → Policy
+        //    cascade). Job and RestoreJob FKs were either purged or
+        //    nulled above so the cascade stays scoped.
         _dbContext.Agents.Remove(agent);
-        // SaveChanges here flushes the agent removal (which cascades into
-        // Policies → BackupJobs → BackupArtifacts) together with any other
-        // tracked changes in this DbContext, e.g. the audit log row the
-        // service added before calling us.
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
 
-        return objectKeys;
+        return storageKeys;
     }
 }

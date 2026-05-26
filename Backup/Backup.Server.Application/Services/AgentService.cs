@@ -1,6 +1,7 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Domain.Enums;
+using Backup.Shared.Contracts.DTOs.Agents;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Backup.Server.Application.Services;
@@ -46,13 +47,22 @@ public class AgentService
         _cache.Remove($"agent-tokver:{agentId}");
     }
 
+    public Task<AgentDeletionImpact> GetDeletionImpactAsync(Guid agentId, CancellationToken cancellationToken)
+        => _agentRepository.GetDeletionImpactAsync(agentId, cancellationToken);
+
     /// <summary>
-    /// Permanently removes the agent and everything connected to it. Returns
-    /// the MinIO object keys whose backing objects the caller should attempt
-    /// to delete (best-effort — storage cleanup must not block the DB
-    /// transaction or fail the request if MinIO is unreachable).
+    /// Removes the agent. The <paramref name="options"/> flags control
+    /// whether backup history, MinIO objects, and restore history go with
+    /// it. The audit row records the operator's choice in details so
+    /// reviewing the log later makes the action self-explanatory. Returns
+    /// the MinIO object keys the caller should attempt to remove (empty
+    /// when "keep files" is on).
     /// </summary>
-    public async Task<List<string>> DeleteAgentAsync(Guid agentId, Guid actorUserId, CancellationToken cancellationToken)
+    public async Task<List<string>> DeleteAgentAsync(
+        Guid agentId,
+        Guid actorUserId,
+        DeleteAgentOptions options,
+        CancellationToken cancellationToken)
     {
         var agent = await _agentRepository.GetAgentByIdAsync(agentId)
             ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
@@ -64,15 +74,20 @@ public class AgentService
             actorUserId,
             "agent.deleted",
             agentId,
-            $"machine={agent.MachineName} name={agent.Name}"));
+            $"machine={agent.MachineName} name={agent.Name} {FormatPurgeFlags(options)}"));
 
-        var storageKeys = await _agentRepository.DeleteAgentWithCascadeAsync(agentId, cancellationToken);
+        var storageKeys = await _agentRepository.DeleteAgentAsync(agentId, options, cancellationToken);
 
         // Drop the cached token version so any in-flight request from this
         // agent fails at auth time instead of after the cache TTL.
         _cache.Remove($"agent-tokver:{agentId}");
 
         return storageKeys;
+    }
+
+    private static string FormatPurgeFlags(DeleteAgentOptions options)
+    {
+        return $"purged_history={options.PurgeBackupHistory} purged_files={options.PurgeStorageFiles} purged_restores={options.PurgeRestoreHistory}";
     }
 
     public async Task<Guid> RegisterPending(string machineName, string os, string version)
