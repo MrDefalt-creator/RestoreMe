@@ -18,22 +18,20 @@ export function OnboardingHost() {
   const onboardingDone = useUiStore((s) => s.onboardingDone)
   const onboardingModalOpen = useUiStore((s) => s.onboardingModalOpen)
   const setOnboardingModalOpen = useUiStore((s) => s.setOnboardingModalOpen)
-  const { allDone, isLoading } = useOnboardingSteps()
+  const { isLoading } = useOnboardingSteps()
 
-  // First-login modal trigger: open once when user hasn't seen onboarding,
-  // skip entirely if they already completed the tour or there's nothing left to do.
+  // First-login modal trigger: open once when user hasn't seen onboarding
+  // and the tour isn't already finished. We don't peek at allDone here —
+  // a freshly-onboarded user who later removes every agent must NOT have
+  // the welcome modal pop back up just because the counts flipped to "no
+  // agents". onboardingDone is the authoritative end state.
   useEffect(() => {
     if (!user) return
     if (isLoading) return
     if (onboardingSeen) return
     if (onboardingDone) return
-    if (allDone) {
-      // Nothing to onboard against — silently mark as seen.
-      setOnboardingSeen(true)
-      return
-    }
     setOnboardingModalOpen(true)
-  }, [user, isLoading, onboardingSeen, onboardingDone, allDone, setOnboardingSeen, setOnboardingModalOpen])
+  }, [user, isLoading, onboardingSeen, onboardingDone, setOnboardingModalOpen])
 
   function handleModalClose() {
     setOnboardingModalOpen(false)

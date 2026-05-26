@@ -18,14 +18,15 @@ export function OnboardingWidget() {
   const setInstallAgentDialogOpen = useUiStore((s) => s.setInstallAgentDialogOpen)
   const { steps, done, total, percent, allDone, activeStep, isLoading } = useOnboardingSteps()
 
-  // When user completes the last step, show celebration for 3s then hide widget for good.
+  // Persist completion the moment the user reaches all-done. Doing this
+  // synchronously (no 3 s celebration timer) prevents the flag from being
+  // lost when the underlying counts flip back — e.g. when the user later
+  // removes every agent — and stops the widget from re-appearing as if
+  // the tour was never finished.
   useEffect(() => {
     if (!allDone || onboardingDone || isLoading) return
-    const timer = setTimeout(() => {
-      setOnboardingDone(true)
-      setExpanded(false)
-    }, 3000)
-    return () => clearTimeout(timer)
+    setOnboardingDone(true)
+    setExpanded(false)
   }, [allDone, onboardingDone, isLoading, setOnboardingDone, setExpanded])
 
   // Don't render at all once the user has fully completed the tour.
