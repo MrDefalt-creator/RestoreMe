@@ -47,6 +47,12 @@ public class PoliciesController : ControllerBase
     [HttpPost("create_policy/{agentId:guid}")]
     public async Task<IActionResult> CreatePolicyForAgent([FromRoute] Guid agentId, [FromBody] CreateBackupPolicyRequest request)
     {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
         try
         {
             var policy = await _policiesService.CreatePolicy(
@@ -56,7 +62,8 @@ public class PoliciesController : ControllerBase
                 request.SourcePath,
                 request.Interval,
                 request.DatabaseSettings,
-                request.RetentionDays);
+                request.RetentionDays,
+                actorUserId.Value);
 
             var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
             return Ok(response);
@@ -103,6 +110,12 @@ public class PoliciesController : ControllerBase
     [HttpPut("{policyId:guid}")]
     public async Task<IActionResult> UpdatePolicy([FromRoute] Guid policyId, [FromBody] UpdateBackupPolicyRequest request)
     {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
         BackupPolicy policy;
         try
         {
@@ -115,7 +128,8 @@ public class PoliciesController : ControllerBase
                 request.IntervalSeconds,
                 request.IsEnabled,
                 request.DatabaseSettings,
-                request.RetentionDays);
+                request.RetentionDays,
+                actorUserId.Value);
         }
         catch (InvalidOperationException ex)
         {
@@ -129,8 +143,36 @@ public class PoliciesController : ControllerBase
     [HttpPatch("{policyId:guid}/toggle")]
     public async Task<IActionResult> TogglePolicy([FromRoute] Guid policyId)
     {
-        var policy = await _policiesService.TogglePolicy(policyId);
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var policy = await _policiesService.TogglePolicy(policyId, actorUserId.Value);
         return Ok(MapPolicy(policy));
+    }
+
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [HttpDelete("{policyId:guid}")]
+    public async Task<IActionResult> DeletePolicy([FromRoute] Guid policyId)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            await _policiesService.DeletePolicy(policyId, actorUserId.Value);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
