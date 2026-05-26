@@ -349,6 +349,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
     Execution: 'Выполнение',
     Refresh: 'Обновить',
     'Refresh data': 'Обновить данные',
+    Live: 'В сети',
+    'Last sync': 'Обновлено',
     'Total runs': 'Всего запусков',
     'Track backup runs as a timeline: what started, what finished, what failed, and where attention is needed.': 'Отслеживайте запуски резервного копирования: что началось, что завершилось, где возникла ошибка и что требует внимания.',
     'Search by job, policy, agent, status, or error...': 'Поиск по заданию, политике, агенту, статусу или ошибке...',
