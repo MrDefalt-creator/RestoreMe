@@ -48,8 +48,37 @@ export async function revokeAgent(agentId: string): Promise<void> {
   await apiClient.post(`/api/agents/${agentId}/revoke`)
 }
 
-export async function deleteAgent(agentId: string): Promise<void> {
-  await apiClient.delete(`/api/agents/${agentId}`)
+export interface AgentDeletionImpact {
+  policyCount: number
+  backupJobCount: number
+  artifactCount: number
+  totalStorageBytes: number
+  restoreJobCount: number
+  pendingRestoreJobCount: number
+}
+
+export interface DeleteAgentOptions {
+  purgeBackupHistory: boolean
+  purgeStorageFiles: boolean
+  purgeRestoreHistory: boolean
+}
+
+export async function getAgentDeletionImpact(agentId: string): Promise<AgentDeletionImpact> {
+  const response = await apiClient.get<AgentDeletionImpact>(
+    `/api/agents/${agentId}/deletion-impact`,
+  )
+  return response.data
+}
+
+export async function deleteAgent(
+  agentId: string,
+  options: DeleteAgentOptions = {
+    purgeBackupHistory: true,
+    purgeStorageFiles: true,
+    purgeRestoreHistory: true,
+  },
+): Promise<void> {
+  await apiClient.delete(`/api/agents/${agentId}`, { data: options })
 }
 
 export interface EnrollmentInfo {

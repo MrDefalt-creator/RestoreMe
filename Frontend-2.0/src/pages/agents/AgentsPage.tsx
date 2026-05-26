@@ -23,7 +23,15 @@ import {
   X,
 } from 'lucide-react'
 
-import { deleteAgent, getAgents, revokeAgent, type Agent } from '@/shared/api/agents'
+import {
+  deleteAgent,
+  getAgentDeletionImpact,
+  getAgents,
+  revokeAgent,
+  type Agent,
+  type AgentDeletionImpact,
+  type DeleteAgentOptions,
+} from '@/shared/api/agents'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
@@ -38,6 +46,8 @@ import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { StatTile } from '@/shared/ui/StatTile'
 import { Select } from '@/shared/ui/Select'
 import { SkeletonCard } from '@/shared/ui/Skeleton'
+import { SwitchField } from '@/shared/ui/Switch'
+import { formatFileSize } from '@/shared/lib/format'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
@@ -320,7 +330,7 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
   })
 
   const deleteMutation = useMutation({
-    mutationFn: deleteAgent,
+    mutationFn: (options: DeleteAgentOptions) => deleteAgent(agent.id, options),
     onSuccess: () => {
       toast.success(t('Agent deleted'))
       setDeleteOpen(false)
@@ -442,18 +452,135 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
         isLoading={revokeMutation.isPending}
       />
 
-      <ConfirmDialog
+      <DeleteAgentDialog
+        agent={agent}
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        onConfirm={() => deleteMutation.mutate(agent.id)}
-        title={t('Delete agent')}
-        description={t('This permanently removes the agent and ALL of its backup jobs, artifacts, policies, and restore history. Stored backup files in object storage will be removed on a best-effort basis. This cannot be undone.')}
-        confirmLabel={deleteMutation.isPending ? t('Deleting...') : t('Delete agent')}
-        variant="danger"
+        onConfirm={(options) => deleteMutation.mutate(options)}
         isLoading={deleteMutation.isPending}
-        requireTypeName={agent.name}
       />
     </>
+  )
+}
+
+interface DeleteAgentDialogProps {
+  agent: Agent
+  open: boolean
+  onClose: () => void
+  onConfirm: (options: DeleteAgentOptions) => void
+  isLoading: boolean
+}
+
+function DeleteAgentDialog({ agent, open, onClose, onConfirm, isLoading }: DeleteAgentDialogProps) {
+  const { t } = useI18n()
+  const impactQuery = useQuery<AgentDeletionImpact>({
+    queryKey: ['agent-deletion-impact', agent.id],
+    queryFn: () => getAgentDeletionImpact(agent.id),
+    enabled: open,
+    staleTime: 0,
+  })
+  const [purgeBackupHistory, setPurgeBackupHistory] = useState(true)
+  const [purgeStorageFiles, setPurgeStorageFiles] = useState(true)
+  const [purgeRestoreHistory, setPurgeRestoreHistory] = useState(true)
+
+  if (!open) return null
+
+  const impact = impactQuery.data
+  const hasPending = (impact?.pendingRestoreJobCount ?? 0) > 0
+  const blocked = hasPending && !purgeRestoreHistory
+
+  const summaryLine = impact
+    ? t(
+        '{policies} policies · {jobs} backups · {bytes} stored · {restores} restores',
+        {
+          policies: impact.policyCount,
+          jobs: impact.backupJobCount,
+          bytes: formatFileSize(impact.totalStorageBytes),
+          restores: impact.restoreJobCount,
+        },
+      )
+    : t('Calculating impact…')
+
+  const options: DeleteAgentOptions = {
+    purgeBackupHistory,
+    purgeStorageFiles: purgeBackupHistory && purgeStorageFiles,
+    purgeRestoreHistory,
+  }
+
+  return (
+    <Dialog
+      open={open}
+      title={t('Delete agent')}
+      description={t(
+        'Choose what should go with the agent. Items you keep stay visible as orphaned history rows.',
+      )}
+      onClose={isLoading ? () => {} : onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => onConfirm(options)}
+            disabled={isLoading || !impact || blocked}
+          >
+            {isLoading ? t('Deleting...') : t('Delete agent')}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-secondary/40 p-3 text-sm text-foreground">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {t('What this agent owns')}
+          </p>
+          <p className="mt-1">{summaryLine}</p>
+        </div>
+
+        {hasPending ? (
+          <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <span>
+              {t(
+                '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.',
+                { count: impact?.pendingRestoreJobCount ?? 0 },
+              )}
+            </span>
+          </div>
+        ) : null}
+
+        <div className="space-y-1 rounded-lg border border-border bg-background/60 px-4 py-3">
+          <SwitchField
+            label={t('Delete backup history')}
+            description={t('Removes backup job rows and artifact records from the database.')}
+            checked={purgeBackupHistory}
+            onCheckedChange={setPurgeBackupHistory}
+            disabled={isLoading}
+          />
+          <SwitchField
+            label={t('Delete stored files from object storage')}
+            description={t(
+              'Best-effort removal of MinIO objects. Disabled when backup history is kept.',
+            )}
+            checked={purgeBackupHistory && purgeStorageFiles}
+            onCheckedChange={setPurgeStorageFiles}
+            disabled={isLoading || !purgeBackupHistory}
+          />
+          <SwitchField
+            label={t('Delete restore history')}
+            description={t('Removes restore job rows. Required if restores are still pending.')}
+            checked={purgeRestoreHistory}
+            onCheckedChange={setPurgeRestoreHistory}
+            disabled={isLoading}
+          />
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          {t('Audit history for this agent is always preserved.')}
+        </p>
+      </div>
+    </Dialog>
   )
 }
 

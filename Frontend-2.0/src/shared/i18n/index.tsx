@@ -362,6 +362,25 @@ const dictionaries: Record<Language, Record<string, string>> = {
     recommended: 'рекомендуется',
     advanced: 'продвинутый режим',
     'Originating agent': 'Исходный агент',
+    'What this agent owns': 'Что относится к этому агенту',
+    'Calculating impact…': 'Подсчитываем последствия…',
+    '{policies} policies · {jobs} backups · {bytes} stored · {restores} restores':
+      '{policies} политик · {jobs} бэкапов · {bytes} в хранилище · {restores} восстановлений',
+    'Choose what should go with the agent. Items you keep stay visible as orphaned history rows.':
+      'Выберите, что удалить вместе с агентом. Оставленное продолжит отображаться как «осиротевшая» история.',
+    'Delete backup history': 'Удалить историю бэкапов',
+    'Removes backup job rows and artifact records from the database.':
+      'Удаляет записи о заданиях резервного копирования и артефактах из базы.',
+    'Delete stored files from object storage': 'Удалить файлы в объектном хранилище',
+    'Best-effort removal of MinIO objects. Disabled when backup history is kept.':
+      'Best-effort удаление объектов MinIO. Отключено, если история бэкапов сохраняется.',
+    'Delete restore history': 'Удалить историю восстановлений',
+    'Removes restore job rows. Required if restores are still pending.':
+      'Удаляет записи о восстановлениях. Обязательно, если есть незавершённые восстановления.',
+    'Audit history for this agent is always preserved.':
+      'История аудита по этому агенту сохраняется в любом случае.',
+    '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.':
+      'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
     'Total runs': 'Всего запусков',
     'Track backup runs as a timeline: what started, what finished, what failed, and where attention is needed.': 'Отслеживайте запуски резервного копирования: что началось, что завершилось, где возникла ошибка и что требует внимания.',
     'Search by job, policy, agent, status, or error...': 'Поиск по заданию, политике, агенту, статусу или ошибке...',
