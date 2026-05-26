@@ -76,8 +76,8 @@ export function JobsPage() {
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      const agent = agentsById.get(job.agentId)
-      const policy = policiesById.get(job.policyId)
+      const agent = job.agentId ? agentsById.get(job.agentId) : undefined
+      const policy = job.policyId ? policiesById.get(job.policyId) : undefined
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
       const searchable = [
         job.name,
@@ -263,15 +263,21 @@ function JobRow({
 }
 
 function formatJobTitle(job: Job, policiesById: Map<string, { name: string }>) {
-  return job.policyName || job.name || policiesById.get(job.policyId)?.name || `Backup job ${shortId(job.id)}`
+  const livePolicyName = job.policyId ? policiesById.get(job.policyId)?.name : undefined
+  return job.policyName || job.name || livePolicyName || `Backup job ${shortId(job.id)}`
 }
 
 function formatAgentLabel(job: Job, agentsById: Map<string, { name: string; machineName?: string }>) {
-  const agent = agentsById.get(job.agentId)
-  return job.agentName || agent?.name || agent?.machineName || `Agent ${shortId(job.agentId)}`
+  const liveAgent = job.agentId ? agentsById.get(job.agentId) : undefined
+  // agentName comes from the backend snapshot when the live row is gone;
+  // fall back to a "(deleted)" hint if even the snapshot is missing.
+  if (job.agentName) return job.agentName
+  if (liveAgent) return liveAgent.name || liveAgent.machineName || `Agent ${shortId(job.agentId)}`
+  if (job.agentId) return `Agent ${shortId(job.agentId)}`
+  return 'Agent (deleted)'
 }
 
-function shortId(id: string | undefined) {
+function shortId(id: string | null | undefined) {
   return id ? id.slice(0, 8) : 'unknown'
 }
 

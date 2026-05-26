@@ -171,27 +171,39 @@ export function JobDrawer() {
                     <tr>
                       <td className="py-2 pr-4 text-muted-foreground">{t('Agent')}</td>
                       <td className="py-2">
-                        <Link
-                          to={`/agents?id=${job.agentId}`}
-                          onClick={close}
-                          className="flex items-center gap-1 text-primary hover:underline"
-                        >
-                          {job.agentName ?? job.agentId.slice(0, 8)}
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
+                        {job.agentId ? (
+                          <Link
+                            to={`/agents?id=${job.agentId}`}
+                            onClick={close}
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            {job.agentName ?? job.agentId.slice(0, 8)}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {job.agentName ? `${job.agentName} (${t('deleted')})` : t('Agent (deleted)')}
+                          </span>
+                        )}
                       </td>
                     </tr>
                     <tr>
                       <td className="py-2 pr-4 text-muted-foreground">{t('Policy')}</td>
                       <td className="py-2">
-                        <Link
-                          to={`/policies?id=${job.policyId}`}
-                          onClick={close}
-                          className="flex items-center gap-1 text-primary hover:underline"
-                        >
-                          {job.policyName ?? job.policyId.slice(0, 8)}
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
+                        {job.policyId ? (
+                          <Link
+                            to={`/policies?id=${job.policyId}`}
+                            onClick={close}
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            {job.policyName ?? job.policyId.slice(0, 8)}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {job.policyName ? `${job.policyName} (${t('deleted')})` : t('Policy (deleted)')}
+                          </span>
+                        )}
                       </td>
                     </tr>
                     <tr>

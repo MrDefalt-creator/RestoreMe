@@ -381,6 +381,9 @@ const dictionaries: Record<Language, Record<string, string>> = {
       'История аудита по этому агенту сохраняется в любом случае.',
     '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.':
       'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
+    deleted: 'удалено',
+    'Agent (deleted)': 'Агент (удалён)',
+    'Policy (deleted)': 'Политика (удалена)',
     'Total runs': 'Всего запусков',
     'Track backup runs as a timeline: what started, what finished, what failed, and where attention is needed.': 'Отслеживайте запуски резервного копирования: что началось, что завершилось, где возникла ошибка и что требует внимания.',
     'Search by job, policy, agent, status, or error...': 'Поиск по заданию, политике, агенту, статусу или ошибке...',
