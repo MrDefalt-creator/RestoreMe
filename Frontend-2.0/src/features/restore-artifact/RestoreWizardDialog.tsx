@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { AlertTriangle, Check, RotateCcw } from 'lucide-react'
 
 import { getAgents } from '@/shared/api/agents'
 import { requestRestore, type Artifact } from '@/shared/api/artifacts'
 import { queryKeys } from '@/shared/lib/query'
 import { formatFileSize, formatRelativeTime } from '@/shared/lib/format'
 import { useUiStore } from '@/app/store/ui-store'
+import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
 import { Switch } from '@/shared/ui/Switch'
+import { cn } from '@/shared/lib/cn'
 import { useI18n } from '@/shared/i18n'
 
 type Step = 'source' | 'target' | 'confirm'
+
+const STEP_ORDER: Step[] = ['source', 'target', 'confirm']
 
 interface Props {
   open: boolean
@@ -95,11 +99,16 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
   const displayName = getDisplayName(artifact)
   const agents = agentsQuery.data ?? []
 
+  const stepIndex = STEP_ORDER.indexOf(step)
   const stepTitles: Record<Step, string> = {
     source: t('Restore backup — Source'),
     target: t('Restore backup — Target'),
     confirm: t('Restore backup — Confirm'),
   }
+
+  const targetAgent = useOtherAgent && targetAgentId
+    ? agents.find((a) => a.id === targetAgentId)
+    : null
 
   const footer = (
     <div className="flex w-full items-center justify-between gap-3">
@@ -107,11 +116,12 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
         {step === 'source' ? t('Cancel') : t('Back')}
       </Button>
       <div className="flex gap-2">
-        <span className="text-xs text-muted-foreground self-center">
-          {step === 'source' ? '1/3' : step === 'target' ? '2/3' : '3/3'}
-        </span>
         {step !== 'confirm' ? (
-          <Button variant="primary" onClick={() => patch({ step: step === 'source' ? 'target' : 'confirm' })}>
+          <Button
+            variant="primary"
+            onClick={() => patch({ step: step === 'source' ? 'target' : 'confirm' })}
+            disabled={step === 'target' && useOtherAgent && !targetAgentId}
+          >
             {t('Next')}
           </Button>
         ) : (
@@ -135,6 +145,8 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
       footer={footer}
       onClose={onClose}
     >
+      <Stepper stepIndex={stepIndex} t={t} />
+
       {step === 'source' && (
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-secondary/40 p-4 space-y-2">
@@ -165,26 +177,26 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
       {step === 'target' && (
         <div className="space-y-5">
           <div className="space-y-2">
-            <p className="text-sm font-medium">{t('Restore target')}</p>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={!useOtherAgent}
-                  onChange={() => patch({ useOtherAgent: false, targetAgentId: '' })}
-                  className="accent-primary"
-                />
-                <span className="text-sm">{t('Originating agent (default)')}</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={useOtherAgent}
-                  onChange={() => patch({ useOtherAgent: true })}
-                  className="accent-primary"
-                />
-                <span className="text-sm">{t('Different agent')}</span>
-              </label>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {t('Restore to')}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <TargetCard
+                tone="recommended"
+                label={t('Original agent')}
+                description={t('In-place restore on the originating host.')}
+                selected={!useOtherAgent}
+                onClick={() => patch({ useOtherAgent: false, targetAgentId: '' })}
+                t={t}
+              />
+              <TargetCard
+                tone="advanced"
+                label={t('Different agent')}
+                description={t('For cross-host recovery or migration.')}
+                selected={useOtherAgent}
+                onClick={() => patch({ useOtherAgent: true })}
+                t={t}
+              />
             </div>
             {useOtherAgent && (
               <Select
@@ -235,42 +247,25 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
 
       {step === 'confirm' && (
         <div className="space-y-5">
-          <table className="w-full text-sm">
-            <tbody className="divide-y divide-border">
-              <tr>
-                <td className="py-2 pr-4 text-muted-foreground w-1/3">{t('Artifact')}</td>
-                <td className="py-2 font-medium truncate max-w-0">{displayName}</td>
-              </tr>
-              <tr>
-                <td className="py-2 pr-4 text-muted-foreground">{t('Size')}</td>
-                <td className="py-2">{formatFileSize(artifact.size)}</td>
-              </tr>
-              <tr>
-                <td className="py-2 pr-4 text-muted-foreground">{t('Target agent')}</td>
-                <td className="py-2">
-                  {useOtherAgent && targetAgentId
-                    ? (agentsQuery.data?.find((a) => a.id === targetAgentId)?.name ?? targetAgentId)
-                    : t('Originating agent')}
-                </td>
-              </tr>
-              {targetName && (
-                <tr>
-                  <td className="py-2 pr-4 text-muted-foreground">{t('Target name')}</td>
-                  <td className="py-2 font-mono text-xs">{targetName}</td>
-                </tr>
-              )}
-              <tr>
-                <td className="py-2 pr-4 text-muted-foreground">{t('Mode')}</td>
-                <td className="py-2">{dryRun ? t('Dry run') : t('Full restore')}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="rounded-lg border border-border bg-secondary/40 p-4">
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <SummaryRow label={t('Artifact')} value={displayName} mono />
+              <SummaryRow label={t('Size')} value={formatFileSize(artifact.size)} />
+              <SummaryRow
+                label={t('Target agent')}
+                value={targetAgent?.name ?? t('Originating agent')}
+              />
+              {targetName ? <SummaryRow label={t('Target name')} value={targetName} mono /> : null}
+              <SummaryRow label={t('Mode')} value={dryRun ? t('Dry run') : t('Full restore')} />
+            </dl>
+          </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">
+            <label htmlFor="restore-confirm-name" className="text-sm font-medium">
               {t('Type "{name}" to confirm', { name: displayName })}
             </label>
             <Input
+              id="restore-confirm-name"
               value={confirmName}
               onChange={(e) => patch({ confirmName: e.target.value })}
               placeholder={displayName}
@@ -280,5 +275,99 @@ export function RestoreWizardDialog({ open, artifact, onClose }: Props) {
         </div>
       )}
     </Dialog>
+  )
+}
+
+function Stepper({ stepIndex, t }: { stepIndex: number; t: (key: string) => string }) {
+  const labels = [t('Source'), t('Target'), t('Confirm')]
+  return (
+    <div className="mb-5">
+      <div className="flex items-center gap-2">
+        {STEP_ORDER.map((_, i) => {
+          const isDone = i < stepIndex
+          const isActive = i === stepIndex
+          return (
+            <div key={i} className="flex flex-1 items-center gap-2">
+              <div
+                className={cn(
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
+                  isDone && 'bg-primary text-primary-foreground',
+                  isActive && 'bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-2 ring-offset-card',
+                  !isDone && !isActive && 'border border-border bg-background text-muted-foreground',
+                )}
+                aria-current={isActive ? 'step' : undefined}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5" /> : i + 1}
+              </div>
+              {i < STEP_ORDER.length - 1 ? (
+                <div
+                  className={cn(
+                    'h-px flex-1 transition-colors',
+                    isDone ? 'bg-primary' : 'bg-border',
+                  )}
+                  aria-hidden
+                />
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-2 grid grid-cols-3 text-[11px]">
+        {labels.map((label, i) => (
+          <span
+            key={label}
+            className={cn(
+              'text-center',
+              i === stepIndex ? 'font-medium text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+interface TargetCardProps {
+  tone: 'recommended' | 'advanced'
+  label: string
+  description: string
+  selected: boolean
+  onClick: () => void
+  t: (key: string) => string
+}
+
+function TargetCard({ tone, label, description, selected, onClick, t }: TargetCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        'group flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-left transition-colors',
+        'hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected
+          ? 'border-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.18)]'
+          : 'border-border',
+      )}
+    >
+      <Badge variant={tone === 'recommended' ? 'success' : 'outline'} className="self-start">
+        {tone === 'recommended' ? t('recommended') : t('advanced')}
+      </Badge>
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground">{description}</p>
+    </button>
+  )
+}
+
+function SummaryRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-xs uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className={cn('text-foreground', mono ? 'font-mono text-xs truncate' : 'text-sm font-medium')}>
+        {value}
+      </dd>
+    </div>
   )
 }
