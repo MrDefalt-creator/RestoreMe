@@ -22,7 +22,7 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 
 const PAGE_SIZE = 50
-const CATEGORIES: AuditCategory[] = ['Users', 'Agents', 'Policies', 'Restores', 'Security', 'Other']
+const CATEGORIES: AuditCategory[] = ['Users', 'Agents', 'Policies', 'Backups', 'Restores', 'Security', 'Other']
 
 export function AuditLogPage() {
   const { t } = useI18n()

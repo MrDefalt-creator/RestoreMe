@@ -1,6 +1,13 @@
 import type { AuditLogEntry } from '@/entities/audit-log'
 
-export type AuditCategory = 'Users' | 'Agents' | 'Policies' | 'Restores' | 'Security' | 'Other'
+export type AuditCategory =
+  | 'Users'
+  | 'Agents'
+  | 'Policies'
+  | 'Backups'
+  | 'Restores'
+  | 'Security'
+  | 'Other'
 
 export function categorize(action: string): AuditCategory {
   const prefix = action.split('.')[0]
@@ -8,6 +15,8 @@ export function categorize(action: string): AuditCategory {
     case 'user': return 'Users'
     case 'agent': return 'Agents'
     case 'policy': return 'Policies'
+    case 'job':
+    case 'artifact': return 'Backups'
     case 'restore': return 'Restores'
     case 'auth': return 'Security'
     default: return 'Other'
@@ -27,11 +36,16 @@ export function renderAuditMessage(entry: AuditLogEntry): string {
     case 'agent.approve': return `${actor} approved agent ${target}`
     case 'agent.reject': return `${actor} rejected agent ${target}`
     case 'agent.delete': return `${actor} deleted agent ${target}`
+    case 'agent.deleted': return `${actor} deleted agent ${target}${details ? ` (${details})` : ''}`
     case 'agent.revoke': return `${actor} revoked token for agent ${target}`
     case 'policy.create': return `${actor} created policy ${target}${details ? ` "${details}"` : ''}`
-    case 'policy.update': return `${actor} updated policy ${target}`
+    case 'policy.update': return `${actor} updated policy ${target}${details ? ` (${details})` : ''}`
     case 'policy.toggle': return `${actor} toggled policy ${target}${details ? ` (${details})` : ''}`
-    case 'policy.delete': return `${actor} deleted policy ${target}`
+    case 'policy.delete': return `${actor} deleted policy ${target}${details ? ` (${details})` : ''}`
+    case 'job.started': return `Backup job ${target} started${details ? ` (${details})` : ''}`
+    case 'job.completed': return `Backup job ${target} completed${details ? ` (${details})` : ''}`
+    case 'job.failed': return `Backup job ${target} failed${details ? ` — ${details}` : ''}`
+    case 'artifact.added': return `Artifact ${target} uploaded${details ? ` (${details})` : ''}`
     case 'restore.request': return `${actor} requested restore for artifact ${target}`
     case 'restore.complete': return `Restore job ${target} completed`
     case 'restore.failed': return `Restore job ${target} failed${details ? `: ${details}` : ''}`
