@@ -85,7 +85,7 @@ public class AgentRepository : IAgentRepository
         if (artifactIds.Count > 0)
         {
             await _dbContext.RestoreJobs
-                .Where(r => artifactIds.Contains(r.ArtifactId))
+                .Where(r => r.ArtifactId.HasValue && artifactIds.Contains(r.ArtifactId.Value))
                 .ExecuteDeleteAsync(cancellationToken);
         }
 

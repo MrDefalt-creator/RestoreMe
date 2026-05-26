@@ -36,11 +36,15 @@ public class RestoreJobsService
         var backupJob = await _backupJobRepository.GetBackupJob(artifact.JobId)
             ?? throw new KeyNotFoundException($"Backup job {artifact.JobId} not found.");
 
+        var executingAgentId = request.TargetAgentId
+            ?? backupJob.AgentId
+            ?? throw new InvalidOperationException("Backup job has no owning agent; restore needs an explicit target agent.");
+
         var job = new RestoreJob
         {
             Id = Guid.NewGuid(),
             ArtifactId = request.ArtifactId,
-            AgentId = request.TargetAgentId ?? backupJob.AgentId,
+            AgentId = executingAgentId,
             TargetAgentId = request.TargetAgentId,
             TargetName = request.TargetName,
             DryRun = request.DryRun,
@@ -84,12 +88,18 @@ public class RestoreJobsService
         var job = await _restoreJobRepository.GetPendingWithDetailsAsync(agentId);
         if (job is null) return null;
 
-        var policy = job.Artifact.Job.Policy;
+        // A pending restore that the agent should pick up must still have
+        // a live artifact / backup job / policy. If the operator deleted
+        // them out from under it (e.g. selective agent purge), skip it
+        // rather than crash the agent's poll.
+        var artifact = job.Artifact;
+        var policy = artifact?.Job?.Policy;
+        if (artifact is null || policy is null) return null;
 
         return new PendingRestoreResponse(
             job.Id,
-            job.Artifact.ObjectKey,
-            job.Artifact.FileName,
+            artifact.ObjectKey,
+            artifact.FileName,
             MapPolicyType(policy.Type),
             policy.SourcePath,
             MapDatabaseSettings(policy.DatabaseSettings));
@@ -110,7 +120,9 @@ public class RestoreJobsService
         if (job.Status == RestoreJobStatus.Completed || job.Status == RestoreJobStatus.Failed)
             throw new InvalidOperationException("Cannot download ticket for a finished restore job.");
 
-        var artifact = await _artifactRepository.GetArtifactByIdAsync(job.ArtifactId)
+        var artifactId = job.ArtifactId
+            ?? throw new InvalidOperationException("Restore job has no artifact assigned.");
+        var artifact = await _artifactRepository.GetArtifactByIdAsync(artifactId)
             ?? throw new KeyNotFoundException("Artifact not found.");
 
         if (job.Status == RestoreJobStatus.Pending)

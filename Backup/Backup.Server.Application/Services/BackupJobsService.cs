@@ -131,14 +131,14 @@ public class BackupJobsService
 
             await _backupJobRepository.UpdateBackupJob(job);
             await _auditLogRepository.AddAsync(Audit(
-                job.AgentId,
+                RequireAgentId(job),
                 "job.completed",
                 job.Id,
                 $"policy={job.PolicyId} artifacts={artifactCount}"));
             await _backupJobRepository.SaveChangesAsync();
 
-            policyId = job.PolicyId;
-            agentId = job.AgentId;
+            policyId = RequirePolicyId(job);
+            agentId = RequireAgentId(job);
             shouldNotify = true;
         });
 
@@ -166,15 +166,17 @@ public class BackupJobsService
         job.Status = BackupJobStatus.Failed;
         job.ErrorMessage = errorMessage;
 
+        var failedAgentId = RequireAgentId(job);
+        var failedPolicyId = RequirePolicyId(job);
         await _backupJobRepository.UpdateBackupJob(job);
         await _auditLogRepository.AddAsync(Audit(
-            job.AgentId,
+            failedAgentId,
             "job.failed",
             job.Id,
-            $"policy={job.PolicyId} error={TruncateForAudit(errorMessage)}"));
+            $"policy={failedPolicyId} error={TruncateForAudit(errorMessage)}"));
         await _backupJobRepository.SaveChangesAsync();
 
-        await _notificationService.NotifyBackupFailedAsync(jobId, job.PolicyId, job.AgentId, errorMessage);
+        await _notificationService.NotifyBackupFailedAsync(jobId, failedPolicyId, failedAgentId, errorMessage);
     }
 
     public async Task AddArtifact(
@@ -201,7 +203,7 @@ public class BackupJobsService
             throw new InvalidOperationException("Artifact file name must not contain directory path components.");
         }
 
-        var expectedObjectPrefix = $"{job.AgentId}/{job.PolicyId}/{job.Id}/";
+        var expectedObjectPrefix = $"{RequireAgentId(job)}/{RequirePolicyId(job)}/{job.Id}/";
         if (!objectKey.StartsWith(expectedObjectPrefix, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Artifact object key does not belong to this backup job.");
@@ -230,7 +232,7 @@ public class BackupJobsService
 
         await _backupArtifactRepository.AddArtifact(backupArtifact);
         await _auditLogRepository.AddAsync(Audit(
-            job.AgentId,
+            RequireAgentId(job),
             "artifact.added",
             backupArtifact.Id,
             $"job={jobId} size={size}"));
@@ -254,6 +256,17 @@ public class BackupJobsService
         const int max = 240;
         return text.Length <= max ? text : text[..max] + "…";
     }
+
+    // BackupJob.AgentId/PolicyId are nullable in the schema so detached
+    // history rows can survive a "keep history" agent delete. Any job
+    // still executing (Running / Completing / Failing / Adding artifacts)
+    // is guaranteed to have those FKs set — calling these helpers on a
+    // detached row is a programming error, hence the exception.
+    private static Guid RequireAgentId(BackupJob job) =>
+        job.AgentId ?? throw new InvalidOperationException($"Backup job {job.Id} has no agent assigned.");
+
+    private static Guid RequirePolicyId(BackupJob job) =>
+        job.PolicyId ?? throw new InvalidOperationException($"Backup job {job.Id} has no policy assigned.");
     
     public async Task<UploadTicketResponse> RequestUploadTicketAsync(
         RequestUploadTicketRequest request,
@@ -278,7 +291,7 @@ public class BackupJobsService
         return await _storageAccessService.CreateUploadTicketAsync(
             request.BackupJobId,
             request.PolicyId,
-            job.AgentId,
+            RequireAgentId(job),
             request.FileName,
             request.ContentType,
             request.SizeBytes,

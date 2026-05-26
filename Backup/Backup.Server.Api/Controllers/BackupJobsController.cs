@@ -182,6 +182,8 @@ public class BackupJobsController : ControllerBase
             job.Status.ToString().ToLowerInvariant(),
             job.StartedAt,
             job.CompletedAt,
-            job.ErrorMessage);
+            job.ErrorMessage,
+            job.Agent?.Name ?? job.AgentNameSnapshot,
+            job.Policy?.Name ?? job.PolicyNameSnapshot);
     }
 }

@@ -6,9 +6,19 @@ public class RestoreJob
 {
     public Guid Id { get; set; }
     public RestoreJobStatus Status { get; set; } = RestoreJobStatus.Pending;
-    public Guid ArtifactId { get; set; }
-    public BackupArtifact Artifact { get; set; } = null!;
-    public Guid AgentId { get; set; }
+
+    // Artifact + originating-agent FKs go nullable so deleting an agent
+    // (and optionally the artifact rows it produced) doesn't have to take
+    // the restore history with it. Snapshots capture display strings
+    // before detaching.
+    public Guid? ArtifactId { get; set; }
+    public BackupArtifact? Artifact { get; set; }
+    public Guid? AgentId { get; set; }
+
+    public string? AgentNameSnapshot { get; set; }
+    public string? ArtifactFileNameSnapshot { get; set; }
+    public string? ArtifactObjectKeySnapshot { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }

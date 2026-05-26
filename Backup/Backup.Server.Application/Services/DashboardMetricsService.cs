@@ -144,11 +144,14 @@ public class DashboardMetricsService
     {
         var policyNames = policies.ToDictionary(p => p.Id, p => p.Name);
 
+        // Detached jobs (PolicyId == null) can't be attributed to a
+        // current policy, so they're not actionable in this widget.
         return jobs
             .Where(j => j.StartedAt >= windowStart
                 && j.StartedAt < windowEndExclusive
-                && j.Status == BackupJobStatus.Failed)
-            .GroupBy(j => j.PolicyId)
+                && j.Status == BackupJobStatus.Failed
+                && j.PolicyId.HasValue)
+            .GroupBy(j => j.PolicyId!.Value)
             .Select(g => new TopFailingPolicyDto(
                 g.Key,
                 policyNames.TryGetValue(g.Key, out var name) ? name : string.Empty,

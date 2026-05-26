@@ -140,32 +140,33 @@ public class DashboardSummaryService
 
         // Unresolved failures = the most recent job per policy is itself
         // a Failed run. A subsequent Completed run would clear the alert.
+        // Jobs whose policy has been deleted with "keep history" can't
+        // surface as actionable alerts — there's no policy to fix —
+        // so we skip null PolicyId here.
         var policyNames = policies.ToDictionary(p => p.Id, p => p.Name);
         var unresolved = jobs
-            .GroupBy(j => j.PolicyId)
+            .Where(j => j.PolicyId.HasValue)
+            .GroupBy(j => j.PolicyId!.Value)
             .Select(g => g.OrderByDescending(j => j.StartedAt).First())
             .Where(j => j.Status == BackupJobStatus.Failed)
             .Select(j => new UnresolvedFailureDto(
-                j.PolicyId,
-                policyNames.TryGetValue(j.PolicyId, out var name) ? name : string.Empty,
+                j.PolicyId!.Value,
+                policyNames.TryGetValue(j.PolicyId!.Value, out var name) ? name : string.Empty,
                 j.ErrorMessage))
             .ToList();
 
         // Recent: top 5 jobs by StartedAt desc, with server-resolved
         // policy + agent names so the frontend doesn't need to keep
         // /agents and /policies lists in memory just to render them.
+        // For detached (orphan) jobs we fall back to the snapshot names.
         var agentNames = agents.ToDictionary(a => a.Id, a => a.Name);
         var recent = jobs
             .OrderByDescending(j => j.StartedAt)
             .Take(RecentLimit)
             .Select(j => new RecentJobDto(
                 j.Id,
-                policyNames.TryGetValue(j.PolicyId, out var pn) && !string.IsNullOrWhiteSpace(pn)
-                    ? pn
-                    : $"Backup job {ShortId(j.Id)}",
-                agentNames.TryGetValue(j.AgentId, out var an) && !string.IsNullOrWhiteSpace(an)
-                    ? an
-                    : $"Agent {ShortId(j.AgentId)}",
+                ResolvePolicyDisplayName(j, policyNames),
+                ResolveAgentDisplayName(j, agentNames),
                 j.Status.ToString().ToLowerInvariant(),
                 j.StartedAt))
             .ToList();
@@ -188,11 +189,22 @@ public class DashboardSummaryService
             .Select(a =>
             {
                 var fallback = $"Artifact {ShortId(a.Id)}";
-                string displayName = !string.IsNullOrWhiteSpace(a.FileName)
-                    ? a.FileName
-                    : jobToPolicy.TryGetValue(a.JobId, out var pid) && policyNames.TryGetValue(pid, out var pn) && !string.IsNullOrWhiteSpace(pn)
-                        ? pn
-                        : fallback;
+                string displayName;
+                if (!string.IsNullOrWhiteSpace(a.FileName))
+                {
+                    displayName = a.FileName;
+                }
+                else if (jobToPolicy.TryGetValue(a.JobId, out var pid)
+                    && pid.HasValue
+                    && policyNames.TryGetValue(pid.Value, out var pn)
+                    && !string.IsNullOrWhiteSpace(pn))
+                {
+                    displayName = pn;
+                }
+                else
+                {
+                    displayName = fallback;
+                }
                 return new RecentArtifactDto(a.Id, displayName, a.SizeBytes, a.CreatedAt);
             })
             .ToList();
@@ -201,4 +213,34 @@ public class DashboardSummaryService
     }
 
     private static string ShortId(Guid id) => id.ToString("N")[..8];
+
+    private static string ResolvePolicyDisplayName(BackupJob job, Dictionary<Guid, string> policyNames)
+    {
+        if (job.PolicyId.HasValue
+            && policyNames.TryGetValue(job.PolicyId.Value, out var name)
+            && !string.IsNullOrWhiteSpace(name))
+        {
+            return name;
+        }
+        if (!string.IsNullOrWhiteSpace(job.PolicyNameSnapshot))
+        {
+            return job.PolicyNameSnapshot;
+        }
+        return $"Backup job {ShortId(job.Id)}";
+    }
+
+    private static string ResolveAgentDisplayName(BackupJob job, Dictionary<Guid, string> agentNames)
+    {
+        if (job.AgentId.HasValue
+            && agentNames.TryGetValue(job.AgentId.Value, out var name)
+            && !string.IsNullOrWhiteSpace(name))
+        {
+            return name;
+        }
+        if (!string.IsNullOrWhiteSpace(job.AgentNameSnapshot))
+        {
+            return job.AgentNameSnapshot;
+        }
+        return job.AgentId.HasValue ? $"Agent {ShortId(job.AgentId.Value)}" : "Agent (deleted)";
+    }
 }
