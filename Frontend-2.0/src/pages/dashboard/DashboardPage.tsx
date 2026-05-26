@@ -308,7 +308,7 @@ export function DashboardPage() {
                   }
                 />
               ) : backupTrend.some((row) => row.value > 0) ? (
-                <div className="rounded-lg border border-border bg-background/55 p-3">
+                <div className="overflow-visible rounded-lg border border-border bg-background/55 px-4 py-4">
                   <TrendBarChart data={backupTrend} seriesLabel={t('Recorded runs')} />
                 </div>
               ) : (

@@ -27,8 +27,11 @@ type TrendBarChartProps = {
 
 export function TrendBarChart({ data, seriesLabel = 'jobs' }: TrendBarChartProps) {
   return (
+    // Reserve enough vertical headroom that the Y-axis ticks never touch the
+    // surrounding card border. The previous negative-left margin yanked the
+    // axis underneath the container, clipping numbers near the top.
     <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: -16 }}>
+      <BarChart data={data} margin={{ top: 16, right: 8, bottom: 4, left: 0 }}>
         <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="label"
