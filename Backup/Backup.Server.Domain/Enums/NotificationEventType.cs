@@ -7,4 +7,5 @@ public enum NotificationEventType
     BackupCompleted = 2,
     AgentOffline = 3,
     AgentBackOnline = 4,
+    PolicyAutoDisabled = 5,
 }

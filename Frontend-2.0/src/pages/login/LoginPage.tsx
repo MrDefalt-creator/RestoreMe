@@ -47,6 +47,7 @@ export function LoginPage() {
           ? {
               description: t('Default password active — change it in Account settings.'),
               action: { label: t('Account'), onClick: () => navigate('/account') },
+              duration: 10_000,
             }
           : {}),
       })

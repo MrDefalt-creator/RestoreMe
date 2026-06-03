@@ -25,5 +25,9 @@ public class BackupPolicy
 
     public int? RetentionDays { get; set; }
 
+    public int ConsecutiveFailureCount { get; set; }
+    public string? LastFailureReason { get; set; }
+    public DateTime? AutoDisabledAt { get; set; }
+
     public ICollection<BackupJob> Jobs { get; set; } = new List<BackupJob>();
 }

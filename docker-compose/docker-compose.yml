@@ -94,22 +94,6 @@ services:
       - minio-access-key
       - minio-secret-key
 
-  frontend:
-    build:
-      context: ../Frontend
-      dockerfile: Dockerfile
-      args:
-        # These values are baked into the static Vite build at image build time.
-        VITE_API_BASE_URL: http://localhost:${API_PORT:-8080}
-        VITE_API_MODE: ${VITE_API_MODE:-live}
-    container_name: restoreme-frontend
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_started
-    ports:
-      - "${FRONTEND_PORT:-5174}:80"
-
   # One-shot agent binary publisher. Runs `dotnet publish -r <RID>` for the
   # supported targets and drops self-contained single-file binaries into the
   # shared `agent_binaries` volume. Opt-in via the `build-agents` profile so

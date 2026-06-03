@@ -112,6 +112,8 @@ public class PoliciesService
         ValidateInterval(intervalSeconds);
         ValidateRetentionDays(retentionDays);
 
+        var reEnabling = !policy.IsEnabled && isEnabled;
+
         policy.AgentId = agentId;
         policy.Type = policyType;
         policy.Name = name.Trim();
@@ -121,6 +123,13 @@ public class PoliciesService
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
         policy.RetentionDays = retentionDays;
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id, policy.DatabaseSettings);
+
+        if (reEnabling)
+        {
+            policy.ConsecutiveFailureCount = 0;
+            policy.LastFailureReason = null;
+            policy.AutoDisabledAt = null;
+        }
 
         await _policyRepository.UpdatePolicy(policy);
         await _auditLogRepository.AddAsync(Audit(
@@ -142,6 +151,16 @@ public class PoliciesService
         }
 
         policy.IsEnabled = !policy.IsEnabled;
+
+        // Manual re-enable acts as the operator's "I fixed it" signal —
+        // clear the auto-disable bookkeeping so the next failure starts
+        // a fresh streak instead of immediately tripping the threshold.
+        if (policy.IsEnabled)
+        {
+            policy.ConsecutiveFailureCount = 0;
+            policy.LastFailureReason = null;
+            policy.AutoDisabledAt = null;
+        }
 
         await _policyRepository.UpdatePolicy(policy);
         await _auditLogRepository.AddAsync(Audit(

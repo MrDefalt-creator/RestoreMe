@@ -1,10 +1,11 @@
 # RestoreMe
 
-RestoreMe is a backup management system with these main parts:
-- `Backup.Server.Api` - ASP.NET Core backend API
-- `Backup.Agent.Worker` - agent that registers, synchronizes policies, sends heartbeat and executes backups
-- `Frontend` - stable React admin panel for operators and administrators
-- `Frontend-2.0` - flagship next-generation UI prototype built on the same backend contracts
+🇬🇧 English · [🇷🇺 Русский](README.ru.md)
+
+RestoreMe is a self-hosted backup management system with these main parts:
+- `Backup.Server.Api` — ASP.NET Core backend API
+- `Backup.Agent.Worker` — agent that registers, synchronizes policies, sends heartbeat and executes backups
+- `Frontend-2.0` — React admin panel for operators and administrators
 
 The system uses:
 - PostgreSQL for relational data
@@ -23,14 +24,18 @@ RestorMe/
     Backup.Server.Application/
     Backup.Server.Domain/
     Backup.Server.Infrastructure/
+    Backup.Server.Tests/
     Backup.Agent.Worker/
     Backup.Shared.Contracts/
-  Frontend/
   Frontend-2.0/
   docker-compose/
     docker-compose.yml
+    docker-compose.override.yml
+    docker-compose.prod.yml
     .env
     secrets/
+  installers/
+  .github/workflows/
   README.md
 ```
 
@@ -45,39 +50,36 @@ RestorMe/
 - artifact storage in MinIO and artifact download through backend
 - automatic EF Core migrations on startup
 - file-based secret support through `*_FILE`
-- JWT authentication for panel users
+- JWT authentication for panel users via HttpOnly cookie
 - role model: `admin`, `operator`, `viewer`
 - agent bootstrap protection through enrollment token and dedicated agent access tokens
+- Production startup guardrails — refuses to boot with dev-default secrets
+- multi-channel notifications (Webhook / Telegram / Slack / Discord) with per-event subscriptions, secrets encrypted at rest
+- automatic policy auto-disable after repeated consecutive failures
+- agent offline / back-online detection via a background health sweep
+- audit log of critical actions
 
 ### Agent
 - can receive an `AgentId` after pending registration or reuse a saved one
-- stores local state in `state/agent-state.json`
+- stores local state in `state/agent-state.json` (encrypted with ASP.NET Core DataProtection)
 - stores backend server address and agent access token locally
 - sends heartbeat and periodically synchronizes policies
 - executes filesystem backup policies
 - executes logical PostgreSQL and MySQL dump policies
-- uploads prepared payloads directly to object storage through upload tickets returned by backend
+- uploads prepared payloads directly to object storage through presigned upload tickets returned by backend
 
-### Frontend v1
-- secure login page with `Remember me`
-- dashboard
-- agents page
-- pending agents approval page
-- policies page
-- jobs page
-- artifacts page
-- account page for self-service password change
-- users page for administrator access management
-- automatic polling in live mode
-
-### Frontend 2.0
-- Apple-like flagship UI prototype for the same RestoreMe backend
+### Frontend
+- Apple-like operator console built on Radix UI
 - dark and light themes
-- refined dashboard with activity trend, protection mix and attention items
+- dashboard with activity trend, protection mix and attention items
 - agents page with filters, policy coverage and details dialog
+- install-agent wizard (copy-paste one-liner that pulls installer + binary from the backend)
 - pending agent approve and reject flows
 - policies, jobs and backups/artifacts views aligned with current backend DTOs
-- automatic polling and query invalidation tuned for live operational use
+- policies page surfaces the "Auto-disabled" state with a one-click re-enable
+- admin-only notification channels page (`/notifications`) — add/edit/test Webhook, Telegram, Slack and Discord channels
+- automatic polling and query invalidation
+- admin-only audit log view
 
 ## Prerequisites
 
@@ -115,11 +117,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 Required env (or `.env.prod` next to the compose files):
 - `CORS_ORIGIN` — public origin of the frontend (e.g. `https://restoreme.example.com`)
-- `API_PUBLIC_URL` — public backend URL baked into the Vite bundle and used in the CSP `connect-src` of both frontends
+- `API_PUBLIC_URL` — public backend URL baked into the Vite bundle and used in the frontend's CSP `connect-src`
 
 Default published addresses:
-- frontend 2.0: `http://localhost:5173` (primary)
-- frontend v1: `http://localhost:5174` (deprecated, see [Frontend/README.md](Frontend/README.md))
+- frontend: `http://localhost:5173`
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
@@ -134,13 +135,6 @@ dotnet run --project .\Backup.Server.Api\Backup.Server.Api.csproj
 ```
 
 Frontend:
-```powershell
-cd Frontend
-yarn
-yarn dev
-```
-
-Frontend 2.0:
 ```powershell
 cd Frontend-2.0
 yarn
@@ -162,7 +156,7 @@ Use this sequence for a clean local deployment or first workstation setup.
 3. Check [docker-compose/.env](docker-compose/.env) if default ports are already occupied.
 4. Start the stack with `docker compose up --build`.
 5. Wait until backend applies migrations.
-6. Open `http://localhost:5173` for Frontend 2.0 (primary), or `http://localhost:5174` for the deprecated legacy frontend.
+6. Open `http://localhost:5173`.
 7. Sign in with the bootstrap administrator account.
 8. Change the bootstrap administrator password.
 9. Create additional users if needed.
@@ -242,8 +236,10 @@ Important sections:
 - `Jwt:SigningKey` — user-token signing key
 - `Jwt:AgentSigningKey` — optional dedicated key for agent JWTs; rotating it does not invalidate user sessions
 - `AgentEnrollment:EnrollmentToken`
-- `Notifications:FailureWebhookUrl`, `Notifications:WebhookSecret` — backup/restore failure webhook (HMAC-SHA256 signing when secret is set)
 - `Cors:AllowedOrigins` — required in Production; backend refuses to start when empty or loopback-only
+
+> [!NOTE]
+> Notifications are **no longer configured via `appsettings.json`**. The old single `Notifications:FailureWebhookUrl` has been replaced by admin-managed notification channels stored in the database (see [Notifications](#notifications) below).
 
 ### Production-minded note
 
@@ -282,15 +278,34 @@ Defaults — `AdaptiveBaseSeconds=600`, `AdaptivePerGbSeconds=300`:
 
 Set `Storage:UseAdaptiveExpiry: false` to fall back to the static `Storage:UploadUrlExpirySeconds`. Set `Storage:DownloadUrlExpirySeconds` (positive integer) to override the restore-download window independently.
 
-### Failure webhook
+### Notifications
 
-When `Notifications:FailureWebhookUrl` is set the backend POSTs a JSON body to it on every failed backup or restore job. Pair with `Notifications:WebhookSecret` to enable HMAC-SHA256 signing:
+RestoreMe ships a multi-channel notification system. Channels are created and managed by admins on the `/notifications` page (admin-only, served by `/api/notification-channels`) — there is no notification config in `appsettings.json`.
+
+**Channel types:** `Webhook` (generic HMAC-signed), `Telegram`, `Slack`, `Discord`.
+
+**Event types** a channel can subscribe to (leaving the subscription empty = receive all):
+- `BackupFailed`, `RestoreFailed`, `BackupCompleted`
+- `AgentOffline`, `AgentBackOnline`
+- `PolicyAutoDisabled`
+
+How it works:
+- Each channel stores a per-type `Settings` JSON blob (bot token / webhook URL / shared secret). The whole blob is **encrypted at rest** via ASP.NET Core DataProtection — secrets are never returned by the API.
+- On an event, the dispatcher fans it out to every enabled channel subscribed to that event type and routes each through the matching adapter. Delivery is **best-effort and isolated per channel**: one broken Slack URL can't suppress Telegram delivery, and a notification failure never blocks the job that triggered it.
+- Every delivery attempt is written to the audit log as `notification.sent` / `notification.failed` (the rendered message body and secrets are deliberately excluded).
+- The admin "Test channel" button sends a sample event through the real adapter so configuration can be verified.
+
+**Generic webhook signing** — when a `Webhook` channel has a secret set, the request is signed:
 
 ```
-X-RestoreMe-Signature: sha256=<hex of HMAC-SHA256(body, WebhookSecret)>
+X-RestoreMe-Signature: sha256=<hex of HMAC-SHA256(body, secret)>
 ```
 
-Receivers should constant-time compare against the same digest computed over the raw bytes of the request body. The webhook HTTP client has a 10-second timeout; slow receivers will not block the failure-reporting path.
+Receivers should constant-time compare against the same digest computed over the raw bytes of the request body. Each adapter's HTTP client has a capped timeout so a slow receiver can't block the dispatch path.
+
+### Policy auto-disable
+
+A policy that fails **3 consecutive backups** is automatically disabled (`IsEnabled=false`), stamped with `AutoDisabledAt` and the last failure reason, written to the audit log as `policy.auto_disabled`, and announced through the `PolicyAutoDisabled` notification event — so a broken source or bad credentials stops spamming the audit log and notifications every interval. A successful backup resets the streak. The frontend marks such policies with an "Auto-disabled" badge; re-enabling one (toggle, or saving it enabled) clears the streak so the next failure starts a fresh count.
 
 ### Health endpoint
 
@@ -309,9 +324,9 @@ In `Development`, the system seeds exactly one initial administrator if the user
 Current dev credentials:
 - `admin / Admin123!`
 
-The seeded admin is created with `MustChangePassword=true`. On the very first sign-in, both frontends will redirect to the Account page and lock the rest of the workspace until the operator picks their own password. The API enforces this server-side too: every request other than `/api/auth/me`, `/api/auth/change-password`, `/api/auth/logout` returns `403 { "code": "must_change_password" }` while the flag is set.
+The seeded admin is created with `MustChangePassword=true`. This is an **advisory nudge, not a server-side gate** — the backend does not block any endpoint while the flag is set. The frontend surfaces it as a login toast, an Account-page banner, and a "Set a personal password" onboarding step so the operator is prompted to rotate the default credential, but nothing forces it. Treat default/temp credentials as a deployment-hardening responsibility, not an API guarantee.
 
-The same flag is set whenever an admin resets another user's password — the target user signs in once with the temporary value and is forced to rotate.
+The same flag is set whenever an admin resets another user's password, so the target user is prompted to pick their own password on next sign-in. It clears automatically on the next successful password change.
 
 Source:
 - [Backup/Backup.Server.Api/appsettings.Development.json](Backup/Backup.Server.Api/appsettings.Development.json)
@@ -319,13 +334,13 @@ Source:
 Important behavior:
 - seeding runs only when there are no users in the database yet
 - if users already exist, the seed does not overwrite them
-- for an already populated database, you should manage users through the panel or the database itself
+- for an already populated database, manage users through the panel or the database itself
 
 ### Panel roles
 
-- `viewer` - read-only access to the workspace
-- `operator` - can work with agents, policies, jobs and artifacts
-- `admin` - full access, including user management
+- `viewer` — read-only access to the workspace
+- `operator` — can work with agents, policies, jobs and artifacts
+- `admin` — full access, including user management
 
 ### User management rules
 
@@ -339,7 +354,7 @@ Implemented safeguards:
 
 ### Session token storage
 
-The access JWT lives in an HTTP-only `access_token` cookie set by the backend. JavaScript on the frontend never sees the token, so an XSS payload cannot exfiltrate it. The cookie is `SameSite=Strict` and gets `Secure` automatically outside Development. Both frontends are configured with `withCredentials: true`.
+The access JWT lives in an HTTP-only `access_token` cookie set by the backend. JavaScript on the frontend never sees the token, so an XSS payload cannot exfiltrate it. The cookie is `SameSite=Strict` and gets `Secure` automatically outside Development. The frontend is configured with `withCredentials: true`.
 
 A small profile of the current user (id, username, role, `mustChangePassword` flag) is stored on the frontend so the UI can render the right pages.
 
@@ -356,43 +371,37 @@ Every user JWT carries a `stamp` claim bound to `AppUser.SecurityStamp`. Wheneve
 
 ### Agent revocation
 
-Admins can revoke an individual agent from the Agents page in either frontend (only visible to `admin` users). The backend bumps `Agent.TokenVersion`; the agent's JWT carries the previous version as `tokver` and fails on the next call. The agent will need to re-enroll using the enrollment token to get a fresh access token. The action is recorded in the audit log as `agent.revoke`.
+Admins can revoke an individual agent from the Agents page (only visible to `admin` users). The backend bumps `Agent.TokenVersion`; the agent's JWT carries the previous version as `tokver` and fails on the next call. The agent will need to re-enroll using the enrollment token to get a fresh access token. The action is recorded in the audit log as `agent.revoke`.
 
 ### Audit log
 
-The backend writes audit entries for every critical action: user create / delete / status change / role change / password reset, agent approve / reject / revoke. Admin-only `GET /api/audit-logs` returns paginated entries with actor username joined server-side. Both frontends expose a read-only `/audit-log` page (admin-only) with filtering by action.
+The backend writes audit entries for every critical action: user create / delete / status change / role change / password reset, agent approve / reject / revoke, policy auto-disable (`policy.auto_disabled`), and notification delivery outcomes (`notification.sent` / `notification.failed`). Admin-only `GET /api/audit-logs` returns paginated entries with actor username joined server-side. The frontend exposes a read-only `/audit-log` page (admin-only) with filtering by action.
 
 ## Installing the Agent
 
-The agent ships as a self-contained, single-file binary for `linux-x64`, `linux-arm64`, and `win-x64`. No .NET runtime is required on the target host. Released binaries are attached to the GitHub Release for each tag:
-
-`https://github.com/MrDefalt-creator/RestorMe/releases`
+The agent ships as a self-contained, single-file binary for `linux-x64`, `linux-arm64`, and `win-x64`. No .NET runtime is required on the target host. The Frontend-2.0 install wizard prints the right one-liner pointing back at your own backend; the snippets below are the manual equivalents.
 
 ### Install agent on Linux
 
 One-shot installer (Debian/Ubuntu/Fedora/etc., any systemd-based distro):
 
 ```bash
-sudo curl -fsSL \
-  https://raw.githubusercontent.com/MrDefalt-creator/RestorMe/main/installers/install-agent.sh \
-  -o /tmp/install-agent.sh
+sudo curl -fsSL https://<your-backend>/installers/install-agent.sh -o /tmp/install-agent.sh
 sudo bash /tmp/install-agent.sh \
-  --server https://restoreme.example.com \
+  --server https://<your-backend> \
   --token <enrollment-token>
 ```
 
 What it does:
 - detects host architecture (`x86_64` → `linux-x64`, `aarch64` → `linux-arm64`)
-- downloads the matching release asset into `/opt/restoreme-agent/restoreme-agent`
+- downloads the matching agent binary into `/opt/restoreme-agent/restoreme-agent`
 - writes `/etc/restoreme-agent/config.env` with `RESTOREME_SERVER`, `RESTOREME_ENROLLMENT_TOKEN`, `RESTOREME_STATE_DIR` (mode `0600`)
 - creates state directory `/var/lib/restoreme-agent/state/`
 - installs and enables `restoreme-agent.service` via systemd
 
 Useful flags:
-- `--version vX.Y.Z` — install a specific release instead of `latest`
 - `--state-dir /custom/path` — store agent state somewhere other than `/var/lib/restoreme-agent/state`
 - `--service-user restoreme` — run the agent as a dedicated non-root user (creates it on demand). Use `root` for filesystem backups of arbitrary paths.
-- `--repo OWNER/NAME` — pull releases from a fork
 
 Verify:
 
@@ -417,9 +426,9 @@ From an elevated PowerShell session:
 ```powershell
 $installer = "$env:TEMP\install-agent.ps1"
 Invoke-WebRequest `
-  -Uri https://raw.githubusercontent.com/MrDefalt-creator/RestorMe/main/installers/install-agent.ps1 `
+  -Uri https://<your-backend>/installers/install-agent.ps1 `
   -OutFile $installer -UseBasicParsing
-& $installer -Server https://restoreme.example.com -Token <enrollment-token>
+& $installer -Server https://<your-backend> -Token <enrollment-token>
 ```
 
 What it does:
@@ -430,9 +439,7 @@ What it does:
 - starts the service
 
 Useful parameters:
-- `-Version v0.1.0` — pin to a specific release
 - `-StateDir 'D:\RestoreMe\state'` — relocate state off `%ProgramData%`
-- `-Repo OWNER/NAME` — pull releases from a fork
 
 Verify:
 
@@ -464,7 +471,7 @@ The startup log line `state directory: <path> (source: <origin>)` always names t
 
 ### Bootstrap and regular operation
 
-Agent security now works in two phases:
+Agent security works in two phases:
 
 1. The agent uses `Api:EnrollmentToken` for initial registration and access recovery.
 2. After approval, the backend issues a dedicated agent access token.
@@ -557,8 +564,8 @@ Before overwriting any filesystem restore target the agent renames the existing 
 ## Storage Addressing Model
 
 Two storage addresses are important:
-- `Storage:Endpoint` - internal MinIO address used by backend
-- `Storage:PublicEndpoint` - external address used in upload URLs returned to agents
+- `Storage:Endpoint` — internal MinIO address used by backend
+- `Storage:PublicEndpoint` — external address used in upload URLs returned to agents
 
 ### Simple deployment
 
@@ -593,33 +600,22 @@ cd Backup
 dotnet ef migrations add MigrationName --project .\Backup.Server.Infrastructure\Backup.Server.Infrastructure.csproj --startup-project .\Backup.Server.Api\Backup.Server.Api.csproj --output-dir Migrations
 ```
 
+## Backend tests (xUnit)
+
+Test project — `Backup/Backup.Server.Tests/`. Uses SQLite + DataProtection.
+
+```powershell
+cd Backup
+dotnet test BackupSystem.slnx                                       # whole solution
+dotnet test .\Backup.Server.Tests\Backup.Server.Tests.csproj        # just the test project
+dotnet test --filter "FullyQualifiedName~AgentSelectiveDelete"      # single class/test
+```
+
+CI (`.github/workflows/ci.yml`) runs `restore` → `build --configuration Release` → `test --no-build` for the backend on every push, plus `yarn install` → `lint` → `typecheck` → `build` for the frontend.
+
 ## Frontend Setup
 
-Stable frontend folder:
-- [Frontend](Frontend)
-
-Useful commands:
-```powershell
-cd Frontend
-yarn
-yarn dev
-yarn build
-yarn preview
-```
-
-Typical local frontend environment:
-```env
-VITE_API_BASE_URL=http://localhost:8080
-VITE_API_MODE=live
-```
-
-Modes:
-- `live` - use real backend API
-- `mock` - use local fixtures for offline/demo work
-
-## Frontend 2.0 Setup
-
-Frontend 2.0 folder:
+Frontend folder:
 - [Frontend-2.0](Frontend-2.0)
 
 Useful commands:
@@ -637,10 +633,11 @@ VITE_API_BASE_URL=http://localhost:8080
 VITE_API_MODE=live
 ```
 
-Notes:
-- Frontend 2.0 is the primary RestoreMe admin panel and is gradually replacing the legacy `Frontend/` (now deprecated).
-- It uses the same backend and database as the legacy frontend; data is visible in either UI after refetch/polling.
-- In Docker Compose it is published on `http://localhost:5173`.
+Modes:
+- `live` — use real backend API
+- `mock` — use local fixtures for offline/demo work
+
+In Docker Compose the frontend is published on `http://localhost:5173`.
 
 ## Logical Database Dump Policies
 
@@ -664,8 +661,8 @@ For predictable behavior across machines, you can set absolute tool paths in age
 ### PostgreSQL auth modes
 
 PostgreSQL policies support:
-- `credentials` - recommended universal mode
-- `integrated` - no password is stored in the policy; `pg_dump` must already be able to access the database as the OS user running the agent
+- `credentials` — recommended universal mode
+- `integrated` — no password is stored in the policy; `pg_dump` must already be able to access the database as the OS user running the agent
 
 Recommended rule:
 - for the local Docker Compose PostgreSQL container, use `credentials`
@@ -720,6 +717,7 @@ If the manual command fails, the RestoreMe policy will fail too.
 cd Backup
 dotnet build .\Backup.Server.Api\Backup.Server.Api.csproj
 dotnet run --project .\Backup.Server.Api\Backup.Server.Api.csproj
+dotnet test BackupSystem.slnx
 ```
 
 ### Agent
@@ -730,13 +728,6 @@ dotnet run --project .\Backup.Agent.Worker\Backup.Agent.Worker.csproj
 ```
 
 ### Frontend
-```powershell
-cd Frontend
-yarn
-yarn build
-```
-
-### Frontend 2.0
 ```powershell
 cd Frontend-2.0
 yarn
@@ -749,7 +740,6 @@ cd docker-compose
 docker compose up --build
 docker compose down
 docker compose logs -f backend
-docker compose logs -f frontend
 docker compose logs -f frontend-2
 docker compose logs -f minio
 docker compose logs -f db
@@ -776,8 +766,7 @@ Reason:
 - `ServerAddress` is already saved in `state/agent-state.json`
 
 Fix:
-- update `ServerAddress` manually
-- or delete the state file and restart the agent
+- `BackupAgent --server <correct-url>` to override, or `--reset-state` to wipe
 
 ### Agent can reach backend but cannot upload to MinIO
 Check:
@@ -795,8 +784,6 @@ Fix:
 
 ## Additional Documentation
 
-- [docker-compose/README.md](docker-compose/README.md)
-- [Frontend/README.md](Frontend/README.md)
-- [Frontend-2.0/README.md](Frontend-2.0/README.md)
-
-
+- [docker-compose/README.md](docker-compose/README.md) — [🇷🇺 Русский](docker-compose/README.ru.md)
+- [Frontend-2.0/README.md](Frontend-2.0/README.md) — [🇷🇺 Русский](Frontend-2.0/README.ru.md)
+- [README.ru.md](README.ru.md) — русский перевод этого файла

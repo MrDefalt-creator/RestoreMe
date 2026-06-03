@@ -29,8 +29,13 @@ export function OnboardingWidget() {
     setExpanded(false)
   }, [allDone, onboardingDone, isLoading, setOnboardingDone, setExpanded])
 
-  // Don't render at all once the user has fully completed the tour.
-  if (onboardingDone || isLoading) return null
+  // Re-show the widget after onboarding is complete when a "recommended"
+  // step (e.g. set-personal-password) becomes active again — for example
+  // after an admin resets the user's password.
+  const hasReactivatingStep = steps.some(
+    (s) => s.id === 'set-personal-password' && s.status === 'active',
+  )
+  if ((onboardingDone && !hasReactivatingStep) || isLoading) return null
 
   function runStepAction(step: OnboardingStep) {
     if (step.action.kind === 'navigate') {

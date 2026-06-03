@@ -1,0 +1,56 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Backup.Server.Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class WidenEncryptedColumns : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<string>(
+                name: "Settings",
+                table: "NotificationChannels",
+                type: "text",
+                nullable: false,
+                oldClrType: typeof(string),
+                oldType: "character varying(4000)",
+                oldMaxLength: 4000);
+
+            migrationBuilder.AlterColumn<string>(
+                name: "Password",
+                table: "BackupPolicyDatabaseSettings",
+                type: "text",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "character varying(500)",
+                oldMaxLength: 500,
+                oldNullable: true);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<string>(
+                name: "Settings",
+                table: "NotificationChannels",
+                type: "character varying(4000)",
+                maxLength: 4000,
+                nullable: false,
+                oldClrType: typeof(string),
+                oldType: "text");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "Password",
+                table: "BackupPolicyDatabaseSettings",
+                type: "character varying(500)",
+                maxLength: 500,
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "text",
+                oldNullable: true);
+        }
+    }
+}

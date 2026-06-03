@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { AlertTriangle, Search } from 'lucide-react'
 
 import { PolicyFormDialog } from '@/features/policy-form/PolicyFormDialog'
 import { getAgents } from '@/shared/api/agents'
@@ -158,7 +158,9 @@ export function PoliciesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredPolicies.map((policy) => (
+                    {filteredPolicies.map((policy) => {
+                      const autoDisabled = !policy.isEnabled && policy.autoDisabledAt !== null
+                      return (
                       <tr key={policy.id} className="hover:bg-secondary/35">
                         <Td>{policy.name}</Td>
                         <Td className="uppercase tracking-wider">{formatPolicyType(policy.type, t)}</Td>
@@ -170,9 +172,20 @@ export function PoliciesPage() {
                           {formatDateTime(policy.nextRunAt)}
                         </Td>
                         <Td>
-                          <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
-                            {policy.isEnabled ? t('enabled') : t('disabled')}
-                          </Badge>
+                          {autoDisabled ? (
+                            <Badge
+                              variant="warning"
+                              className="gap-1"
+                              title={formatAutoDisabledTooltip(policy, t)}
+                            >
+                              <AlertTriangle className="h-3 w-3" aria-hidden />
+                              {t('Auto-disabled')}
+                            </Badge>
+                          ) : (
+                            <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
+                              {policy.isEnabled ? t('enabled') : t('disabled')}
+                            </Badge>
+                          )}
                         </Td>
                         {canWrite ? (
                           <Td>
@@ -196,13 +209,14 @@ export function PoliciesPage() {
                                   isEnabled: policy.isEnabled,
                                 })}
                               >
-                                {t('Toggle')}
+                                {autoDisabled ? t('Re-enable') : t('Toggle')}
                               </Button>
                             </div>
                           </Td>
                         ) : null}
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -211,7 +225,9 @@ export function PoliciesPage() {
                   laid out vertically with key:value pairs instead of
                   columns; readable without horizontal scroll. */}
               <div className="space-y-3 md:hidden">
-                {filteredPolicies.map((policy) => (
+                {filteredPolicies.map((policy) => {
+                  const autoDisabled = !policy.isEnabled && policy.autoDisabledAt !== null
+                  return (
                   <div
                     key={policy.id}
                     className="rounded-lg border border-border bg-card/80 p-4"
@@ -225,9 +241,16 @@ export function PoliciesPage() {
                           {formatPolicyType(policy.type, t)}
                         </p>
                       </div>
-                      <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
-                        {policy.isEnabled ? t('enabled') : t('disabled')}
-                      </Badge>
+                      {autoDisabled ? (
+                        <Badge variant="warning" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" aria-hidden />
+                          {t('Auto-disabled')}
+                        </Badge>
+                      ) : (
+                        <Badge variant={policy.isEnabled ? 'success' : 'neutral'}>
+                          {policy.isEnabled ? t('enabled') : t('disabled')}
+                        </Badge>
+                      )}
                     </div>
 
                     <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 text-sm">
@@ -243,6 +266,15 @@ export function PoliciesPage() {
                       <dd className="text-foreground">
                         {formatDateTime(policy.nextRunAt)}
                       </dd>
+                      {autoDisabled ? (
+                        <>
+                          <dt className="text-muted-foreground">{t('Last error')}</dt>
+                          <dd className="break-words text-foreground">
+                            {t('Disabled after {count} failures', { count: policy.consecutiveFailureCount })}
+                            {policy.lastFailureReason ? ` — ${policy.lastFailureReason}` : ''}
+                          </dd>
+                        </>
+                      ) : null}
                     </dl>
 
                     {canWrite ? (
@@ -268,12 +300,13 @@ export function PoliciesPage() {
                             isEnabled: policy.isEnabled,
                           })}
                         >
-                          {t('Toggle')}
+                          {autoDisabled ? t('Re-enable') : t('Toggle')}
                         </Button>
                       </div>
                     ) : null}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           ) : (
@@ -331,4 +364,13 @@ function formatPolicyTarget(policy: BackupPolicy): string {
   const databaseName = policy.databaseSettings?.databaseName ?? 'unknown-db'
   const host = policy.databaseSettings?.host || 'local'
   return `${databaseName} @ ${host}`
+}
+
+function formatAutoDisabledTooltip(
+  policy: BackupPolicy,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  const head = t('Disabled after {count} failures', { count: policy.consecutiveFailureCount })
+  if (!policy.lastFailureReason) return head
+  return `${head} — ${t('Last error')}: ${policy.lastFailureReason}`
 }

@@ -65,4 +65,30 @@ public class PolicyRepository : IPolicyRepository
     {
         await _dbContext.SaveChangesAsync();
     }
+
+    public async Task IncrementFailureStreakAsync(Guid policyId, string? lastFailureReason)
+    {
+        // Set-based atomic update: the counter is incremented relative to its
+        // current DB value, so two concurrent failures both land (no lost
+        // update) without needing a row lock or optimistic-concurrency token.
+        await _dbContext.BackupPolicies
+            .Where(p => p.Id == policyId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.ConsecutiveFailureCount, p => p.ConsecutiveFailureCount + 1)
+                .SetProperty(p => p.LastFailureReason, lastFailureReason));
+    }
+
+    public async Task<bool> TryAutoDisableAsync(Guid policyId, int threshold, DateTime nowUtc)
+    {
+        // The WHERE clause makes the transition single-shot: once the first
+        // caller flips IsEnabled to false the predicate no longer matches, so
+        // later racers update zero rows and return false.
+        var affected = await _dbContext.BackupPolicies
+            .Where(p => p.Id == policyId && p.IsEnabled && p.ConsecutiveFailureCount >= threshold)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.IsEnabled, false)
+                .SetProperty(p => p.AutoDisabledAt, nowUtc));
+
+        return affected > 0;
+    }
 }

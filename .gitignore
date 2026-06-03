@@ -83,3 +83,4 @@ nunit-*.xml
 # AI / tooling local state
 .claude/
 .playwright-mcp/
+.codegraph/

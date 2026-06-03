@@ -22,8 +22,13 @@ public class BackupPolicyDatabaseSettingsConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.Username)
             .HasMaxLength(150);
 
-        builder.Property(x => x.Password)
-            .HasMaxLength(500);
+        // Password is encrypted at rest via the EncryptedStringConverter, so
+        // the column holds ciphertext (larger than the plaintext after the
+        // DataProtection header + base64 expansion). A char cap here is
+        // enforced against the ciphertext and would reject otherwise-valid
+        // passwords, so leave the column unbounded (Postgres `text`) and let
+        // input validation bound the plaintext.
+        builder.Property(x => x.Password);
 
         builder.HasIndex(x => new { x.Engine, x.DatabaseName });
 

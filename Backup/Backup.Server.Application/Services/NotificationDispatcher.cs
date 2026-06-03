@@ -140,6 +140,28 @@ public class NotificationDispatcher : INotificationService
         return DispatchAsync(evt, cancellationToken);
     }
 
+    public Task NotifyPolicyAutoDisabledAsync(
+        Guid policyId, Guid agentId, string policyName, int failures, string? lastReason,
+        CancellationToken cancellationToken = default)
+    {
+        var evt = new NotificationEvent(
+            NotificationEventType.PolicyAutoDisabled,
+            "Policy auto-disabled",
+            $"Policy '{policyName}' auto-disabled after {failures} consecutive failures",
+            string.IsNullOrWhiteSpace(lastReason) ? null : $"Last error: {lastReason}",
+            DateTime.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["policyId"] = policyId.ToString(),
+                ["agentId"] = agentId.ToString(),
+                ["policyName"] = policyName,
+                ["failures"] = failures.ToString(CultureInfo.InvariantCulture),
+                ["lastReason"] = lastReason,
+            });
+
+        return DispatchAsync(evt, cancellationToken);
+    }
+
     /// <summary>
     /// Sends an event to one explicit channel — used by the "Test channel"
     /// admin button. Bypasses the SubscribedEvents filter so operators

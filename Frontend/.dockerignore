@@ -1,8 +1,0 @@
-node_modules
-dist
-.git
-.idea
-.yarn-cache
-.npm-cache
-coverage
-*.log

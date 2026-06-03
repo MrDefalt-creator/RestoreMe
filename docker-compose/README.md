@@ -1,5 +1,7 @@
 # RestoreMe Docker Compose
 
+🇬🇧 English · [🇷🇺 Русский](README.ru.md)
+
 This folder is the single local entry point for starting the full RestoreMe stack.
 
 > [!WARNING]
@@ -15,11 +17,11 @@ Contents:
 ## Services
 
 Current stack includes:
-- `db` - PostgreSQL 18
-- `minio` - object storage
-- `backend` - ASP.NET Core API
-- `frontend` - stable RestoreMe frontend served by Apache
-- `frontend-2` - flagship Frontend 2.0 prototype served by Apache
+- `db` — PostgreSQL 18
+- `minio` — object storage
+- `backend` — ASP.NET Core API
+- `frontend-2` — RestoreMe admin panel served by Apache
+- `agent-builder` — opt-in one-shot service that publishes self-contained agent binaries (linux-x64 / linux-arm64 / win-x64) into a shared volume served by the backend
 
 ## First-Time Startup
 
@@ -29,7 +31,7 @@ Use this order when you deploy the stack on a clean workstation.
 2. Replace the starter secret files inside [secrets](secrets).
 3. Run `docker compose up --build`.
 4. Wait until backend applies migrations.
-5. Open Frontend 2.0 on `http://localhost:5173` (primary), or the deprecated legacy frontend on `http://localhost:5174`.
+5. Open the admin panel on `http://localhost:5173`.
 6. Sign in with the bootstrap administrator account.
 7. Change the bootstrap administrator password.
 8. Create additional users if required.
@@ -82,8 +84,7 @@ docker compose down
 ## Default Ports
 
 By default the stack publishes:
-- frontend 2.0: `http://localhost:5173` (primary)
-- legacy frontend: `http://localhost:5174` (deprecated, see [Frontend/README.md](../Frontend/README.md))
+- frontend: `http://localhost:5173`
 - backend: `http://localhost:8080`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
@@ -154,7 +155,7 @@ This means the backend does not need hardcoded database or MinIO secrets in `doc
 
 ## Important Compose Behavior
 
-- frontend API URLs are derived from `API_PORT` during the frontend image builds (override via `API_PUBLIC_URL` in prod)
+- frontend API URL is derived from `API_PORT` during the frontend image build (override via `API_PUBLIC_URL` in prod)
 - backend CORS in `Development` accepts localhost and loopback origins on any port; in Production the backend refuses to start without an explicit non-loopback `Cors:AllowedOrigins`
 - CORS only affects **browser** traffic (the admin panel). Agent → backend traffic is a plain HTTP client, no `Origin` header, no preflight — so an agent on a different machine reaches the backend regardless of the CORS allowlist as long as the network/firewall allows it
 - all services share the `restoreme-internal` Docker network declared in `docker-compose.yml`; inter-service hostnames are the service names (`db`, `minio`, `backend`)
@@ -249,26 +250,10 @@ If the agent keeps using an old server address, update or delete that state file
 ## User Login and Session Behavior
 
 The frontend login page supports two modes:
-- `Remember me` enabled - the session is persisted in `localStorage`
-- `Remember me` disabled - the session is stored only for the current browser session
+- `Remember me` enabled — the cookie carries an explicit `Expires` and the small profile lives in `localStorage`
+- `Remember me` disabled — the cookie is session-only and the profile lives in `sessionStorage`
 
-This does not change backend security rules; it only changes frontend session persistence.
-
-## Frontend Versions in Compose
-
-The Compose stack runs both UI versions against the same backend, database and object storage:
-
-- `frontend-2` on `http://localhost:5173` is the primary RestoreMe admin panel.
-- `frontend` on `http://localhost:5174` is the deprecated legacy UI, kept available during the burn-in period.
-
-Both frontends use the same API and should show the same agents, policies, jobs and artifacts after polling/refetch.
-
-Useful comparison flow:
-1. Create or update a policy in one frontend.
-2. Open the other frontend.
-3. Confirm the same policy appears there.
-4. Let the agent execute the policy.
-5. Confirm the resulting job and artifact appear in both frontends.
+This does not change backend security rules; it only changes session persistence on the client. The JWT itself always lives in the HttpOnly `access_token` cookie — JavaScript never reads it.
 
 ## Useful Commands
 
@@ -280,7 +265,6 @@ docker compose ps
 Show logs:
 ```powershell
 docker compose logs -f backend
-docker compose logs -f frontend
 docker compose logs -f frontend-2
 docker compose logs -f minio
 docker compose logs -f db
@@ -291,12 +275,7 @@ Rebuild only backend:
 docker compose up -d --build backend
 ```
 
-Rebuild only frontend:
-```powershell
-docker compose up -d --build frontend
-```
-
-Rebuild only Frontend 2.0:
+Rebuild only the frontend:
 ```powershell
 docker compose up -d --build frontend-2
 ```
@@ -344,7 +323,7 @@ Check:
 - frontend is pointing to the correct backend URL
 - you are using the current seeded admin credentials on a clean or expected database
 
-### Frontend 2.0 is not available on port 5173
+### Frontend is not available on port 5173
 Check:
 - `.env` contains `FRONTEND_2_PORT=5173`
 - `frontend-2` container exists in `docker compose ps`
@@ -376,7 +355,7 @@ This should already be handled by the frontend container rewrite rules. If you s
 
 ## Related Documentation
 
-- [../README.md](../README.md)
-- [../Frontend/README.md](../Frontend/README.md)
-- [../Frontend-2.0/README.md](../Frontend-2.0/README.md)
+- [../README.md](../README.md) — [🇷🇺 Русский](../README.ru.md)
+- [../Frontend-2.0/README.md](../Frontend-2.0/README.md) — [🇷🇺 Русский](../Frontend-2.0/README.ru.md)
+- [README.ru.md](README.ru.md) — русский перевод этого файла
 

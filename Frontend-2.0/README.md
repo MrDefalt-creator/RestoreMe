@@ -1,19 +1,19 @@
 # RestoreMe Frontend 2.0
 
-RestoreMe Frontend 2.0 is the flagship prototype of the RestoreMe admin panel.
+🇬🇧 English · [🇷🇺 Русский](README.ru.md)
 
-The original `Frontend` folder remains the primary stable UI for the diploma/demo baseline. This version is a more polished Apple-like operational console built on the same backend API and database model, so data created in one frontend is visible in the other.
+RestoreMe Frontend 2.0 is the admin panel for RestoreMe. It is a Vite + React + TypeScript SPA built on Radix UI primitives, talking to the ASP.NET Core backend over the HttpOnly `access_token` cookie.
 
 ## Purpose
 
-Frontend 2.0 focuses on:
+The frontend focuses on:
 
-- a calmer, more premium dashboard experience
+- a calm, premium dashboard experience
 - dark and light themes
-- clearer empty states and operational alerts
-- improved policy, agent, job and artifact visibility
-- faster operator feedback through polling and query invalidation
-- compatibility with the existing RestoreMe backend contracts
+- clear empty states and operational alerts
+- policy, agent, job and artifact visibility
+- fast operator feedback through polling and query invalidation
+- the RestoreMe backend contracts
 
 ## Stack
 
@@ -37,7 +37,7 @@ Frontend 2.0 focuses on:
 src/
   app/          providers, router, zustand stores (auth-store, ui-store)
   entities/     domain models + API hooks (agent, artifact, audit-log, auth, job, policy, user)
-  features/     self-contained feature modules (approve-agent, install-agent, policy-form, user-management)
+  features/     self-contained feature modules (approve-agent, install-agent, policy-form, user-management, notification-channel-form)
   pages/        route-level components assembled from features/widgets
   widgets/      app-shell, header, side-bar
   shared/       api (axios http client), config (env.ts), i18n, lib, ui (primitives)
@@ -52,17 +52,16 @@ src/
 - agents page with filtering, policy coverage and details dialog
 - **install-agent wizard** on the Agents page — admins/operators copy a one-liner that installs and enrols an agent on Linux or Windows; server URL is taken from the panel, enrollment token from `GET /api/agents/enrollment-info`
 - pending agents page with approve and reject flows
-- policies page with create, edit and toggle
+- policies page with create, edit and toggle, plus an "Auto-disabled" badge and one-click re-enable for policies stopped after repeated failures
 - jobs page with resilient labels based on agent/policy lookup
 - backups/artifacts page with download flow
 - users page for administrator access management
+- **notification channels page** (admin-only) — create/edit/test Webhook, Telegram, Slack and Discord channels with per-event subscriptions
 - account page for password change
 - dark/light theme toggle
 - SPA routing for direct links such as `/backups`, `/jobs` and `/policies`
 
-## Backend Compatibility
-
-This frontend uses the same backend as the original frontend.
+## Backend API surface
 
 Main API groups:
 
@@ -78,6 +77,8 @@ Main API groups:
 - `GET /api/backupartifacts`
 - `GET /api/backupartifacts/{artifactId}/download`
 - `GET /api/users`
+- `GET/POST/PUT/DELETE /api/notification-channels`, `POST /api/notification-channels/{id}/test` (admin-only)
+- `GET /api/audit-logs` (admin-only)
 
 ## Data Refresh Behavior
 
@@ -109,7 +110,7 @@ yarn dev
 
 Vite will choose an available local port. The Docker Compose setup publishes this frontend on:
 
-- `http://localhost:5173` (primary RestoreMe admin panel)
+- `http://localhost:5173`
 
 ## Environment
 
@@ -124,7 +125,7 @@ Important:
 
 - `VITE_API_BASE_URL` points to the RestoreMe backend API.
 - `VITE_API_MODE=live` enables polling behavior for real backend data.
-- Frontend 2.0 is intended for live backend use; unlike the original frontend, it is not maintained as a fixture-heavy mock demo surface.
+- The frontend is intended for live backend use, not as a fixture-heavy mock demo.
 
 ## Scripts
 
@@ -153,29 +154,26 @@ docker compose up --build frontend-2
 
 Default address:
 
-- `http://localhost:5173` (primary RestoreMe admin panel)
+- `http://localhost:5173`
 
 The production image builds the Vite bundle and serves it through Apache with SPA rewrite rules, so direct navigation to nested routes works.
 
 ## Recommended Smoke Test
 
-1. Start backend, database, MinIO and both frontends.
+1. Start backend, database, MinIO and the frontend.
 2. Sign in as an administrator.
 3. Approve or reject a pending agent.
-4. Create a policy in one frontend.
-5. Confirm it appears in the other frontend.
-6. Let the agent execute the policy.
-7. Confirm the job and artifact appear in both frontends.
-8. Download an artifact from the backups page.
+4. Create a policy.
+5. Let the agent execute the policy.
+6. Confirm the job and artifact appear on the backups page.
+7. Download an artifact.
 
 ## Notes
 
-- `Frontend-2.0` is the next-generation RestoreMe UI and is positioned to replace `Frontend/` over time. Both frontends remain compatible with the same backend contracts; deprecation signals on the original `Frontend/` will come in a later cycle.
-- Dependencies are tracked to match the original `Frontend/`'s baseline (Zod 4, React Router 7, Sonner 2, lucide-react 1.x, Vite 8, ESLint 10) so the two frontends don't drift while v2 takes over.
 - If a browser tab was open during a rebuild, reload it once to avoid stale Vite chunk references.
 
 ## Related Documentation
 
-- [Root README](../README.md)
-- [Original Frontend README](../Frontend/README.md)
-- [Docker Compose README](../docker-compose/README.md)
+- [Root README](../README.md) — [🇷🇺 Русский](../README.ru.md)
+- [Docker Compose README](../docker-compose/README.md) — [🇷🇺 Русский](../docker-compose/README.ru.md)
+- [README.ru.md](README.ru.md) — русский перевод этого файла

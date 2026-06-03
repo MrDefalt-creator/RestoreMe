@@ -22,9 +22,6 @@ public class TokenService
     public AuthResponse CreateUserAuthResponse(AppUser user)
     {
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.UserTokenLifetimeMinutes);
-        var extraClaims = user.MustChangePassword
-            ? new[] { new System.Security.Claims.Claim(AuthConstants.MustChangePasswordClaim, "1") }
-            : null;
         var token = CreateToken(
             user.Id,
             user.Username,
@@ -33,7 +30,7 @@ public class TokenService
             expiresAtUtc,
             user.SecurityStamp.ToString(),
             agentTokenVersion: null,
-            extraClaims: extraClaims);
+            extraClaims: null);
 
         return new AuthResponse(
             token,

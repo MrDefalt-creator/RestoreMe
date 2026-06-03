@@ -31,12 +31,8 @@ jobs:
         run: dotnet test BackupSystem.slnx --configuration Release --no-build --verbosity normal
 
   frontend:
-    name: Frontend build (${{ matrix.app }})
+    name: Frontend build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        app: [Frontend, Frontend-2.0]
     steps:
       - uses: actions/checkout@v4
 
@@ -45,20 +41,20 @@ jobs:
         with:
           node-version: '22'
           cache: yarn
-          cache-dependency-path: ${{ matrix.app }}/yarn.lock
+          cache-dependency-path: Frontend-2.0/yarn.lock
 
       - name: Install
-        working-directory: ${{ matrix.app }}
+        working-directory: Frontend-2.0
         run: yarn install --frozen-lockfile
 
       - name: Lint
-        working-directory: ${{ matrix.app }}
+        working-directory: Frontend-2.0
         run: yarn lint
 
       - name: Typecheck
-        working-directory: ${{ matrix.app }}
+        working-directory: Frontend-2.0
         run: yarn typecheck
 
       - name: Build
-        working-directory: ${{ matrix.app }}
+        working-directory: Frontend-2.0
         run: yarn build

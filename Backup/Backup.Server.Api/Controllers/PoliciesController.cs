@@ -209,7 +209,10 @@ public class PoliciesController : ControllerBase
             policy.NextRunAt,
             policy.LastRunAt,
             MapDatabaseSettings(policy.DatabaseSettings, includePassword: false),
-            policy.RetentionDays);
+            policy.RetentionDays,
+            policy.ConsecutiveFailureCount,
+            policy.LastFailureReason,
+            policy.AutoDisabledAt);
     }
 
     private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)

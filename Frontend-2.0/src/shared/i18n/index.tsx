@@ -630,6 +630,17 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Once you create a policy and the first job runs, the activity chart fills up here.': 'Как только появится политика и пройдёт первый запуск, здесь нарисуется график активности.',
     'Could not load dashboard': 'Не удалось загрузить дашборд',
     'The backend is unreachable. Check connectivity and retry.': 'Бэкенд недоступен. Проверьте подключение и попробуйте снова.',
+
+    // Onboarding — personal password step
+    'Set a personal password': 'Задайте личный пароль',
+    'Replace the default password assigned at account creation.': 'Замените пароль по умолчанию, выданный при создании аккаунта.',
+    'Set password': 'Задать пароль',
+
+    // Policies — auto-disable after repeated failures
+    'Auto-disabled': 'Отключена автоматически',
+    'Disabled after {count} failures': 'Отключена после {count} ошибок подряд',
+    'Last error': 'Последняя ошибка',
+    'Re-enable': 'Включить снова',
   },
 }
 

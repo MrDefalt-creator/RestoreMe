@@ -40,6 +40,9 @@ public class BackupPolicyConfiguration : IEntityTypeConfiguration<BackupPolicy>
 
         builder.HasIndex(x => new { x.AgentId, x.IsEnabled, x.NextRunAt });
 
+        builder.Property(x => x.LastFailureReason)
+            .HasMaxLength(240);
+
         builder.HasMany(x => x.Jobs)
             .WithOne(x => x.Policy)
             .HasForeignKey(x => x.PolicyId)

@@ -11,4 +11,12 @@ public interface INotificationService
     Task NotifyAgentOfflineAsync(Guid agentId, string agentName, DateTime? lastSeenAt, CancellationToken cancellationToken = default);
 
     Task NotifyAgentBackOnlineAsync(Guid agentId, string agentName, CancellationToken cancellationToken = default);
+
+    Task NotifyPolicyAutoDisabledAsync(
+        Guid policyId,
+        Guid agentId,
+        string policyName,
+        int failures,
+        string? lastReason,
+        CancellationToken cancellationToken = default);
 }

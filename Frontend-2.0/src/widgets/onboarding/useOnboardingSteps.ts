@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { useAuthStore } from '@/app/store/auth-store'
 import { getDashboardSummary, type DashboardSummary } from '@/shared/api/dashboard'
 import { queryKeys } from '@/shared/lib/query'
 
-export type OnboardingStepId = 'install' | 'approve' | 'policy'
+export type OnboardingStepId = 'install' | 'approve' | 'policy' | 'set-personal-password'
 export type OnboardingStepStatus = 'todo' | 'active' | 'done'
 
 export interface OnboardingStep {
@@ -51,6 +52,8 @@ export function useOnboardingSteps(): OnboardingState {
     queryFn: getDashboardSummary,
     staleTime: 30_000,
   })
+  const user = useAuthStore((s) => s.user)
+  const passwordChangeNeeded = user?.mustChangePassword === true
 
   return useMemo(() => {
     const summary = summaryQuery.data ?? EMPTY_SUMMARY
@@ -95,6 +98,13 @@ export function useOnboardingSteps(): OnboardingState {
         status: statusFor(2),
         action: { kind: 'navigate', to: '/policies', labelKey: 'Create policy' },
       },
+      {
+        id: 'set-personal-password',
+        titleKey: 'Set a personal password',
+        descriptionKey: 'Replace the default password assigned at account creation.',
+        status: passwordChangeNeeded ? 'active' : 'done',
+        action: { kind: 'navigate', to: '/account', labelKey: 'Set password' },
+      },
     ]
 
     const done = steps.filter((s) => s.status === 'done').length
@@ -112,5 +122,5 @@ export function useOnboardingSteps(): OnboardingState {
       activeStep,
       isLoading: summaryQuery.isLoading && !summaryQuery.data,
     }
-  }, [summaryQuery.data, summaryQuery.isLoading])
+  }, [summaryQuery.data, summaryQuery.isLoading, passwordChangeNeeded])
 }

@@ -8,6 +8,8 @@ namespace Backup.Server.Application.Services;
 
 public class BackupJobsService
 {
+    private const int AutoDisableThreshold = 3;
+
     private readonly IPolicyRepository _policyRepository;
     private readonly IAgentRepository _agentRepository;
     private readonly IBackupJobRepository _backupJobRepository;
@@ -135,9 +137,22 @@ public class BackupJobsService
                 "job.completed",
                 job.Id,
                 $"policy={job.PolicyId} artifacts={artifactCount}"));
+
+            // A green run wipes the failure streak so the next isolated
+            // failure doesn't trip auto-disable.
+            var completedPolicyId = RequirePolicyId(job);
+            var policy = await _policyRepository.GetPolicyById(completedPolicyId);
+            if (policy is not null && (policy.ConsecutiveFailureCount > 0 || policy.LastFailureReason is not null || policy.AutoDisabledAt is not null))
+            {
+                policy.ConsecutiveFailureCount = 0;
+                policy.LastFailureReason = null;
+                policy.AutoDisabledAt = null;
+                await _policyRepository.UpdatePolicy(policy);
+            }
+
             await _backupJobRepository.SaveChangesAsync();
 
-            policyId = RequirePolicyId(job);
+            policyId = completedPolicyId;
             agentId = RequireAgentId(job);
             shouldNotify = true;
         });
@@ -162,21 +177,66 @@ public class BackupJobsService
             return;
         }
 
-        job.CompletedAt = DateTime.UtcNow;
-        job.Status = BackupJobStatus.Failed;
-        job.ErrorMessage = errorMessage;
-
         var failedAgentId = RequireAgentId(job);
         var failedPolicyId = RequirePolicyId(job);
-        await _backupJobRepository.UpdateBackupJob(job);
-        await _auditLogRepository.AddAsync(Audit(
-            failedAgentId,
-            "job.failed",
-            job.Id,
-            $"policy={failedPolicyId} error={TruncateForAudit(errorMessage)}"));
-        await _backupJobRepository.SaveChangesAsync();
+        var truncatedReason = TruncateForAudit(errorMessage);
+
+        // Track the failure streak. When the same policy keeps failing we flip
+        // it off so a broken source/credentials doesn't spam the audit log +
+        // notifications every interval. The counter bump and the conditional
+        // auto-disable are set-based atomic DB updates (see PolicyRepository)
+        // so concurrent failures of the same policy can't lose an increment or
+        // double-fire the auto-disable. All of it shares one transaction with
+        // the job-status write so a mid-flight failure rolls everything back.
+        var policyAutoDisabled = false;
+        string policyName = string.Empty;
+        int failureCount = 0;
+
+        await _backupJobRepository.ExecuteInTransactionAsync(async () =>
+        {
+            job.CompletedAt = DateTime.UtcNow;
+            job.Status = BackupJobStatus.Failed;
+            job.ErrorMessage = errorMessage;
+            await _backupJobRepository.UpdateBackupJob(job);
+            await _auditLogRepository.AddAsync(Audit(
+                failedAgentId,
+                "job.failed",
+                job.Id,
+                $"policy={failedPolicyId} error={truncatedReason}"));
+
+            await _policyRepository.IncrementFailureStreakAsync(failedPolicyId, truncatedReason);
+            policyAutoDisabled = await _policyRepository.TryAutoDisableAsync(
+                failedPolicyId,
+                AutoDisableThreshold,
+                DateTime.UtcNow);
+
+            if (policyAutoDisabled)
+            {
+                var policy = await _policyRepository.GetPolicyById(failedPolicyId);
+                failureCount = policy?.ConsecutiveFailureCount ?? AutoDisableThreshold;
+                policyName = policy?.Name ?? string.Empty;
+
+                await _auditLogRepository.AddAsync(Audit(
+                    failedAgentId,
+                    "policy.auto_disabled",
+                    failedPolicyId,
+                    $"failures={failureCount} reason={truncatedReason}"));
+            }
+
+            await _backupJobRepository.SaveChangesAsync();
+        });
 
         await _notificationService.NotifyBackupFailedAsync(jobId, failedPolicyId, failedAgentId, errorMessage);
+
+        if (policyAutoDisabled)
+        {
+            await _notificationService.NotifyPolicyAutoDisabledAsync(
+                failedPolicyId,
+                failedAgentId,
+                policyName,
+                failureCount,
+                truncatedReason);
+        }
     }
 
     public async Task AddArtifact(

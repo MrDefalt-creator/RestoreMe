@@ -120,6 +120,7 @@ public class GenericWebhookAdapter : INotificationChannelAdapter
         NotificationEventType.BackupCompleted => "backup_completed",
         NotificationEventType.AgentOffline => "agent_offline",
         NotificationEventType.AgentBackOnline => "agent_back_online",
+        NotificationEventType.PolicyAutoDisabled => "policy_auto_disabled",
         _ => type.ToString().ToLowerInvariant(),
     };
 }

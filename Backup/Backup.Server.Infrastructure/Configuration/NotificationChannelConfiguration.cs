@@ -22,13 +22,17 @@ public class NotificationChannelConfiguration : IEntityTypeConfiguration<Notific
         builder.Property(x => x.IsEnabled)
             .IsRequired();
 
-        // Settings is the encrypted JSON blob — exact size depends on the
-        // channel type, but every payload is small. 4000 chars is the
-        // largest "varchar" that maps to a single TOAST-free row on
-        // Postgres and is well over the largest realistic ciphertext.
+        // Settings is the encrypted JSON blob. The value converter
+        // (DataProtection) stores ciphertext, which is meaningfully larger
+        // than the plaintext (fixed header + IV + HMAC tag, then base64).
+        // A char-length cap here would be measured against the plaintext on
+        // input validation but enforced against the ciphertext in the
+        // column, so the two never line up — a tight cap silently rejects
+        // valid input. Use an unbounded column (Postgres `text`, identical
+        // storage/perf to varchar for small values) and bound the *plaintext*
+        // in NotificationChannelsService.ValidateSettings instead.
         builder.Property(x => x.Settings)
-            .IsRequired()
-            .HasMaxLength(4000);
+            .IsRequired();
 
         builder.Property(x => x.SubscribedEvents)
             .HasMaxLength(500);

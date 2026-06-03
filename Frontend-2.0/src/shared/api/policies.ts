@@ -22,6 +22,9 @@ export interface BackupPolicy {
   createdAt: string
   updatedAt?: string
   retentionDays: number | null
+  consecutiveFailureCount: number
+  lastFailureReason: string | null
+  autoDisabledAt: string | null
 }
 
 export type UpsertPolicyInput = {

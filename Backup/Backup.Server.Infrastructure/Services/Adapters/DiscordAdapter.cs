@@ -113,6 +113,7 @@ public class DiscordAdapter : INotificationChannelAdapter
         NotificationEventType.BackupFailed => ColourRed,
         NotificationEventType.RestoreFailed => ColourRed,
         NotificationEventType.AgentOffline => ColourAmber,
+        NotificationEventType.PolicyAutoDisabled => ColourAmber,
         NotificationEventType.BackupCompleted => ColourGreen,
         NotificationEventType.AgentBackOnline => ColourGreen,
         _ => ColourBlue,
