@@ -34,6 +34,9 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool?>("LastNotifiedOnline")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -55,6 +58,11 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<int>("TokenVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("Version")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -72,6 +80,47 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.ToTable("Agents", (string)null);
                 });
 
+            modelBuilder.Entity("Backup.Server.Domain.Entities.AgentInstallToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PreApprovedName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UsedByMachineName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("AgentInstallTokens", (string)null);
+                });
+
             modelBuilder.Entity("Backup.Server.Domain.Entities.AppUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -81,8 +130,21 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LockedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("NormalizedUsername")
                         .IsRequired()
@@ -94,8 +156,16 @@ namespace Backup.Server.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("PasswordHistory")
+                        .HasColumnType("jsonb");
+
                     b.Property<int>("Role")
                         .HasColumnType("integer");
+
+                    b.Property<Guid>("SecurityStamp")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -108,6 +178,39 @@ namespace Backup.Server.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("AppUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Backup.Server.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("OccurredAt");
+
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("Backup.Server.Domain.Entities.BackupArtifact", b =>
@@ -158,8 +261,12 @@ namespace Backup.Server.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("AgentId")
+                    b.Property<Guid?>("AgentId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("AgentNameSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -168,8 +275,12 @@ namespace Backup.Server.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<Guid>("PolicyId")
+                    b.Property<Guid?>("PolicyId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("PolicyNameSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
@@ -199,6 +310,12 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.Property<Guid>("AgentId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("AutoDisabledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ConsecutiveFailureCount")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -207,6 +324,10 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("LastFailureReason")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
 
                     b.Property<DateTime?>("LastRunAt")
                         .HasColumnType("timestamp with time zone");
@@ -218,6 +339,9 @@ namespace Backup.Server.Infrastructure.Migrations
 
                     b.Property<DateTime>("NextRunAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("RetentionDays")
+                        .HasColumnType("integer");
 
                     b.Property<string>("SourcePath")
                         .IsRequired()
@@ -264,8 +388,7 @@ namespace Backup.Server.Infrastructure.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<string>("Password")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<int?>("Port")
                         .HasColumnType("integer");
@@ -279,6 +402,47 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.HasIndex("Engine", "DatabaseName");
 
                     b.ToTable("BackupPolicyDatabaseSettings", (string)null);
+                });
+
+            modelBuilder.Entity("Backup.Server.Domain.Entities.NotificationChannel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Settings")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubscribedEvents")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsEnabled");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("NotificationChannels", (string)null);
                 });
 
             modelBuilder.Entity("Backup.Server.Domain.Entities.PendingAgent", b =>
@@ -326,6 +490,82 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.ToTable("PendingAgents", (string)null);
                 });
 
+            modelBuilder.Entity("Backup.Server.Domain.Entities.RestoreJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgentNameSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ArtifactFileNameSnapshot")
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<Guid?>("ArtifactId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArtifactObjectKeySnapshot")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<long?>("BytesDone")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("BytesTotal")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("DryRun")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("EtaSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Force")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LogTail")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("Progress")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TargetAgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetName")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactId");
+
+                    b.HasIndex("AgentId", "Status");
+
+                    b.ToTable("RestoreJobs", (string)null);
+                });
+
             modelBuilder.Entity("Backup.Server.Domain.Entities.BackupArtifact", b =>
                 {
                     b.HasOne("Backup.Server.Domain.Entities.BackupJob", "Job")
@@ -342,14 +582,12 @@ namespace Backup.Server.Infrastructure.Migrations
                     b.HasOne("Backup.Server.Domain.Entities.Agent", "Agent")
                         .WithMany()
                         .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Backup.Server.Domain.Entities.BackupPolicy", "Policy")
                         .WithMany("Jobs")
                         .HasForeignKey("PolicyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Agent");
 
@@ -386,6 +624,16 @@ namespace Backup.Server.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ApprovedAgent");
+                });
+
+            modelBuilder.Entity("Backup.Server.Domain.Entities.RestoreJob", b =>
+                {
+                    b.HasOne("Backup.Server.Domain.Entities.BackupArtifact", "Artifact")
+                        .WithMany()
+                        .HasForeignKey("ArtifactId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Artifact");
                 });
 
             modelBuilder.Entity("Backup.Server.Domain.Entities.Agent", b =>

@@ -18,12 +18,14 @@ public class Worker : BackgroundService
     private readonly IAgentState _agentState;
     private readonly IApiEndpointResolver _apiEndpointResolver;
     private readonly IBackupExecutor _backupExecutor;
+    private readonly IRestoreExecutor _restoreExecutor;
 
-    public Worker(ILogger<Worker> logger, 
-        IAgentApiClient apiClient, 
-        IOptions<AgentOptions> agentOptions, 
-        IAgentState agentState, 
+    public Worker(ILogger<Worker> logger,
+        IAgentApiClient apiClient,
+        IOptions<AgentOptions> agentOptions,
+        IAgentState agentState,
         IBackupExecutor backupExecutor,
+        IRestoreExecutor restoreExecutor,
         IBackupApiClient backupClient,
         IApiEndpointResolver apiEndpointResolver)
     {
@@ -31,6 +33,7 @@ public class Worker : BackgroundService
         _apiClient = apiClient;
         _agentState = agentState;
         _backupExecutor = backupExecutor;
+        _restoreExecutor = restoreExecutor;
         _backupClient = backupClient;
         _apiEndpointResolver = apiEndpointResolver;
         _agentOptions = agentOptions.Value;
@@ -54,8 +57,16 @@ public class Worker : BackgroundService
         var resolvedApiEndpoint = await _apiEndpointResolver.ResolveAsync(stoppingToken);
         var storedServerAddress = await _agentState.TryGetServerAddressAsync(stoppingToken);
 
-        if (string.IsNullOrWhiteSpace(storedServerAddress))
+        if (!string.Equals(resolvedApiEndpoint.BaseUrl, storedServerAddress, StringComparison.Ordinal))
         {
+            if (!string.IsNullOrWhiteSpace(storedServerAddress))
+            {
+                _logger.LogWarning(
+                    "Server address changed via {Source}. Previous {Previous} -> new {New}. Updating local state.",
+                    resolvedApiEndpoint.Source,
+                    storedServerAddress,
+                    resolvedApiEndpoint.BaseUrl);
+            }
             await _agentState.SaveServerAddressAsync(resolvedApiEndpoint.BaseUrl, stoppingToken);
         }
 
@@ -121,9 +132,26 @@ public class Worker : BackgroundService
 
         _logger.LogInformation("AgentId not found. Starting pending registration flow");
 
-        var pendingId = await _apiClient.RegisterPendingAsync(
+        var registerResponse = await _apiClient.RegisterPendingAsync(
             new PendingAgentRequest(Environment.MachineName, GetOsType(), Environment.OSVersion.VersionString), cancellationToken);
-        
+
+        // Per-agent install-token flow: server pre-approved this agent
+        // and minted its access token in the same response. Skip the
+        // legacy polling loop entirely.
+        if (registerResponse.AgentId.HasValue && !string.IsNullOrWhiteSpace(registerResponse.AccessToken))
+        {
+            var approvedAgentId = registerResponse.AgentId.Value;
+            await _agentState.SaveAgentIdAsync(approvedAgentId, cancellationToken);
+            await _agentState.SaveAccessTokenAsync(registerResponse.AccessToken, cancellationToken);
+
+            _logger.LogInformation(
+                "Agent enrolled via install token and approved immediately. AgentId: {AgentId}",
+                approvedAgentId);
+
+            return approvedAgentId;
+        }
+
+        var pendingId = registerResponse.PendingId;
         _logger.LogInformation("Pending registration succeeded. AgentId: {PendingId}", pendingId);
 
         while (!cancellationToken.IsCancellationRequested)
@@ -221,14 +249,24 @@ public class Worker : BackgroundService
                     
                     await _backupExecutor.ExecutePolicyAsync(policy, cancellationToken);
                     await _backupClient.MarkPolicyExecutedAsync(policy.Id, cancellationToken);
-                    
                 }
+
+                await _restoreExecutor.ExecutePendingAsync(agentId, cancellationToken);
 
                 return DateTime.UtcNow.Add(policySyncInterval);
 
             }
             catch (OperationCanceledException)
             {
+                return nextPolicySyncAtUtc;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Cannot reach RestoreMe backend. Verify the URL, then restart the agent with: " +
+                    "BackupAgent --server <url> [--reset-state]. " +
+                    "Current server address is read from CLI/ENV override, local state, or appsettings.json (in that order).");
                 return nextPolicySyncAtUtc;
             }
             catch (Exception ex)

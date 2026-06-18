@@ -38,9 +38,34 @@ public class BackupArtifactRepository : IBackupArtifactRepository
             .FirstOrDefaultAsync(x => x.Id == artifactId);
     }
 
+    public Task<int> CountByJobIdAsync(Guid jobId)
+    {
+        return _dbContext.BackupArtifacts.CountAsync(x => x.JobId == jobId);
+    }
+
     public async Task AddArtifact(BackupArtifact artifact)
     {
         await _dbContext.BackupArtifacts.AddAsync(artifact);
+    }
+
+    public async Task<List<BackupArtifact>> GetExpiredArtifactsAsync(CancellationToken cancellationToken)
+    {
+        var candidates = await _dbContext.BackupArtifacts
+            .Include(a => a.Job).ThenInclude(j => j.Policy)
+            .Where(a => a.Job.Policy.RetentionDays != null)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        return candidates
+            .Where(a => a.CreatedAt < now.AddDays(-a.Job.Policy.RetentionDays!.Value))
+            .ToList();
+    }
+
+    public async Task DeleteArtifactAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await _dbContext.BackupArtifacts
+            .Where(a => a.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task SaveChanges()

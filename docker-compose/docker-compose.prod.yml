@@ -1,0 +1,20 @@
+# Production overlay. Apply with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Required env (export or place in .env.prod next to this file):
+#   CORS_ORIGIN     - public origin of the frontend, e.g. https://restoreme.example.com
+#   API_PUBLIC_URL  - public URL of the backend baked into frontend builds
+#                     (e.g. https://api.restoreme.example.com)
+#
+# Secrets are still read from docker-compose/secrets/*.txt — replace them
+# before exposing the stack outside a private network.
+services:
+  backend:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Cors__AllowedOrigins__0: ${CORS_ORIGIN}
+
+  frontend-2:
+    build:
+      args:
+        VITE_API_BASE_URL: ${API_PUBLIC_URL}

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
+import { Switch } from '@/shared/ui/Switch'
 import { useI18n } from '@/shared/i18n'
 
 const policySchema = z.object({
@@ -33,6 +34,7 @@ const policySchema = z.object({
   authMode: z.enum(['integrated', 'credentials']),
   username: z.string(),
   password: z.string(),
+  retentionDays: z.number().int().min(1).max(3650).nullable(),
 }).superRefine((values, context) => {
   if (values.type === 'filesystem' && values.sourcePath.trim().length < 3) {
     context.addIssue({
@@ -100,6 +102,7 @@ const defaultValues: PolicyFormValues = {
   authMode: 'integrated',
   username: '',
   password: '',
+  retentionDays: null,
 }
 
 function secondsToInterval(intervalSeconds: number): Pick<PolicyFormValues, 'intervalValue' | 'intervalUnit'> {
@@ -146,6 +149,7 @@ function toFormValues(policy: BackupPolicy | null, agents: Agent[]): PolicyFormV
     authMode: policy.databaseSettings?.authMode ?? (policy.type === 'mysql' ? 'credentials' : 'integrated'),
     username: policy.databaseSettings?.username ?? '',
     password: policy.databaseSettings?.password ?? '',
+    retentionDays: policy.retentionDays ?? null,
   }
 }
 
@@ -159,6 +163,7 @@ function toPayload(values: PolicyFormValues): UpsertPolicyInput {
     sourcePath: isFilesystem ? values.sourcePath.trim() : '',
     intervalSeconds: intervalToSeconds(values),
     isEnabled: values.isEnabled,
+    retentionDays: values.retentionDays,
     databaseSettings: isFilesystem
       ? null
       : {
@@ -189,8 +194,8 @@ export function PolicyFormDialog({
     mode: 'onChange',
     defaultValues,
   })
-  const policyType = form.watch('type')
-  const authMode = form.watch('authMode')
+  const policyType = useWatch({ control: form.control, name: 'type' })
+  const authMode = useWatch({ control: form.control, name: 'authMode' })
 
   useEffect(() => {
     if (!open) {
@@ -323,14 +328,36 @@ export function PolicyFormDialog({
           </div>
         </Field>
 
-        <label className="flex items-center gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
-            {...form.register('isEnabled')}
+        <Field label={t('Keep backups for (days)')}>
+          <Input
+            type="number"
+            min={1}
+            max={3650}
+            step={1}
+            placeholder={t('Unlimited')}
+            {...form.register('retentionDays', {
+              setValueAs: (value) => (value === '' || value === null ? null : Number(value)),
+            })}
           />
-          <span>{t('Enable scheduling immediately')}</span>
-        </label>
+        </Field>
+
+        <Controller
+          name="isEnabled"
+          control={form.control}
+          render={({ field }) => (
+            <label
+              htmlFor="policy-enabled"
+              className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground"
+            >
+              <span>{t('Enable scheduling immediately')}</span>
+              <Switch
+                id="policy-enabled"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            </label>
+          )}
+        />
 
         {policyType === 'filesystem' ? (
           <Field label={t('Source path')} error={formError(form.formState.errors.sourcePath?.message)} className="md:col-span-2">

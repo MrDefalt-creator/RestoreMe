@@ -3,6 +3,7 @@ using Backup.Server.Api.Services;
 using Backup.Shared.Contracts.DTOs.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Backup.Server.Api.Controllers;
 
@@ -11,25 +12,60 @@ namespace Backup.Server.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(AuthService authService)
+    public AuthController(AuthService authService, IWebHostEnvironment env)
     {
         _authService = authService;
+        _env = env;
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
         {
             var result = await _authService.LoginAsync(request.Username, request.Password);
-            return Ok(result);
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !_env.IsDevelopment(),
+                SameSite = SameSiteMode.Strict,
+                Path = "/",
+            };
+
+            if (request.RememberMe)
+            {
+                cookieOptions.Expires = result.ExpiresAtUtc;
+            }
+
+            Response.Cookies.Append("access_token", result.AccessToken, cookieOptions);
+
+            return Ok(new { user = result.User });
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { message = ex.Message });
         }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        // Cookie.Delete must match the attributes used at Append time, otherwise
+        // some browsers silently ignore the deletion and leave a stale token.
+        Response.Cookies.Delete("access_token", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !_env.IsDevelopment(),
+            SameSite = SameSiteMode.Strict,
+            Path = "/",
+        });
+        return NoContent();
     }
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]
@@ -58,8 +94,24 @@ public class AuthController : ControllerBase
 
         try
         {
-            await _authService.ChangePasswordAsync(userId.Value, request);
-            return NoContent();
+            var result = await _authService.ChangePasswordAsync(userId.Value, request);
+
+            // Rotate the auth cookie so the browser stops carrying the old
+            // JWT (whose security stamp the service just invalidated). Without
+            // this the user is involuntarily signed out 30 s later when the
+            // stamp cache expires and the validator rejects the stale token.
+            // We mint a session cookie here — the previous "Remember me"
+            // preference isn't recoverable mid-session, and downgrading to a
+            // session cookie is the safer default after a password rotation.
+            Response.Cookies.Append("access_token", result.AccessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !_env.IsDevelopment(),
+                SameSite = SameSiteMode.Strict,
+                Path = "/",
+            });
+
+            return Ok(new { user = result.User });
         }
         catch (UnauthorizedAccessException ex)
         {

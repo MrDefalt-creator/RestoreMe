@@ -102,6 +102,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Save changes': 'Сохранить изменения',
     'Save password': 'Сохранить пароль',
     'Search policies...': 'Поиск политик...',
+    'Search or type a command...': 'Поиск или ввод команды…',
+    'Filter by action...': 'Фильтр по действию…',
     Security: 'Безопасность',
     'Sign in': 'Войти',
     'Sign out': 'Выйти',
@@ -121,6 +123,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     Viewer: 'Наблюдатель',
     'View and manage backup schedules': 'Просмотр и управление расписаниями резервного копирования',
     'Welcome, {username}!': 'Добро пожаловать, {username}!',
+    'Default password active — change it in Account settings.': 'Используется пароль по умолчанию — смените его в настройках аккаунта.',
     'Everything looks calm': 'Все спокойно',
     'No visible issues require operator attention right now.': 'Сейчас нет видимых проблем, требующих внимания оператора.',
     'RestoreMe keeps the operational view calm: agents, policies, recent jobs and recoverable artifacts in one place.': 'RestoreMe держит операционную картину под контролем: агенты, политики, последние задания и восстанавливаемые артефакты собраны в одном месте.',
@@ -188,6 +191,9 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Collapse sidebar': 'Свернуть меню',
     'Expand sidebar': 'Развернуть меню',
     'Toggle navigation': 'Переключить навигацию',
+    'Close navigation': 'Закрыть навигацию',
+    'Session expired. Please sign in again.': 'Сессия истекла. Войдите снова.',
+    'Type {name} to confirm': 'Введите {name} для подтверждения',
     'Switch to light theme': 'Переключить на светлую тему',
     'Switch to dark theme': 'Переключить на темную тему',
     'Know your data is protected before you need it.': 'Будьте уверены в защите данных еще до того, как они понадобятся.',
@@ -288,6 +294,34 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Agent identifier': 'Идентификатор агента',
     Details: 'Детали',
     Close: 'Закрыть',
+    Copied: 'Скопировано',
+    'Copy command': 'Скопировать команду',
+    'Could not copy. Select the command manually.': 'Не удалось скопировать. Выделите команду вручную.',
+    'Could not generate install token.': 'Не удалось сгенерировать install-токен.',
+    'Could not load the enrollment token.': 'Не удалось загрузить токен регистрации.',
+    'Install new agent': 'Установить агента',
+    'Install agent': 'Установить агента',
+    'Generate a single-use install command. Run it on the machine you want to back up — the agent connects and shows up here automatically.':
+      'Сгенерируйте одноразовую установочную команду. Запустите её на машине, которую нужно бэкапить — агент подключится и появится здесь автоматически.',
+    'Run this command on the target machine. The token is single-use and expires shortly.':
+      'Выполните команду на целевой машине. Токен одноразовый и скоро истечёт.',
+    'Generate install command': 'Сгенерировать команду установки',
+    'Generating...': 'Генерируем...',
+    'Agent name (optional)': 'Имя агента (опционально)',
+    'Leave empty to use the host machine name as the agent name.':
+      'Оставьте пустым, чтобы использовать имя хоста.',
+    'Expires in {minutes}m {seconds}s': 'Истекает через {minutes}м {seconds}с',
+    'Expires in {seconds}s': 'Истекает через {seconds}с',
+    'This install token has expired. Generate a new one to retry.':
+      'Install-токен истёк. Сгенерируйте новый, чтобы продолжить.',
+    Regenerate: 'Перевыпустить',
+    'Waiting for agent to connect...': 'Ждём подключения агента...',
+    'Connected: {name}': 'Подключён: {name}',
+    'Run this command on the machine you want to back up. The agent will appear under Pending agents after enrollment.':
+      'Выполните команду на машине, которую нужно бэкапить. Агент появится в разделе ожидающих после регистрации.',
+    'Loading enrollment token...': 'Загружаем токен регистрации...',
+    'Server URL is taken from this panel ({url}). To install against a different backend, edit the command before running it.':
+      'URL берётся из текущей панели ({url}). Чтобы поставить агент на другой бэкенд, отредактируйте команду перед запуском.',
     'Manage policies': 'Управлять политиками',
     'Registered RestoreMe agent': 'Зарегистрированный агент RestoreMe',
     'Assigned policies': 'Назначенные политики',
@@ -317,6 +351,41 @@ const dictionaries: Record<Language, Record<string, string>> = {
     Execution: 'Выполнение',
     Refresh: 'Обновить',
     'Refresh data': 'Обновить данные',
+    Live: 'В сети',
+    'Last sync': 'Обновлено',
+    Source: 'Источник',
+    Target: 'Назначение',
+    Confirm: 'Подтверждение',
+    'Restore to': 'Куда восстановить',
+    'Original agent': 'Тот же агент',
+    'Different agent': 'Другой агент',
+    'In-place restore on the originating host.': 'Восстановление на исходном хосте.',
+    'For cross-host recovery or migration.': 'Перенос на другой хост или миграция.',
+    recommended: 'рекомендуется',
+    advanced: 'продвинутый режим',
+    'Originating agent': 'Исходный агент',
+    'What this agent owns': 'Что относится к этому агенту',
+    'Calculating impact…': 'Подсчитываем последствия…',
+    '{policies} policies · {jobs} backups · {bytes} stored · {restores} restores':
+      '{policies} политик · {jobs} бэкапов · {bytes} в хранилище · {restores} восстановлений',
+    'Choose what should go with the agent. Items you keep stay visible as orphaned history rows.':
+      'Выберите, что удалить вместе с агентом. Оставленное продолжит отображаться как «осиротевшая» история.',
+    'Delete backup history': 'Удалить историю бэкапов',
+    'Removes backup job rows and artifact records from the database.':
+      'Удаляет записи о заданиях резервного копирования и артефактах из базы.',
+    'Delete stored files from object storage': 'Удалить файлы в объектном хранилище',
+    'Best-effort removal of MinIO objects. Disabled when backup history is kept.':
+      'Best-effort удаление объектов MinIO. Отключено, если история бэкапов сохраняется.',
+    'Delete restore history': 'Удалить историю восстановлений',
+    'Removes restore job rows. Required if restores are still pending.':
+      'Удаляет записи о восстановлениях. Обязательно, если есть незавершённые восстановления.',
+    'Audit history for this agent is always preserved.':
+      'История аудита по этому агенту сохраняется в любом случае.',
+    '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.':
+      'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
+    deleted: 'удалено',
+    'Agent (deleted)': 'Агент (удалён)',
+    'Policy (deleted)': 'Политика (удалена)',
     'Total runs': 'Всего запусков',
     'Track backup runs as a timeline: what started, what finished, what failed, and where attention is needed.': 'Отслеживайте запуски резервного копирования: что началось, что завершилось, где возникла ошибка и что требует внимания.',
     'Search by job, policy, agent, status, or error...': 'Поиск по заданию, политике, агенту, статусу или ошибке...',
@@ -380,6 +449,198 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Use deletion for accounts that should no longer exist. For temporary suspension, disable the user instead.': 'Удаляйте только аккаунты, которые больше не нужны. Для временной блокировки лучше отключить пользователя.',
     'Set a new password for {username}.': 'Задайте новый пароль для {username}.',
     'Set a new password for the selected user.': 'Задайте новый пароль для выбранного пользователя.',
+    Action: 'Действие',
+    'Agent token revoked': 'Токен агента отозван',
+    Apply: 'Применить',
+    'Audit events appear here as administrators and agents act on the system.':
+      'События аудита появятся здесь после действий администраторов и агентов в системе.',
+    'Audit log': 'Журнал аудита',
+    'Backend URL (as reachable from the agent machine)': 'URL бэкенда (как его видит машина агента)',
+    'Backend URL used: {url}. To regenerate against a different host, click Regenerate and edit the field.':
+      'Используется URL: {url}. Чтобы перевыпустить команду для другого хоста, нажмите «Перевыпустить» и отредактируйте поле.',
+    Clear: 'Очистить',
+    'Heads-up: this command targets localhost. Running it on a machine other than the backend host will fail. Regenerate with a LAN-reachable URL if you are installing on a different machine.':
+      'Внимание: команда указывает на localhost. На любой машине, кроме самого бэкенда, установка не сработает. Перевыпустите команду с URL, доступным по локальной сети, если ставите агента на другую машину.',
+    'No audit records found': 'Записи аудита не найдены',
+    Page: 'Страница',
+    Previous: 'Предыдущая',
+    'Queue a restore job on the originating agent': 'Поставить восстановление в очередь на агенте-источнике',
+    'Queuing...': 'Добавление в очередь...',
+    records: 'записей',
+    Restore: 'Восстановить',
+    'Restore job queued for {name}': 'Восстановление {name} поставлено в очередь',
+    'Restore request failed': 'Не удалось запросить восстановление',
+    Revoke: 'Отозвать',
+    'Revoke agent token? The agent will need to re-enroll.':
+      'Отозвать токен агента? Агенту придётся пройти регистрацию заново.',
+    'Revoke agent token? The agent will need to re-enroll. The row stays in the list and history is preserved.':
+      'Отозвать токен агента? Агенту придётся пройти регистрацию заново. Запись остаётся в списке, история сохраняется.',
+    'Revokes the agent access token. The row stays in the list and history is preserved; the agent must re-enroll to continue working.':
+      'Отзывает токен агента. Запись остаётся в списке, история сохраняется; чтобы работать дальше, агент должен пройти регистрацию заново.',
+    'Permanently deletes the agent, its policies, jobs, artifacts, and restore history.':
+      'Безвозвратно удаляет агента вместе с его политиками, заданиями, артефактами и историей восстановления.',
+    'This permanently deletes the agent "{name}" and ALL of its backup jobs, artifacts, policies, and restore history. Stored backup files in object storage will be removed on a best-effort basis. This cannot be undone. Continue?':
+      'Действие безвозвратно удалит агента «{name}» и ВСЕ его задания, артефакты, политики и историю восстановления. Файлы в объектном хранилище будут удалены best-effort. Отменить нельзя. Продолжить?',
+    'Agent deleted': 'Агент удалён',
+    'Unable to delete agent': 'Не удалось удалить агента',
+    'Sign in as an administrator to view the audit log.':
+      'Войдите как администратор, чтобы просмотреть журнал аудита.',
+    System: 'Система',
+    'The install script downloads the agent binary from this URL and the agent uses it for every API call thereafter.':
+      'Скрипт установки скачивает бинарный файл агента с этого URL, и затем агент использует этот URL для всех запросов к API.',
+    'This URL points at localhost. It will only work if you run the install command on the same machine as the backend. For a different host, replace it with a LAN-reachable hostname or IP.':
+      'Этот URL указывает на localhost. Установка сработает только на той же машине, где запущен бэкенд. Для другого хоста замените его на имя или IP, доступные по сети.',
+    'Trace of admin and agent lifecycle actions in the control plane.':
+      'История действий администраторов и жизненного цикла агентов в управляющем слое.',
+    'Unable to revoke agent': 'Не удалось отозвать токен агента',
+    'Follow system': 'Как в системе',
+    Preferences: 'Настройки',
+    'Interface and data refresh': 'Интерфейс и обновление данных',
+    'These settings live on this device and do not affect other operators.':
+      'Эти настройки действуют только на этом устройстве и не влияют на других операторов.',
+    'Storage and reliability': 'Хранилище и надёжность',
+    'Aggregated trends from the selected lookback window.':
+      'Сводные тренды за выбранный период.',
+    'Storage growth': 'Рост хранилища',
+    '+{size} added in this window': 'Добавлено {size} за период',
+    'No new bytes recorded in this window.': 'Новые данные за период не добавлялись.',
+    'No storage data yet': 'Пока нет данных по хранилищу',
+    'Storage growth will appear once artifacts start landing.':
+      'Рост хранилища появится после первых артефактов.',
+    'Top failing policies': 'Чаще всего падают',
+    'Policies with the most failed runs in this window.':
+      'Политики с наибольшим числом провальных запусков за период.',
+    Failures: 'Сбои',
+    'No failures recorded': 'Сбоев не было',
+    'Every policy completed cleanly in this window.':
+      'Все политики отработали без ошибок за этот период.',
+    'Could not load metrics': 'Не удалось загрузить метрики',
+    'Backend did not return the dashboard aggregation. Check connectivity.':
+      'Бэкенд не вернул сводные данные. Проверьте подключение.',
+    Period: 'Период',
+    '7 days': '7 дней',
+    '30 days': '30 дней',
+    '90 days': '90 дней',
+    Notifications: 'Уведомления',
+    'Notification channels': 'Каналы уведомлений',
+    'Add channel': 'Добавить канал',
+    'Add notification channel': 'Добавить канал уведомлений',
+    'Edit notification channel': 'Изменить канал уведомлений',
+    'Delete notification channel': 'Удалить канал уведомлений',
+    'Delete channel': 'Удалить канал',
+    'Test channel': 'Проверить канал',
+    'Channel name': 'Название канала',
+    'Channel type': 'Тип канала',
+    'Channel name is required': 'Название канала обязательно',
+    'Channel type cannot be changed after creation.':
+      'Тип канала нельзя изменить после создания.',
+    'Channels receive alerts about backup failures and agent health changes.':
+      'Каналы получают уведомления о сбоях резервных копий и состоянии агентов.',
+    'Send backup, restore and agent-health alerts to Telegram, Slack, Discord or a custom webhook.':
+      'Отправляйте уведомления о бэкапах, восстановлении и состоянии агентов в Telegram, Slack, Discord или произвольный webhook.',
+    'Only administrators can configure backup notification destinations.':
+      'Только администраторы могут настраивать каналы уведомлений.',
+    'Sign in as an administrator to manage notification channels.':
+      'Войдите как администратор, чтобы управлять каналами уведомлений.',
+    'No notification channels yet': 'Каналов уведомлений пока нет',
+    'Add a destination so RestoreMe can let you know when something needs attention.':
+      'Добавьте канал, чтобы RestoreMe сообщал, когда что-то требует внимания.',
+    'Subscribed events': 'Подписки на события',
+    'Subscribed to every event': 'Подписан на все события',
+    '{count} event(s) subscribed': 'Подписан на {count} событ.',
+    'Created {date}': 'Создан {date}',
+    'Enabled (delivers notifications)': 'Включен (отправляет уведомления)',
+    'Fill out the channel-specific fields': 'Заполните поля, специфичные для канала',
+    'Leave blank to keep the existing secret.':
+      'Оставьте пустым, чтобы сохранить текущий секрет.',
+    'Talk to @BotFather to create a bot, then grab the chat id via @userinfobot.':
+      'Создайте бота через @BotFather, затем получите chat id через @userinfobot.',
+    'Paste the incoming-webhook URL from your Slack app configuration.':
+      'Вставьте URL incoming-webhook из настроек Slack-приложения.',
+    'Paste the webhook URL from the target Discord channel settings.':
+      'Вставьте webhook URL из настроек целевого канала Discord.',
+    'Generic HMAC-signed JSON webhook. Optionally set a shared secret.':
+      'Произвольный JSON webhook с HMAC-подписью. Можно задать общий секрет.',
+    'Notification channel created': 'Канал уведомлений создан',
+    'Notification channel updated': 'Канал уведомлений обновлен',
+    'Notification channel deleted': 'Канал уведомлений удален',
+    'Unable to save notification channel': 'Не удалось сохранить канал уведомлений',
+    'Unable to delete notification channel': 'Не удалось удалить канал уведомлений',
+    'Test message delivered': 'Тестовое сообщение отправлено',
+    'Delivery failed': 'Доставка не удалась',
+    'Sending...': 'Отправка...',
+    "Delete '{name}'? Notifications will stop reaching this destination immediately.":
+      "Удалить '{name}'? Уведомления сразу перестанут приходить в этот канал.",
+    'Existing audit log entries for past deliveries are preserved.':
+      'Прошлые записи аудита по доставкам сохраняются.',
+    Telegram: 'Telegram',
+    Slack: 'Slack',
+    Discord: 'Discord',
+    Webhook: 'Webhook',
+    'Backup failed': 'Бэкап провален',
+    'Restore failed': 'Восстановление провалено',
+    'Backup completed': 'Бэкап завершен',
+    'Agent offline': 'Агент офлайн',
+    'Agent back online': 'Агент снова онлайн',
+
+    // First-run + onboarding (modal & floating widget)
+    'Welcome to RestoreMe': 'Добро пожаловать в RestoreMe',
+    'Complete these steps to protect your first machine.': 'Пройдите шаги, чтобы защитить первую машину.',
+    'Protect your first machine in 3 steps': 'Защитим первую машину за 3 шага',
+    'Polling for new agents': 'Ждём подключения новых агентов',
+    Done: 'Готово',
+    Locked: 'Заблокировано',
+    'Get started': 'Начать',
+    'Later': 'Позже',
+    'Product tour': 'Тур по продукту',
+    'Setup': 'Настройка',
+    'All set': 'Готово',
+    '{done} of {total} steps': '{done} из {total} шагов',
+    'Step {current} of {total}': 'Шаг {current} из {total}',
+    'Setup complete': 'Настройка завершена',
+    'Show setup checklist': 'Показать чек-лист настройки',
+    'Hide setup checklist': 'Свернуть чек-лист настройки',
+    'Continue setup': 'Продолжить настройку',
+    'Install your first agent': 'Установите первого агента',
+    'Deploy the RestoreMe agent on a machine you want to protect.': 'Установите агента RestoreMe на машину, которую нужно защищать.',
+    'Approve the pending request': 'Подтвердите заявку',
+    'Once installed, the agent appears here for review. Approve it to activate.': 'После установки агент появится здесь для проверки. Подтвердите его, чтобы активировать.',
+    'Create your first backup policy': 'Создайте первую политику',
+    'Define what to back up, where to store it, and how often.': 'Опишите, что копировать, куда складывать и как часто.',
+    'Change your default password': 'Смените пароль по умолчанию',
+    'Your account uses a default password. Set a personal one to secure access.': 'Аккаунт использует пароль по умолчанию. Задайте свой, чтобы защитить доступ.',
+
+    // Dashboard hero / sparkline
+    'Last backup': 'Последняя копия',
+    '7-day jobs': 'Задания за 7 дней',
+    total: 'всего',
+    'quick actions': 'быстрые действия',
+
+    // Density toggle
+    Comfy: 'Просторно',
+    Compact: 'Компактно',
+    Density: 'Плотность',
+
+    // Generic CTAs and statuses
+    Open: 'Открыть',
+    'View all': 'Все',
+
+    // Dashboard empty / error split
+    'Backup trend is empty': 'Пока нечего показать на графике',
+    'Once you create a policy and the first job runs, the activity chart fills up here.': 'Как только появится политика и пройдёт первый запуск, здесь нарисуется график активности.',
+    'Could not load dashboard': 'Не удалось загрузить дашборд',
+    'The backend is unreachable. Check connectivity and retry.': 'Бэкенд недоступен. Проверьте подключение и попробуйте снова.',
+
+    // Onboarding — personal password step
+    'Set a personal password': 'Задайте личный пароль',
+    'Replace the default password assigned at account creation.': 'Замените пароль по умолчанию, выданный при создании аккаунта.',
+    'Set password': 'Задать пароль',
+
+    // Policies — auto-disable after repeated failures
+    'Auto-disabled': 'Отключена автоматически',
+    'Disabled after {count} failures': 'Отключена после {count} ошибок подряд',
+    'Last error': 'Последняя ошибка',
+    'Re-enable': 'Включить снова',
   },
 }
 

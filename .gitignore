@@ -23,6 +23,8 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+presentation
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -56,6 +58,16 @@ docker-compose/.env.*.local
 docker-compose/secrets/*.local
 docker-compose/secrets/*.override
 
+# Real Compose secrets stay local; templates carry the .example.txt suffix.
+# Existing dev-default *.txt files remain tracked for now (README marks them
+# as starter values to be replaced before deployment).
+docker-compose/secrets/*.txt
+!docker-compose/secrets/*.example.txt
+!docker-compose/secrets/postgres-password.txt
+!docker-compose/secrets/postgres-connection.txt
+!docker-compose/secrets/minio-access-key.txt
+!docker-compose/secrets/minio-secret-key.txt
+
 # MSBuild Binary and Structured Log
 *.binlog
 
@@ -67,3 +79,8 @@ docker-compose/secrets/*.override
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# AI / tooling local state
+.claude/
+.playwright-mcp/
+.codegraph/

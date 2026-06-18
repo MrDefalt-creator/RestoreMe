@@ -2,42 +2,72 @@ import { create } from 'zustand'
 import { normalizeAuthUser, type User } from '@/shared/api/auth'
 
 interface AuthStore {
-  accessToken: string | null
   user: User | null
-  setSession: (token: string | null, user: User | null) => void
+  setSession: (user: User | null, rememberMe: boolean) => void
+  updateUser: (user: User) => void
   clearSession: () => void
 }
 
-const getStoredState = (): { accessToken: string | null; user: User | null } => {
-  const stored = localStorage.getItem('auth:session')
-  if (!stored) return { accessToken: null, user: null }
+const STORAGE_KEY = 'auth:session'
 
+const readStoredState = (): { user: User | null } => {
+  const stored = localStorage.getItem(STORAGE_KEY) ?? sessionStorage.getItem(STORAGE_KEY)
+  if (!stored) return { user: null }
   try {
     const data = JSON.parse(stored)
-    const accessToken = data.accessToken ?? data.token ?? null
-
-    if (!accessToken) {
-      return { accessToken: null, user: null }
-    }
-
-    return { accessToken, user: data.user ? normalizeAuthUser(data.user) : null }
+    return { user: data.user ? normalizeAuthUser(data.user) : null }
   } catch {
-    return { accessToken: null, user: null }
+    return { user: null }
+  }
+}
+
+const writeStoredState = (user: User | null, rememberMe: boolean) => {
+  const payload = JSON.stringify({ user })
+  if (rememberMe) {
+    localStorage.setItem(STORAGE_KEY, payload)
+    sessionStorage.removeItem(STORAGE_KEY)
+  } else {
+    sessionStorage.setItem(STORAGE_KEY, payload)
+    localStorage.removeItem(STORAGE_KEY)
+  }
+}
+
+const clearStoredState = () => {
+  localStorage.removeItem(STORAGE_KEY)
+  sessionStorage.removeItem(STORAGE_KEY)
+}
+
+// Updates the cached user payload while keeping the existing storage location
+// (localStorage for "remember me", sessionStorage otherwise) — used after
+// password change so that flags like `mustChangePassword` toggle off without
+// nuking the session.
+const updateStoredUser = (user: User) => {
+  const inLocal = localStorage.getItem(STORAGE_KEY)
+  const inSession = sessionStorage.getItem(STORAGE_KEY)
+  const payload = JSON.stringify({ user })
+  if (inLocal) {
+    localStorage.setItem(STORAGE_KEY, payload)
+  } else if (inSession) {
+    sessionStorage.setItem(STORAGE_KEY, payload)
+  } else {
+    sessionStorage.setItem(STORAGE_KEY, payload)
   }
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
-  accessToken: null,
   user: null,
-  setSession: (token, user) => {
-    localStorage.setItem('auth:session', JSON.stringify({ accessToken: token, user }))
-    set({ accessToken: token, user })
+  setSession: (user, rememberMe) => {
+    writeStoredState(user, rememberMe)
+    set({ user })
+  },
+  updateUser: (user) => {
+    updateStoredUser(user)
+    set({ user })
   },
   clearSession: () => {
-    localStorage.removeItem('auth:session')
-    set({ accessToken: null, user: null })
+    clearStoredState()
+    set({ user: null })
   },
 }))
 
-// Restore persisted state on mount
-useAuthStore.setState(getStoredState())
+useAuthStore.setState(readStoredState())

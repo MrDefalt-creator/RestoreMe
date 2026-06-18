@@ -19,7 +19,7 @@ public class ArchiveService : IArchiveService
         Directory.CreateDirectory(tempDirectory);
         
         string archiveFileName =
-            $"{Path.GetFileName(sourceDirectoryPath)}_{DateTime.UtcNow:yyyyMMddHHmmss}.zip";
+            $"{Path.GetFileName(sourceDirectoryPath)}_{Guid.NewGuid():N}.zip";
         
         string archivePath = Path.Combine(tempDirectory, archiveFileName);
         

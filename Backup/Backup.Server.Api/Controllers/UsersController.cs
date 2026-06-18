@@ -27,9 +27,15 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            return Ok(await _usersService.CreateUserAsync(request));
+            return Ok(await _usersService.CreateUserAsync(actorUserId.Value, request));
         }
         catch (InvalidOperationException ex)
         {
@@ -78,7 +84,13 @@ public class UsersController : ControllerBase
     [HttpPatch("{userId:guid}/password")]
     public async Task<IActionResult> SetPassword([FromRoute] Guid userId, [FromBody] SetUserPasswordRequest request)
     {
-        await _usersService.SetPasswordAsync(userId, request.NewPassword);
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        await _usersService.SetPasswordAsync(actorUserId.Value, userId, request.NewPassword);
         return NoContent();
     }
 

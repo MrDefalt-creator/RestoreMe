@@ -47,6 +47,12 @@ public class PoliciesController : ControllerBase
     [HttpPost("create_policy/{agentId:guid}")]
     public async Task<IActionResult> CreatePolicyForAgent([FromRoute] Guid agentId, [FromBody] CreateBackupPolicyRequest request)
     {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
         try
         {
             var policy = await _policiesService.CreatePolicy(
@@ -55,7 +61,9 @@ public class PoliciesController : ControllerBase
                 request.Name,
                 request.SourcePath,
                 request.Interval,
-                request.DatabaseSettings);
+                request.DatabaseSettings,
+                request.RetentionDays,
+                actorUserId.Value);
 
             var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
             return Ok(response);
@@ -102,15 +110,31 @@ public class PoliciesController : ControllerBase
     [HttpPut("{policyId:guid}")]
     public async Task<IActionResult> UpdatePolicy([FromRoute] Guid policyId, [FromBody] UpdateBackupPolicyRequest request)
     {
-        var policy = await _policiesService.UpdatePolicy(
-            policyId,
-            request.AgentId,
-            request.Type,
-            request.Name,
-            request.SourcePath,
-            request.IntervalSeconds,
-            request.IsEnabled,
-            request.DatabaseSettings);
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        BackupPolicy policy;
+        try
+        {
+            policy = await _policiesService.UpdatePolicy(
+                policyId,
+                request.AgentId,
+                request.Type,
+                request.Name,
+                request.SourcePath,
+                request.IntervalSeconds,
+                request.IsEnabled,
+                request.DatabaseSettings,
+                request.RetentionDays,
+                actorUserId.Value);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
 
         return Ok(MapPolicy(policy));
     }
@@ -119,8 +143,36 @@ public class PoliciesController : ControllerBase
     [HttpPatch("{policyId:guid}/toggle")]
     public async Task<IActionResult> TogglePolicy([FromRoute] Guid policyId)
     {
-        var policy = await _policiesService.TogglePolicy(policyId);
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var policy = await _policiesService.TogglePolicy(policyId, actorUserId.Value);
         return Ok(MapPolicy(policy));
+    }
+
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    [HttpDelete("{policyId:guid}")]
+    public async Task<IActionResult> DeletePolicy([FromRoute] Guid policyId)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            await _policiesService.DeletePolicy(policyId, actorUserId.Value);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
@@ -156,7 +208,11 @@ public class PoliciesController : ControllerBase
             policy.CreatedAt,
             policy.NextRunAt,
             policy.LastRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings));
+            MapDatabaseSettings(policy.DatabaseSettings, includePassword: false),
+            policy.RetentionDays,
+            policy.ConsecutiveFailureCount,
+            policy.LastFailureReason,
+            policy.AutoDisabledAt);
     }
 
     private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)
@@ -168,7 +224,7 @@ public class PoliciesController : ControllerBase
             policy.SourcePath,
             policy.IsEnabled,
             policy.NextRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings));
+            MapDatabaseSettings(policy.DatabaseSettings, includePassword: true));
     }
 
     private static string MapPolicyType(BackupPolicyType type)
@@ -182,7 +238,9 @@ public class PoliciesController : ControllerBase
         };
     }
 
-    private static BackupPolicyDatabaseSettingsDto? MapDatabaseSettings(BackupPolicyDatabaseSettings? settings)
+    private static BackupPolicyDatabaseSettingsDto? MapDatabaseSettings(
+        BackupPolicyDatabaseSettings? settings,
+        bool includePassword)
     {
         if (settings == null)
         {
@@ -206,6 +264,6 @@ public class PoliciesController : ControllerBase
             settings.Port,
             settings.DatabaseName,
             settings.Username,
-            settings.Password);
+            includePassword ? settings.Password : null);
     }
 }

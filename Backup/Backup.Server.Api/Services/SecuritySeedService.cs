@@ -55,7 +55,8 @@ public class SecuritySeedService
                 NormalizedUsername = normalizedUsername,
                 Role = ParseRole(seedUser.Role),
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                MustChangePassword = false,
             };
 
             user.PasswordHash = _passwordHasher.HashPassword(user, seedUser.Password);

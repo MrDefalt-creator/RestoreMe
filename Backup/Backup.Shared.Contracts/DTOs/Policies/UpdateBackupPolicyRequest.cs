@@ -9,5 +9,6 @@ public record UpdateBackupPolicyRequest(
     string? SourcePath,
     [Required] int IntervalSeconds,
     [Required] bool IsEnabled,
-    BackupPolicyDatabaseSettingsDto? DatabaseSettings
+    BackupPolicyDatabaseSettingsDto? DatabaseSettings,
+    [Range(1, 3650)] int? RetentionDays = null
 );

@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -22,9 +23,12 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
-import { Spinner } from '@/shared/ui/Spinner'
+import { StatTile } from '@/shared/ui/StatTile'
+import { SegmentedControl } from '@/shared/ui/SegmentedControl'
+import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { JobDrawer } from '@/widgets/job-drawer'
 
 type StatusFilter = 'all' | Job['status']
 type AgentLookup = Awaited<ReturnType<typeof getAgents>>[number]
@@ -46,6 +50,7 @@ export function JobsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [, setSearchParams] = useSearchParams()
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs,
     queryFn: getJobs,
@@ -71,8 +76,8 @@ export function JobsPage() {
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      const agent = agentsById.get(job.agentId)
-      const policy = policiesById.get(job.policyId)
+      const agent = job.agentId ? agentsById.get(job.agentId) : undefined
+      const policy = job.policyId ? policiesById.get(job.policyId) : undefined
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
       const searchable = [
         job.name,
@@ -100,6 +105,7 @@ export function JobsPage() {
       completed: jobs.filter((job) => job.status === 'completed').length,
       failed: jobs.filter((job) => job.status === 'failed').length,
       running: jobs.filter((job) => job.status === 'running').length,
+      pending: jobs.filter((job) => job.status === 'pending').length,
     }),
     [jobs],
   )
@@ -119,10 +125,10 @@ export function JobsPage() {
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <JobMetric icon={<Activity />} label={t('Total runs')} value={stats.total} />
-        <JobMetric icon={<CheckCircle2 />} label={t('Completed')} value={stats.completed} tone="success" />
-        <JobMetric icon={<XCircle />} label={t('Failed')} value={stats.failed} tone="danger" />
-        <JobMetric icon={<TimerReset />} label={t('Running')} value={stats.running} tone="accent" />
+        <StatTile icon={<Activity className="h-4 w-4" />} label={t('Total runs')} value={stats.total} />
+        <StatTile icon={<CheckCircle2 className="h-4 w-4" />} label={t('Completed')} value={stats.completed} tone="success" />
+        <StatTile icon={<XCircle className="h-4 w-4" />} label={t('Failed')} value={stats.failed} tone="destructive" />
+        <StatTile icon={<TimerReset className="h-4 w-4" />} label={t('Running')} value={stats.running} tone="accent" />
       </div>
 
       <Card>
@@ -136,32 +142,23 @@ export function JobsPage() {
               className="pl-10"
             />
           </div>
-          <div className="flex rounded-lg border border-border bg-secondary/50 p-1">
-            {(['all', 'pending', 'running', 'failed', 'completed'] as StatusFilter[]).map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                className={
-                  statusFilter === status
-                    ? 'rounded-md bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition'
-                    : 'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground'
-                }
-              >
-                {t(status)}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            value={statusFilter}
+            onChange={setStatusFilter}
+            aria-label={t('Filter by status')}
+            options={[
+              { value: 'all', label: t('all'), count: stats.total },
+              { value: 'pending', label: t('pending'), count: stats.pending },
+              { value: 'running', label: t('running'), count: stats.running, tone: 'accent' },
+              { value: 'failed', label: t('failed'), count: stats.failed, tone: 'destructive' },
+              { value: 'completed', label: t('completed'), count: stats.completed, tone: 'success' },
+            ]}
+          />
         </CardContent>
       </Card>
 
       {jobsQuery.isLoading ? (
-        <Card>
-          <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
-            <Spinner />
-            {t('Loading jobs...')}
-          </CardContent>
-        </Card>
+        <SkeletonList count={6} columns={4} />
       ) : jobsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
@@ -184,6 +181,7 @@ export function JobsPage() {
                   agentLabel={formatAgentLabel(job, agentsById)}
                   title={formatJobTitle(job, policiesById)}
                   t={t}
+                  onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('id', job.id); return next })}
                 />
               ))}
             </div>
@@ -199,55 +197,25 @@ export function JobsPage() {
           }
         />
       )}
+
+      <JobDrawer />
     </div>
   )
 }
 
-function JobMetric({
-  icon,
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  icon: ReactNode
-  label: string
-  value: number
-  tone?: 'neutral' | 'success' | 'danger' | 'accent'
-}) {
-  const toneClass =
-    tone === 'success'
-      ? 'bg-success/12 text-success'
-      : tone === 'danger'
-        ? 'bg-destructive/12 text-destructive'
-        : tone === 'accent'
-          ? 'bg-accent text-accent-foreground'
-          : 'bg-secondary text-muted-foreground'
-
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
-        </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${toneClass}`}>
-          {icon}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function JobRow({
   job,
   title,
   agentLabel,
   t,
+  onClick,
 }: {
   job: Job
   title: string
   agentLabel: string
   t: (key: string) => string
+  onClick?: () => void
 }) {
   const hasDuration = job.completedAt && job.startedAt
   const durationSeconds = hasDuration
@@ -255,7 +223,13 @@ function JobRow({
     : null
 
   return (
-    <div className="grid gap-4 p-4 transition hover:bg-secondary/35 lg:grid-cols-[1.3fr_1fr_auto] lg:items-center">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.() }}
+      className="grid cursor-pointer gap-4 p-4 transition hover:bg-secondary/35 lg:grid-cols-[1.3fr_1fr_auto] lg:items-center"
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-medium text-foreground">{title}</p>
@@ -289,15 +263,21 @@ function JobRow({
 }
 
 function formatJobTitle(job: Job, policiesById: Map<string, { name: string }>) {
-  return job.policyName || job.name || policiesById.get(job.policyId)?.name || `Backup job ${shortId(job.id)}`
+  const livePolicyName = job.policyId ? policiesById.get(job.policyId)?.name : undefined
+  return job.policyName || job.name || livePolicyName || `Backup job ${shortId(job.id)}`
 }
 
 function formatAgentLabel(job: Job, agentsById: Map<string, { name: string; machineName?: string }>) {
-  const agent = agentsById.get(job.agentId)
-  return job.agentName || agent?.name || agent?.machineName || `Agent ${shortId(job.agentId)}`
+  const liveAgent = job.agentId ? agentsById.get(job.agentId) : undefined
+  // agentName comes from the backend snapshot when the live row is gone;
+  // fall back to a "(deleted)" hint if even the snapshot is missing.
+  if (job.agentName) return job.agentName
+  if (liveAgent) return liveAgent.name || liveAgent.machineName || `Agent ${shortId(job.agentId)}`
+  if (job.agentId) return `Agent ${shortId(job.agentId)}`
+  return 'Agent (deleted)'
 }
 
-function shortId(id: string | undefined) {
+function shortId(id: string | null | undefined) {
   return id ? id.slice(0, 8) : 'unknown'
 }
 

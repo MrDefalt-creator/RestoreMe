@@ -15,6 +15,8 @@ public interface IBackupJobRepository
     public Task SaveChangesAsync();
     
     public Task<BackupJob?> GetBackupJob(Guid jobId);
-    
+
     public Task UpdateBackupJob(BackupJob job);
+
+    public Task ExecuteInTransactionAsync(Func<Task> action);
 }

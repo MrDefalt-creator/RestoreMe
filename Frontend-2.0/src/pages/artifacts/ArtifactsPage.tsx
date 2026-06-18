@@ -7,12 +7,14 @@ import {
   FileArchive,
   FolderArchive,
   HardDriveDownload,
+  RotateCcw,
   RefreshCw,
   Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { downloadArtifact, getArtifacts, type Artifact } from '@/shared/api/artifacts'
+import { RestoreWizardDialog } from '@/features/restore-artifact'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
@@ -21,7 +23,7 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
-import { Spinner } from '@/shared/ui/Spinner'
+import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
@@ -36,6 +38,7 @@ export function ArtifactsPage() {
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [wizardArtifact, setWizardArtifact] = useState<Artifact | null>(null)
 
   const artifactsQuery = useQuery({
     queryKey: queryKeys.artifacts,
@@ -64,6 +67,7 @@ export function ArtifactsPage() {
     },
     onSettled: () => setDownloadingId(null),
   })
+
 
   const artifacts = artifactsQuery.data ?? EMPTY_ARTIFACTS
   const normalizedQuery = query.trim().toLowerCase()
@@ -151,12 +155,7 @@ export function ArtifactsPage() {
       </Card>
 
       {artifactsQuery.isLoading ? (
-        <Card>
-          <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
-            <Spinner />
-            {t('Loading artifacts...')}
-          </CardContent>
-        </Card>
+        <SkeletonList count={6} columns={4} />
       ) : artifactsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
@@ -177,7 +176,9 @@ export function ArtifactsPage() {
                   key={artifact.id}
                   artifact={artifact}
                   isDownloading={downloadingId === artifact.id}
+                  isRestoring={false}
                   onDownload={() => downloadMutation.mutate(artifact)}
+                  onRestore={() => setWizardArtifact(artifact)}
                   t={t}
                 />
               ))}
@@ -195,6 +196,12 @@ export function ArtifactsPage() {
           }
         />
       )}
+
+      <RestoreWizardDialog
+        open={wizardArtifact !== null}
+        artifact={wizardArtifact}
+        onClose={() => setWizardArtifact(null)}
+      />
     </div>
   )
 }
@@ -226,18 +233,31 @@ function ArtifactMetric({
 function ArtifactRow({
   artifact,
   isDownloading,
+  isRestoring,
   onDownload,
+  onRestore,
   t,
 }: {
   artifact: Artifact
   isDownloading: boolean
+  isRestoring: boolean
   onDownload: () => void
+  onRestore: () => void
   t: (key: string, params?: Record<string, string | number>) => string
 }) {
-  const expiresAt = Date.parse(artifact.expiresAt ?? '')
-  const hasExpiry = Boolean(artifact.expiresAt) && Number.isFinite(expiresAt)
-  const isExpired = hasExpiry && Date.now() > expiresAt
-  const expiresSoon = hasExpiry && !isExpired && expiresAt - Date.now() < 3 * 24 * 60 * 60 * 1000
+  const { hasExpiry, isExpired, expiresSoon } = useMemo(() => {
+    const parsed = Date.parse(artifact.expiresAt ?? '')
+    const valid = Boolean(artifact.expiresAt) && Number.isFinite(parsed)
+    // Snapshot "now" once per artifact render — TanStack Query refetches the
+    // list periodically, which re-runs this memo and refreshes the flags.
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now()
+    return {
+      hasExpiry: valid,
+      isExpired: valid && now > parsed,
+      expiresSoon: valid && now <= parsed && parsed - now < 3 * 24 * 60 * 60 * 1000,
+    }
+  }, [artifact.expiresAt])
   const displayName = getArtifactDisplayName(artifact)
   const artifactType = getArtifactType(artifact)
 
@@ -282,6 +302,16 @@ function ArtifactRow({
             {isExpired ? t('Expired') : t('Expiring')}
           </div>
         ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onRestore}
+          disabled={isRestoring || isExpired}
+          title={isExpired ? t('This artifact is expired') : t('Queue a restore job on the originating agent')}
+        >
+          <RotateCcw className="h-4 w-4" />
+          {isRestoring ? t('Queuing...') : t('Restore')}
+        </Button>
         <Button
           variant={isExpired ? 'secondary' : 'primary'}
           size="sm"

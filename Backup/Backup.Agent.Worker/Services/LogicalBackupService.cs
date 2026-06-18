@@ -40,11 +40,10 @@ public class LogicalBackupService : ILogicalBackupService
         CancellationToken cancellationToken)
     {
         var settings = policy.DatabaseSettings!;
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         var safeDatabaseName = SanitizeFileName(settings.DatabaseName);
         var dumpPath = Path.Combine(
             Path.GetTempPath(),
-            $"{safeDatabaseName}_{timestamp}.sql");
+            $"{safeDatabaseName}_{Guid.NewGuid():N}.sql");
 
         var arguments = new List<string>
         {
@@ -52,28 +51,28 @@ public class LogicalBackupService : ILogicalBackupService
             "--no-privileges",
             "--format=plain",
             "--no-password",
-            "--file", QuoteArgument(dumpPath)
+            "--file", dumpPath,
         };
 
         if (!string.IsNullOrWhiteSpace(settings.Host))
         {
             arguments.Add("--host");
-            arguments.Add(QuoteArgument(settings.Host));
+            arguments.Add(settings.Host);
         }
 
         if (settings.Port.HasValue)
         {
             arguments.Add("--port");
-            arguments.Add(settings.Port.Value.ToString());
+            arguments.Add(settings.Port.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         if (!string.IsNullOrWhiteSpace(settings.Username))
         {
             arguments.Add("--username");
-            arguments.Add(QuoteArgument(settings.Username));
+            arguments.Add(settings.Username);
         }
 
-        arguments.Add(QuoteArgument(settings.DatabaseName));
+        arguments.Add(settings.DatabaseName);
 
         var environment = new Dictionary<string, string?>();
         if (string.Equals(settings.AuthMode, "credentials", StringComparison.OrdinalIgnoreCase))
@@ -83,7 +82,7 @@ public class LogicalBackupService : ILogicalBackupService
 
         await RunProcessAsync(
             _agentOptions.PostgreSqlDumpCommand,
-            string.Join(' ', arguments),
+            arguments,
             environment,
             cancellationToken);
 
@@ -99,34 +98,33 @@ public class LogicalBackupService : ILogicalBackupService
         CancellationToken cancellationToken)
     {
         var settings = policy.DatabaseSettings!;
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         var safeDatabaseName = SanitizeFileName(settings.DatabaseName);
         var dumpPath = Path.Combine(
             Path.GetTempPath(),
-            $"{safeDatabaseName}_{timestamp}.sql");
+            $"{safeDatabaseName}_{Guid.NewGuid():N}.sql");
 
         var arguments = new List<string>();
 
         if (!string.IsNullOrWhiteSpace(settings.Host))
         {
-            arguments.Add($"--host={QuoteArgument(settings.Host)}");
+            arguments.Add($"--host={settings.Host}");
         }
 
         if (settings.Port.HasValue)
         {
-            arguments.Add($"--port={settings.Port.Value}");
+            arguments.Add($"--port={settings.Port.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
         }
 
         if (!string.IsNullOrWhiteSpace(settings.Username))
         {
-            arguments.Add($"--user={QuoteArgument(settings.Username)}");
+            arguments.Add($"--user={settings.Username}");
         }
 
-        arguments.Add($"--result-file={QuoteArgument(dumpPath)}");
+        arguments.Add($"--result-file={dumpPath}");
         arguments.Add("--single-transaction");
         arguments.Add("--routines");
         arguments.Add("--events");
-        arguments.Add(QuoteArgument(settings.DatabaseName));
+        arguments.Add(settings.DatabaseName);
 
         var environment = new Dictionary<string, string?>
         {
@@ -135,7 +133,7 @@ public class LogicalBackupService : ILogicalBackupService
 
         await RunProcessAsync(
             _agentOptions.MySqlDumpCommand,
-            string.Join(' ', arguments),
+            arguments,
             environment,
             cancellationToken);
 
@@ -148,7 +146,7 @@ public class LogicalBackupService : ILogicalBackupService
 
     private static async Task RunProcessAsync(
         string command,
-        string arguments,
+        IReadOnlyList<string> arguments,
         IReadOnlyDictionary<string, string?> environment,
         CancellationToken cancellationToken)
     {
@@ -158,13 +156,21 @@ public class LogicalBackupService : ILogicalBackupService
         process.StartInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            Arguments = arguments,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
             RedirectStandardInput = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
+
+        // ArgumentList does its own platform-appropriate quoting — args
+        // with spaces, embedded quotes or odd characters end up as a
+        // single argv entry to the child process instead of being split
+        // by a half-correct manual escape.
+        foreach (var arg in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(arg);
+        }
 
         foreach (var pair in environment)
         {
@@ -196,8 +202,12 @@ public class LogicalBackupService : ILogicalBackupService
 
         if (process.ExitCode != 0)
         {
+            // stderr/stdout may contain connection details; log them separately rather than
+            // propagating through the exception chain where they could reach structured logs.
+            System.Diagnostics.Debug.WriteLine(
+                $"[{executablePath}] stderr: {standardError} | stdout: {standardOutput}");
             throw new InvalidOperationException(
-                $"Dump process '{executablePath}' failed with exit code {process.ExitCode}. Error: {standardError}. Output: {standardOutput}");
+                $"Dump process '{executablePath}' failed with exit code {process.ExitCode}.");
         }
     }
 
@@ -332,10 +342,5 @@ public class LogicalBackupService : ILogicalBackupService
     {
         var invalidChars = Path.GetInvalidFileNameChars();
         return string.Concat(input.Select(ch => invalidChars.Contains(ch) ? '_' : ch));
-    }
-
-    private static string QuoteArgument(string value)
-    {
-        return $"\"{value.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
     }
 }

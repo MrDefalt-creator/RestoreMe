@@ -9,4 +9,9 @@ public interface IMinioStorageClient
         string filePath,
         string contentType,
         CancellationToken cancellationToken);
+
+    Task DownloadFileAsync(
+        string downloadUrl,
+        string destinationPath,
+        CancellationToken cancellationToken);
 }

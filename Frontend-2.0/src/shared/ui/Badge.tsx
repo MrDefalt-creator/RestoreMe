@@ -23,6 +23,7 @@ const badgeVariants = cva(
         neutral:
           'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
         outline: 'text-foreground',
+        outlineDot: 'border-border bg-transparent text-muted-foreground gap-1.5',
       },
     },
     defaultVariants: {
@@ -31,13 +32,28 @@ const badgeVariants = cva(
   },
 )
 
+const dotToneClass: Record<DotTone, string> = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  destructive: 'bg-destructive',
+  neutral: 'bg-muted-foreground',
+  primary: 'bg-primary',
+}
+
+type DotTone = 'success' | 'warning' | 'destructive' | 'neutral' | 'primary'
+
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+    VariantProps<typeof badgeVariants> {
+  dot?: DotTone
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, dot, children, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div className={cn(badgeVariants({ variant }), className)} {...props}>
+      {dot ? <span className={cn('h-1.5 w-1.5 rounded-full', dotToneClass[dot])} aria-hidden /> : null}
+      {children}
+    </div>
   )
 }
 

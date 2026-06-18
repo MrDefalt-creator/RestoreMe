@@ -23,5 +23,11 @@ public class BackupPolicy
     public Agent Agent { get; set; } = null!;
     public BackupPolicyDatabaseSettings? DatabaseSettings { get; set; }
 
+    public int? RetentionDays { get; set; }
+
+    public int ConsecutiveFailureCount { get; set; }
+    public string? LastFailureReason { get; set; }
+    public DateTime? AutoDisabledAt { get; set; }
+
     public ICollection<BackupJob> Jobs { get; set; } = new List<BackupJob>();
 }

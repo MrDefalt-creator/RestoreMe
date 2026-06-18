@@ -11,13 +11,16 @@ public class UsersService
 {
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
+    private readonly IAuditLogRepository _auditLogRepository;
 
     public UsersService(
         IAppUserRepository appUserRepository,
-        IPasswordHasher<AppUser> passwordHasher)
+        IPasswordHasher<AppUser> passwordHasher,
+        IAuditLogRepository auditLogRepository)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
+        _auditLogRepository = auditLogRepository;
     }
 
     public async Task<List<AdminUserDto>> GetUsersAsync()
@@ -26,7 +29,7 @@ public class UsersService
         return users.Select(MapUser).ToList();
     }
 
-    public async Task<AdminUserDto> CreateUserAsync(CreateUserRequest request)
+    public async Task<AdminUserDto> CreateUserAsync(Guid actorId, CreateUserRequest request)
     {
         var normalizedUsername = AuthService.NormalizeUsername(request.Username);
         var existing = await _appUserRepository.GetByNormalizedUsernameAsync(normalizedUsername);
@@ -35,6 +38,7 @@ public class UsersService
             throw new InvalidOperationException("User with the same username already exists.");
         }
 
+        ValidatePassword(request.Password);
         var role = ParseRole(request.Role);
         var user = new AppUser
         {
@@ -48,6 +52,7 @@ public class UsersService
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
         await _appUserRepository.AddAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorId, "user.create", user.Id, $"username={user.Username} role={request.Role}"));
         await _appUserRepository.SaveChangesAsync();
 
         return MapUser(user);
@@ -61,6 +66,7 @@ public class UsersService
         await EnsureAdminAvailabilityAsync(user, user.IsActive && parsedRole != AppUserRole.Admin);
         user.Role = parsedRole;
         await _appUserRepository.UpdateAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "user.role_change", userId, $"new_role={role}"));
         await _appUserRepository.SaveChangesAsync();
         return MapUser(user);
     }
@@ -72,15 +78,27 @@ public class UsersService
         await EnsureAdminAvailabilityAsync(user, user.Role == AppUserRole.Admin && user.IsActive && !isActive);
         user.IsActive = isActive;
         await _appUserRepository.UpdateAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "user.status_change", userId, $"is_active={isActive}"));
         await _appUserRepository.SaveChangesAsync();
         return MapUser(user);
     }
 
-    public async Task SetPasswordAsync(Guid userId, string newPassword)
+    public async Task SetPasswordAsync(Guid actorId, Guid userId, string newPassword)
     {
+        ValidatePassword(newPassword);
         var user = await GetUserByIdAsync(userId);
+        EnsurePasswordNotReused(user, newPassword, _passwordHasher);
+
+        RecordPasswordInHistory(user, user.PasswordHash);
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.SecurityStamp = Guid.NewGuid();
+        // Admin reset = target user signs in once and must pick their own
+        // password before they can use anything else.
+        user.MustChangePassword = true;
+        user.FailedLoginAttempts = 0;
+        user.LockedUntilUtc = null;
         await _appUserRepository.UpdateAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorId, "user.password_reset", userId));
         await _appUserRepository.SaveChangesAsync();
     }
 
@@ -90,6 +108,7 @@ public class UsersService
         var user = await GetUserByIdAsync(userId);
         await EnsureAdminAvailabilityAsync(user, user.Role == AppUserRole.Admin && user.IsActive);
         await _appUserRepository.DeleteAsync(user);
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "user.delete", userId, $"username={user.Username}"));
         await _appUserRepository.SaveChangesAsync();
     }
 
@@ -136,6 +155,67 @@ public class UsersService
             _ => throw new InvalidOperationException($"Unsupported user role '{value}'.")
         };
     }
+
+    public const int PasswordHistoryDepth = 5;
+
+    internal static void ValidatePassword(string password)
+    {
+        if (password.Length < 8)
+            throw new InvalidOperationException("Password must be at least 8 characters long.");
+        if (!password.Any(char.IsUpper))
+            throw new InvalidOperationException("Password must contain at least one uppercase letter.");
+        if (!password.Any(char.IsDigit))
+            throw new InvalidOperationException("Password must contain at least one digit.");
+        if (!password.Any(c => !char.IsLetterOrDigit(c)))
+            throw new InvalidOperationException("Password must contain at least one non-alphanumeric character.");
+    }
+
+    // Throws InvalidOperationException if `newPassword` verifies against
+    // the user's current hash OR any hash recorded in PasswordHistory.
+    internal static void EnsurePasswordNotReused(
+        AppUser user,
+        string newPassword,
+        IPasswordHasher<AppUser> hasher)
+    {
+        var candidates = new List<string> { user.PasswordHash };
+        candidates.AddRange(PasswordHistoryHelpers.Parse(user.PasswordHistory));
+
+        foreach (var oldHash in candidates)
+        {
+            if (string.IsNullOrEmpty(oldHash)) continue;
+            var verify = hasher.VerifyHashedPassword(user, oldHash, newPassword);
+            if (verify != PasswordVerificationResult.Failed)
+            {
+                throw new InvalidOperationException("Password was used recently. Choose a different one.");
+            }
+        }
+    }
+
+    // Records the *previous* hash in PasswordHistory (capped at
+    // PasswordHistoryDepth) before the caller swaps PasswordHash to the
+    // new value. Call BEFORE assigning the new hash.
+    internal static void RecordPasswordInHistory(AppUser user, string previousHash)
+    {
+        if (string.IsNullOrEmpty(previousHash)) return;
+        var history = PasswordHistoryHelpers.Parse(user.PasswordHistory);
+        history.Insert(0, previousHash);
+        if (history.Count > PasswordHistoryDepth)
+        {
+            history = history.Take(PasswordHistoryDepth).ToList();
+        }
+        user.PasswordHistory = PasswordHistoryHelpers.Serialize(history);
+    }
+
+    private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = action,
+            TargetId = targetId,
+            Details = details,
+            OccurredAt = DateTime.UtcNow
+        };
 
     private static AdminUserDto MapUser(AppUser user)
     {

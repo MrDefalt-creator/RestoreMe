@@ -27,12 +27,15 @@ public class TokenService
             user.Username,
             MapUserRole(user.Role),
             AuthConstants.UserTokenType,
-            expiresAtUtc);
+            expiresAtUtc,
+            user.SecurityStamp.ToString(),
+            agentTokenVersion: null,
+            extraClaims: null);
 
         return new AuthResponse(
             token,
             expiresAtUtc,
-            new CurrentUserResponse(user.Id, user.Username, MapUserRole(user.Role)));
+            new CurrentUserResponse(user.Id, user.Username, MapUserRole(user.Role), user.MustChangePassword));
     }
 
     public string CreateAgentToken(Agent agent)
@@ -43,7 +46,10 @@ public class TokenService
             agent.MachineName,
             AuthConstants.AgentRole,
             AuthConstants.AgentTokenType,
-            expiresAtUtc);
+            expiresAtUtc,
+            stamp: null,
+            agentTokenVersion: agent.TokenVersion,
+            extraClaims: null);
     }
 
     private string CreateToken(
@@ -51,9 +57,19 @@ public class TokenService
         string subjectName,
         string role,
         string tokenType,
-        DateTime expiresAtUtc)
+        DateTime expiresAtUtc,
+        string? stamp,
+        int? agentTokenVersion,
+        IEnumerable<System.Security.Claims.Claim>? extraClaims)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
+        // Agent tokens get their own signing key when AgentSigningKey is
+        // configured — otherwise we fall back to the shared SigningKey to
+        // stay backwards compatible with existing deployments.
+        var rawKey = tokenType == AuthConstants.AgentTokenType && !string.IsNullOrWhiteSpace(_jwtOptions.AgentSigningKey)
+            ? _jwtOptions.AgentSigningKey
+            : _jwtOptions.SigningKey;
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(rawKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
@@ -63,6 +79,23 @@ public class TokenService
             new(ClaimTypes.Role, role),
             new(AuthConstants.TokenTypeClaim, tokenType)
         };
+
+        if (!string.IsNullOrEmpty(stamp))
+        {
+            claims.Add(new Claim(AuthConstants.SecurityStampClaim, stamp));
+        }
+
+        if (agentTokenVersion.HasValue)
+        {
+            claims.Add(new Claim(
+                AuthConstants.AgentTokenVersionClaim,
+                agentTokenVersion.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        if (extraClaims is not null)
+        {
+            claims.AddRange(extraClaims);
+        }
 
         var descriptor = new SecurityTokenDescriptor
         {

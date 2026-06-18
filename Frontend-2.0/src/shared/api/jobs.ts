@@ -4,10 +4,13 @@ export interface Job {
   id: string
   name?: string
   status: 'pending' | 'completed' | 'failed' | 'running'
-  policyId: string
-  policyName?: string
-  agentId: string
-  agentName?: string
+  // Nullable when the owning agent or policy was deleted with "keep
+  // history". In that case the snapshot fields below carry the display
+  // names that were captured at delete time.
+  policyId: string | null
+  policyName?: string | null
+  agentId: string | null
+  agentName?: string | null
   startedAt: string
   completedAt?: string | null
   errorMessage?: string | null

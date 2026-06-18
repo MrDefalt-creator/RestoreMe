@@ -8,9 +8,12 @@ namespace Backup.Server.Application.Services;
 public class PoliciesService
 {
     private readonly IPolicyRepository _policyRepository;
-    public PoliciesService(IPolicyRepository policyRepository)
+    private readonly IAuditLogRepository _auditLogRepository;
+
+    public PoliciesService(IPolicyRepository policyRepository, IAuditLogRepository auditLogRepository)
     {
         _policyRepository = policyRepository;
+        _auditLogRepository = auditLogRepository;
     }
 
     public async Task<BackupPolicy> CreatePolicy(
@@ -19,11 +22,15 @@ public class PoliciesService
         string name,
         string? sourcePath,
         int interval,
-        BackupPolicyDatabaseSettingsDto? databaseSettingsDto)
+        BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
+        int? retentionDays,
+        Guid actorUserId)
     {
         name = name.Trim();
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
+        ValidateInterval(interval);
+        ValidateRetentionDays(retentionDays);
 
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
 
@@ -40,13 +47,19 @@ public class PoliciesService
             Name = name,
             SourcePath = sourcePath,
             IntervalSeconds =  interval,
-            NextRunAt = DateTime.UtcNow
+            NextRunAt = DateTime.UtcNow,
+            RetentionDays = retentionDays
         };
 
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id);
-        
+
         await _policyRepository.AddPolicy(policy);
-        
+        await _auditLogRepository.AddAsync(Audit(
+            actorUserId,
+            "policy.create",
+            policy.Id,
+            $"agent={agentId} name={policy.Name} type={MapPolicyTypeForAudit(policyType)} interval={interval}"));
+
         await _policyRepository.SaveChangesAsync();
 
         return policy;
@@ -55,10 +68,10 @@ public class PoliciesService
     public async Task<List<BackupPolicy>> GetAllPolicies(Guid agentId)
     {
         var policies = await _policyRepository.GetAllPolicies(agentId);
-        
+
         return policies;
     }
-    
+
     public async Task<List<BackupPolicy>> GetAllPolicies()
     {
         return await _policyRepository.GetAllPoliciesAsync();
@@ -72,10 +85,10 @@ public class PoliciesService
         {
             throw new KeyNotFoundException("Policy not found");
         }
-        
+
         return policy;
     }
-    
+
     public async Task<BackupPolicy> UpdatePolicy(
         Guid policyId,
         Guid agentId,
@@ -84,17 +97,23 @@ public class PoliciesService
         string? sourcePath,
         int intervalSeconds,
         bool isEnabled,
-        BackupPolicyDatabaseSettingsDto? databaseSettingsDto)
+        BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
+        int? retentionDays,
+        Guid actorUserId)
     {
         var policy = await _policyRepository.GetPolicyById(policyId);
         if (policy == null)
         {
             throw new KeyNotFoundException("Policy not found");
         }
-        
+
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
-        
+        ValidateInterval(intervalSeconds);
+        ValidateRetentionDays(retentionDays);
+
+        var reEnabling = !policy.IsEnabled && isEnabled;
+
         policy.AgentId = agentId;
         policy.Type = policyType;
         policy.Name = name.Trim();
@@ -102,30 +121,72 @@ public class PoliciesService
         policy.IntervalSeconds = intervalSeconds;
         policy.IsEnabled = isEnabled;
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
-        policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id);
-        
+        policy.RetentionDays = retentionDays;
+        policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id, policy.DatabaseSettings);
+
+        if (reEnabling)
+        {
+            policy.ConsecutiveFailureCount = 0;
+            policy.LastFailureReason = null;
+            policy.AutoDisabledAt = null;
+        }
+
         await _policyRepository.UpdatePolicy(policy);
+        await _auditLogRepository.AddAsync(Audit(
+            actorUserId,
+            "policy.update",
+            policy.Id,
+            $"name={policy.Name} type={MapPolicyTypeForAudit(policyType)} enabled={isEnabled}"));
         await _policyRepository.SaveChangesAsync();
 
         return policy;
     }
-    
-    public async Task<BackupPolicy> TogglePolicy(Guid policyId)
+
+    public async Task<BackupPolicy> TogglePolicy(Guid policyId, Guid actorUserId)
     {
         var policy = await _policyRepository.GetPolicyById(policyId);
         if (policy == null)
         {
             throw new KeyNotFoundException("Policy not found");
         }
-        
+
         policy.IsEnabled = !policy.IsEnabled;
-        
+
+        // Manual re-enable acts as the operator's "I fixed it" signal —
+        // clear the auto-disable bookkeeping so the next failure starts
+        // a fresh streak instead of immediately tripping the threshold.
+        if (policy.IsEnabled)
+        {
+            policy.ConsecutiveFailureCount = 0;
+            policy.LastFailureReason = null;
+            policy.AutoDisabledAt = null;
+        }
+
         await _policyRepository.UpdatePolicy(policy);
+        await _auditLogRepository.AddAsync(Audit(
+            actorUserId,
+            "policy.toggle",
+            policy.Id,
+            $"name={policy.Name} enabled={policy.IsEnabled}"));
         await _policyRepository.SaveChangesAsync();
 
         return policy;
     }
-    
+
+    public async Task DeletePolicy(Guid policyId, Guid actorUserId)
+    {
+        var policy = await _policyRepository.GetPolicyById(policyId)
+            ?? throw new KeyNotFoundException("Policy not found");
+
+        await _policyRepository.DeletePolicy(policy);
+        await _auditLogRepository.AddAsync(Audit(
+            actorUserId,
+            "policy.delete",
+            policy.Id,
+            $"name={policy.Name} agent={policy.AgentId}"));
+        await _policyRepository.SaveChangesAsync();
+    }
+
     public async Task MarkPolicyExecuted(Guid policyId)
     {
         var policy = await _policyRepository.GetPolicyById(policyId);
@@ -134,14 +195,14 @@ public class PoliciesService
         {
             throw new KeyNotFoundException("Policy not found");
         }
-        
+
         policy.LastRunAt = DateTime.UtcNow;
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(policy.IntervalSeconds);
         await _policyRepository.UpdatePolicy(policy);
         await _policyRepository.SaveChangesAsync();
     }
-    
-    private static string NormalizeSourcePath(BackupPolicyType policyType, string? path)
+
+    internal static string NormalizeSourcePath(BackupPolicyType policyType, string? path)
     {
         if (policyType != BackupPolicyType.FileSystem)
         {
@@ -158,6 +219,9 @@ public class PoliciesService
 
         while (path.Contains("//"))
             path = path.Replace("//", "/");
+
+        if (path.Split('/').Any(segment => segment == ".."))
+            throw new InvalidOperationException("Source path must not contain directory traversal sequences.");
 
         return path;
     }
@@ -178,10 +242,30 @@ public class PoliciesService
         };
     }
 
+    private static string MapPolicyTypeForAudit(BackupPolicyType type) => type switch
+    {
+        BackupPolicyType.FileSystem => "filesystem",
+        BackupPolicyType.PostgreSqlDump => "postgres",
+        BackupPolicyType.MySqlDump => "mysql",
+        _ => type.ToString().ToLowerInvariant()
+    };
+
+    private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = action,
+            TargetId = targetId,
+            Details = details,
+            OccurredAt = DateTime.UtcNow
+        };
+
     private static BackupPolicyDatabaseSettings? BuildDatabaseSettings(
         BackupPolicyType policyType,
         BackupPolicyDatabaseSettingsDto? dto,
-        Guid policyId)
+        Guid policyId,
+        BackupPolicyDatabaseSettings? existingSettings = null)
     {
         if (policyType == BackupPolicyType.FileSystem)
         {
@@ -200,7 +284,7 @@ public class PoliciesService
         var host = string.IsNullOrWhiteSpace(dto.Host) ? null : dto.Host.Trim();
         var databaseName = dto.DatabaseName?.Trim();
         var username = string.IsNullOrWhiteSpace(dto.Username) ? null : dto.Username.Trim();
-        var password = string.IsNullOrWhiteSpace(dto.Password) ? null : dto.Password;
+        var password = string.IsNullOrWhiteSpace(dto.Password) ? existingSettings?.Password : dto.Password;
 
         if (string.IsNullOrWhiteSpace(databaseName))
         {
@@ -223,6 +307,10 @@ public class PoliciesService
             {
                 throw new InvalidOperationException("Password is required when credentials authentication mode is selected.");
             }
+        }
+        else
+        {
+            password = null;
         }
 
         return new BackupPolicyDatabaseSettings
@@ -268,6 +356,22 @@ public class PoliciesService
         if (policyType == BackupPolicyType.MySqlDump && engine != DatabaseEngine.MySql)
         {
             throw new InvalidOperationException("MySQL policy type requires MySQL database settings.");
+        }
+    }
+
+    private static void ValidateInterval(int intervalSeconds)
+    {
+        if (intervalSeconds <= 0)
+        {
+            throw new InvalidOperationException("Policy interval must be greater than zero seconds.");
+        }
+    }
+
+    private static void ValidateRetentionDays(int? retentionDays)
+    {
+        if (retentionDays.HasValue && retentionDays.Value < 1)
+        {
+            throw new InvalidOperationException("Retention days must be at least 1 when set.");
         }
     }
 }

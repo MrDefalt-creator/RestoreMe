@@ -44,7 +44,7 @@ export function Dialog({
               <p className="text-sm leading-6 text-muted-foreground">{description}</p>
             ) : null}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} title="Close">
+          <Button variant="ghost" size="icon" onClick={onClose} title="Close" aria-label="Close dialog">
             <X className="h-4 w-4" />
           </Button>
         </div>

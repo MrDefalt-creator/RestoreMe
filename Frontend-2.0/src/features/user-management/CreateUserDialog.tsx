@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
-import { createUser, type UserRole } from '@/shared/api/users'
+import { createUser, type UserRole } from '@/entities/user'
 import { queryKeys } from '@/shared/lib/query'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'

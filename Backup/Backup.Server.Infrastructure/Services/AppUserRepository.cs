@@ -35,6 +35,20 @@ public class AppUserRepository : IAppUserRepository
             .FirstOrDefaultAsync(x => x.NormalizedUsername == normalizedUsername);
     }
 
+    public async Task<Guid?> GetSecurityStampAsync(Guid userId)
+    {
+        // Project a single column to keep OnTokenValidated cheap. Returns null
+        // when the user no longer exists or has been disabled — auth pipeline
+        // treats that as token rejection.
+        var stamp = await _dbContext.AppUsers
+            .AsNoTracking()
+            .Where(x => x.Id == userId && x.IsActive)
+            .Select(x => (Guid?)x.SecurityStamp)
+            .FirstOrDefaultAsync();
+
+        return stamp;
+    }
+
     public Task<int> CountAsync()
     {
         return _dbContext.AppUsers.CountAsync();

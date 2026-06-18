@@ -8,4 +8,5 @@ public interface IAgentState
     Task SaveAgentIdAsync(Guid agentId, CancellationToken cancellationToken);
     Task SaveServerAddressAsync(string serverAddress, CancellationToken cancellationToken);
     Task SaveAccessTokenAsync(string accessToken, CancellationToken cancellationToken);
+    Task ClearAsync(CancellationToken cancellationToken);
 }

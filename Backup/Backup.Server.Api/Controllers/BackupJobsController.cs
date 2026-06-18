@@ -4,6 +4,7 @@ using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Backup.Server.Api.Controllers;
 
@@ -53,6 +54,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("start")]
     public async Task<IActionResult> StartJob([FromBody] StartBackupJobRequest request)
     {
@@ -73,6 +75,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("complete/{jobId:guid}")]
     public async Task<IActionResult> CompletedJob([FromRoute] Guid jobId)
     {
@@ -81,11 +84,20 @@ public class BackupJobsController : ControllerBase
             return Forbid();
         }
 
-        await _service.Complete(jobId);
+        try
+        {
+            await _service.Complete(jobId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+
         return Ok();
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("failed")]
     public async Task<IActionResult> FailedJob([FromBody] FailedBackupJobRequest request)
     {
@@ -99,6 +111,7 @@ public class BackupJobsController : ControllerBase
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("add_artifact")]
     public async Task<IActionResult> AddArtifact([FromBody] AddArtifactBackupJobRequest request)
     {
@@ -107,11 +120,26 @@ public class BackupJobsController : ControllerBase
             return Forbid();
         }
 
-        await _service.AddArtifact(request.JobId, request.FileName, request.ObjectKey, request.Size, request.Checksum);
+        try
+        {
+            await _service.AddArtifact(
+                request.JobId,
+                request.FileName,
+                request.ObjectKey,
+                request.Size,
+                request.Checksum,
+                HttpContext.RequestAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+
         return Ok();
     }
 
     [Authorize(Policy = AuthConstants.AgentPolicy)]
+    [EnableRateLimiting("agent-write")]
     [HttpPost("upload_ticket")]
     public async Task<IActionResult> RequestUploadTicket([FromBody] RequestUploadTicketRequest request)
     {
@@ -154,6 +182,8 @@ public class BackupJobsController : ControllerBase
             job.Status.ToString().ToLowerInvariant(),
             job.StartedAt,
             job.CompletedAt,
-            job.ErrorMessage);
+            job.ErrorMessage,
+            job.Agent?.Name ?? job.AgentNameSnapshot,
+            job.Policy?.Name ?? job.PolicyNameSnapshot);
     }
 }

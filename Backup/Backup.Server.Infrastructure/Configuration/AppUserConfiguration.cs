@@ -33,6 +33,25 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        builder.Property(x => x.SecurityStamp)
+            .IsRequired()
+            .HasDefaultValueSql("gen_random_uuid()");
+
+        builder.Property(x => x.MustChangePassword)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.FailedLoginAttempts)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(x => x.LockedUntilUtc);
+
+        // jsonb keeps the history queryable (length, last-N) if we ever
+        // need to inspect it; .NET-side serialization stays simple text.
+        builder.Property(x => x.PasswordHistory)
+            .HasColumnType("jsonb");
+
         builder.HasIndex(x => x.NormalizedUsername)
             .IsUnique();
     }

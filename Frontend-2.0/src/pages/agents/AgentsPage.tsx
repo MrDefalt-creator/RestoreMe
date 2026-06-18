@@ -1,31 +1,53 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { toast } from 'sonner'
+
+import { useAuthStore } from '@/app/store/auth-store'
+import { useUiStore } from '@/app/store/ui-store'
 import {
   AlertTriangle,
   Clock3,
+  Copy,
+  Download,
   Laptop,
+  MoreHorizontal,
   Search,
   Server,
   ShieldCheck,
+  ShieldOff,
   SlidersHorizontal,
+  Trash2,
   Wifi,
   X,
 } from 'lucide-react'
 
-import { getAgents, type Agent } from '@/shared/api/agents'
+import {
+  deleteAgent,
+  getAgentDeletionImpact,
+  getAgents,
+  revokeAgent,
+  type Agent,
+  type AgentDeletionImpact,
+  type DeleteAgentOptions,
+} from '@/shared/api/agents'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Dialog } from '@/shared/ui/Dialog'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
+import { StatTile } from '@/shared/ui/StatTile'
 import { Select } from '@/shared/ui/Select'
-import { Spinner } from '@/shared/ui/Spinner'
+import { SkeletonCard } from '@/shared/ui/Skeleton'
+import { SwitchField } from '@/shared/ui/Switch'
+import { formatFileSize } from '@/shared/lib/format'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 
@@ -42,9 +64,12 @@ type PolicyCoverageFilter = 'all' | 'with-policies' | 'without-policies'
 
 export function AgentsPage() {
   const { t } = useI18n()
+  const role = useAuthStore((state) => state.user?.role)
+  const canInstall = role === 'admin' || role === 'operator'
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const setInstallOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [osFilter, setOsFilter] = useState('all')
   const [policyCoverageFilter, setPolicyCoverageFilter] = useState<PolicyCoverageFilter>('all')
@@ -119,14 +144,24 @@ export function AgentsPage() {
         eyebrow={t('Infrastructure')}
         title={t('Agents')}
         description={t('A live map of registered machines, their heartbeat health, and the protection policy coverage behind each one.')}
-        action={<Badge variant="success">{t('{count} online', { count: stats.online })}</Badge>}
+        action={
+          <div className="flex items-center gap-3">
+            <Badge variant="success">{t('{count} online', { count: stats.online })}</Badge>
+            {canInstall ? (
+              <Button variant="primary" size="sm" className="gap-2" onClick={() => setInstallOpen(true)}>
+                <Download className="h-4 w-4" />
+                {t('Install new agent')}
+              </Button>
+            ) : null}
+          </div>
+        }
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <AgentMetric icon={<Server />} label={t('Registered')} value={stats.total} />
-        <AgentMetric icon={<Wifi />} label={t('Online now')} value={stats.online} tone="success" />
-        <AgentMetric icon={<AlertTriangle />} label={t('Need review')} value={stats.stale + stats.offline} tone="warning" />
-        <AgentMetric icon={<ShieldCheck />} label={t('Policies')} value={stats.policies} />
+        <StatTile icon={<Server className="h-4 w-4" />} label={t('Registered')} value={stats.total} />
+        <StatTile icon={<Wifi className="h-4 w-4" />} label={t('Online now')} value={stats.online} tone="success" />
+        <StatTile icon={<AlertTriangle className="h-4 w-4" />} label={t('Need review')} value={stats.stale + stats.offline} tone="warning" />
+        <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Policies')} value={stats.policies} />
       </div>
 
       <Card>
@@ -211,12 +246,11 @@ export function AgentsPage() {
       </Card>
 
       {agentsQuery.isLoading ? (
-        <Card>
-          <CardContent className="flex min-h-64 items-center justify-center gap-3 text-muted-foreground">
-            <Spinner />
-            {t('Loading agents...')}
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <SkeletonCard key={idx} className="h-56" />
+          ))}
+        </div>
       ) : agentsQuery.isError ? (
         <EmptyState
           icon={<AlertTriangle className="h-8 w-8 text-warning" />}
@@ -249,6 +283,7 @@ export function AgentsPage() {
           ) : undefined}
         />
       )}
+
     </div>
   )
 }
@@ -270,45 +305,41 @@ function FilterField({
   )
 }
 
-function AgentMetric({
-  icon,
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  icon: ReactNode
-  label: string
-  value: number
-  tone?: 'neutral' | 'success' | 'warning'
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <CardContent className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
-        </div>
-        <div
-          className={
-            tone === 'success'
-              ? 'flex h-11 w-11 items-center justify-center rounded-lg bg-success/12 text-success'
-              : tone === 'warning'
-                ? 'flex h-11 w-11 items-center justify-center rounded-lg bg-warning/12 text-warning'
-                : 'flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-muted-foreground'
-          }
-        >
-          {icon}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] }) {
   const { t } = useI18n()
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [revokeOpen, setRevokeOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const policyCount = policies.length
   const enabledPolicyCount = policies.filter((policy) => policy.isEnabled).length
+  const currentUser = useAuthStore((state) => state.user)
+  const isAdmin = currentUser?.role === 'admin'
+  const queryClient = useQueryClient()
+
+  const revokeMutation = useMutation({
+    mutationFn: revokeAgent,
+    onSuccess: () => {
+      toast.success(t('Agent token revoked'))
+      setRevokeOpen(false)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Unable to revoke agent'))
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (options: DeleteAgentOptions) => deleteAgent(agent.id, options),
+    onSuccess: () => {
+      toast.success(t('Agent deleted'))
+      setDeleteOpen(false)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Unable to delete agent'))
+    },
+  })
 
   return (
     <>
@@ -348,13 +379,57 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
             <p className="mt-2 truncate font-mono text-xs text-muted-foreground">{agent.id}</p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button asChild variant="primary" size="sm" className="flex-1">
               <Link to="/policies">{t('Policies')}</Link>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setDetailsOpen(true)}>
               {t('Details')}
             </Button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button variant="ghost" size="icon" title={t('More actions')} aria-label={t('More actions')}>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="end"
+                  sideOffset={4}
+                  className="z-50 min-w-[176px] rounded-lg border border-border bg-card p-1 shadow-[var(--shadow-lg)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                >
+                  <DropdownMenu.Item
+                    className="flex cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none data-[highlighted]:bg-secondary"
+                    onSelect={() => {
+                      void navigator.clipboard.writeText(agent.id)
+                      toast.success(t('Agent ID copied'))
+                    }}
+                  >
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                    {t('Copy agent ID')}
+                  </DropdownMenu.Item>
+                  {isAdmin ? (
+                    <>
+                      <DropdownMenu.Separator className="-mx-1 my-1 h-px bg-border" />
+                      <DropdownMenu.Item
+                        className="flex cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none data-[highlighted]:bg-secondary"
+                        onSelect={() => setRevokeOpen(true)}
+                      >
+                        <ShieldOff className="h-4 w-4 text-muted-foreground" />
+                        {t('Revoke token')}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className="flex cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive outline-none data-[highlighted]:bg-destructive/10"
+                        onSelect={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('Delete agent…')}
+                      </DropdownMenu.Item>
+                    </>
+                  ) : null}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
         </CardContent>
       </Card>
@@ -365,7 +440,147 @@ function AgentCard({ agent, policies }: { agent: Agent; policies: AgentPolicy[] 
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
       />
+
+      <ConfirmDialog
+        open={revokeOpen}
+        onClose={() => setRevokeOpen(false)}
+        onConfirm={() => revokeMutation.mutate(agent.id)}
+        title={t('Revoke agent token')}
+        description={t('The agent will need to re-enroll. The row stays in the list and history is preserved.')}
+        confirmLabel={revokeMutation.isPending ? t('Revoking...') : t('Revoke')}
+        variant="danger"
+        isLoading={revokeMutation.isPending}
+      />
+
+      <DeleteAgentDialog
+        agent={agent}
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={(options) => deleteMutation.mutate(options)}
+        isLoading={deleteMutation.isPending}
+      />
     </>
+  )
+}
+
+interface DeleteAgentDialogProps {
+  agent: Agent
+  open: boolean
+  onClose: () => void
+  onConfirm: (options: DeleteAgentOptions) => void
+  isLoading: boolean
+}
+
+function DeleteAgentDialog({ agent, open, onClose, onConfirm, isLoading }: DeleteAgentDialogProps) {
+  const { t } = useI18n()
+  const impactQuery = useQuery<AgentDeletionImpact>({
+    queryKey: ['agent-deletion-impact', agent.id],
+    queryFn: () => getAgentDeletionImpact(agent.id),
+    enabled: open,
+    staleTime: 0,
+  })
+  const [purgeBackupHistory, setPurgeBackupHistory] = useState(true)
+  const [purgeStorageFiles, setPurgeStorageFiles] = useState(true)
+  const [purgeRestoreHistory, setPurgeRestoreHistory] = useState(true)
+
+  if (!open) return null
+
+  const impact = impactQuery.data
+  const hasPending = (impact?.pendingRestoreJobCount ?? 0) > 0
+  const blocked = hasPending && !purgeRestoreHistory
+
+  const summaryLine = impact
+    ? t(
+        '{policies} policies · {jobs} backups · {bytes} stored · {restores} restores',
+        {
+          policies: impact.policyCount,
+          jobs: impact.backupJobCount,
+          bytes: formatFileSize(impact.totalStorageBytes),
+          restores: impact.restoreJobCount,
+        },
+      )
+    : t('Calculating impact…')
+
+  const options: DeleteAgentOptions = {
+    purgeBackupHistory,
+    purgeStorageFiles: purgeBackupHistory && purgeStorageFiles,
+    purgeRestoreHistory,
+  }
+
+  return (
+    <Dialog
+      open={open}
+      title={t('Delete agent')}
+      description={t(
+        'Choose what should go with the agent. Items you keep stay visible as orphaned history rows.',
+      )}
+      onClose={isLoading ? () => {} : onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => onConfirm(options)}
+            disabled={isLoading || !impact || blocked}
+          >
+            {isLoading ? t('Deleting...') : t('Delete agent')}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-secondary/40 p-3 text-sm text-foreground">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {t('What this agent owns')}
+          </p>
+          <p className="mt-1">{summaryLine}</p>
+        </div>
+
+        {hasPending ? (
+          <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <span>
+              {t(
+                '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.',
+                { count: impact?.pendingRestoreJobCount ?? 0 },
+              )}
+            </span>
+          </div>
+        ) : null}
+
+        <div className="space-y-1 rounded-lg border border-border bg-background/60 px-4 py-3">
+          <SwitchField
+            label={t('Delete backup history')}
+            description={t('Removes backup job rows and artifact records from the database.')}
+            checked={purgeBackupHistory}
+            onCheckedChange={setPurgeBackupHistory}
+            disabled={isLoading}
+          />
+          <SwitchField
+            label={t('Delete stored files from object storage')}
+            description={t(
+              'Best-effort removal of MinIO objects. Disabled when backup history is kept.',
+            )}
+            checked={purgeBackupHistory && purgeStorageFiles}
+            onCheckedChange={setPurgeStorageFiles}
+            disabled={isLoading || !purgeBackupHistory}
+          />
+          <SwitchField
+            label={t('Delete restore history')}
+            description={t('Removes restore job rows. Required if restores are still pending.')}
+            checked={purgeRestoreHistory}
+            onCheckedChange={setPurgeRestoreHistory}
+            disabled={isLoading}
+          />
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          {t('Audit history for this agent is always preserved.')}
+        </p>
+      </div>
+    </Dialog>
   )
 }
 

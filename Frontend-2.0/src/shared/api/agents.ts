@@ -44,6 +44,79 @@ export async function rejectAgent(pendingId: string): Promise<void> {
   await apiClient.post(`/api/agents/reject/${pendingId}`)
 }
 
+export async function revokeAgent(agentId: string): Promise<void> {
+  await apiClient.post(`/api/agents/${agentId}/revoke`)
+}
+
+export interface AgentDeletionImpact {
+  policyCount: number
+  backupJobCount: number
+  artifactCount: number
+  totalStorageBytes: number
+  restoreJobCount: number
+  pendingRestoreJobCount: number
+}
+
+export interface DeleteAgentOptions {
+  purgeBackupHistory: boolean
+  purgeStorageFiles: boolean
+  purgeRestoreHistory: boolean
+}
+
+export async function getAgentDeletionImpact(agentId: string): Promise<AgentDeletionImpact> {
+  const response = await apiClient.get<AgentDeletionImpact>(
+    `/api/agents/${agentId}/deletion-impact`,
+  )
+  return response.data
+}
+
+export async function deleteAgent(
+  agentId: string,
+  options: DeleteAgentOptions = {
+    purgeBackupHistory: true,
+    purgeStorageFiles: true,
+    purgeRestoreHistory: true,
+  },
+): Promise<void> {
+  await apiClient.delete(`/api/agents/${agentId}`, { data: options })
+}
+
+export interface EnrollmentInfo {
+  enrollmentToken: string
+}
+
+/**
+ * @deprecated Returns the shared AgentEnrollment:EnrollmentToken — kept only
+ * so legacy agents keep enrolling. New agents should be installed via the
+ * per-agent install-token flow (POST /api/agents/install-tokens), which is
+ * what the install-agent wizard now uses.
+ */
+export async function getEnrollmentInfo(): Promise<EnrollmentInfo> {
+  const response = await apiClient.get<EnrollmentInfo>('/api/agents/enrollment-info')
+  return response.data
+}
+
+export interface CreateInstallTokenRequest {
+  preApprovedName?: string
+  ttlMinutes?: number
+}
+
+export interface CreateInstallTokenResponse {
+  id: string
+  token: string
+  expiresAt: string
+}
+
+export async function createInstallToken(
+  input: CreateInstallTokenRequest = {},
+): Promise<CreateInstallTokenResponse> {
+  const response = await apiClient.post<CreateInstallTokenResponse>(
+    '/api/agents/install-tokens',
+    input,
+  )
+  return response.data
+}
+
 export async function getAgentById(agentId: string): Promise<Agent> {
   const response = await apiClient.get(`/api/agents/agent/${agentId}`)
   return response.data

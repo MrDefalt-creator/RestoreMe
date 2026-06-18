@@ -34,6 +34,10 @@ public class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 
+        builder.Property(x => x.TokenVersion)
+            .IsRequired()
+            .HasDefaultValue(1);
+
         builder.HasIndex(x => x.MachineName)
             .IsUnique();
 
