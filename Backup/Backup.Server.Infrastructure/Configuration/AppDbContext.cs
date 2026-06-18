@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<RestoreJob> RestoreJobs { get; set; }
     public DbSet<AgentInstallToken> AgentInstallTokens { get; set; }
     public DbSet<NotificationChannel> NotificationChannels { get; set; }
+    public DbSet<IntegrityScrubSettings> IntegrityScrubSettings { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, IDataProtectionProvider dataProtection)
         : base(options)
