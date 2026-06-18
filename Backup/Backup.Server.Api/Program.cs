@@ -161,6 +161,7 @@ builder.Services.AddHttpClient<INotificationChannelAdapter, DiscordAdapter>(CapA
 builder.Services.AddScoped<INotificationService, NotificationDispatcher>();
 builder.Services.AddScoped<NotificationDispatcher>();
 builder.Services.AddScoped<NotificationChannelsService>();
+builder.Services.AddScoped<IntegritySettingsService>();
 builder.Services.AddScoped<AgentHealthService>();
 builder.Services.AddHostedService<AgentHealthSweepService>();
 builder.Services.AddSingleton<BucketReadyState>();
