@@ -13,6 +13,7 @@ using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Application.Notifications;
 using Backup.Server.Infrastructure.Configuration;
+using Backup.Server.Domain.Options;
 using Backup.Server.Infrastructure.Options;
 using Backup.Server.Infrastructure.Services;
 using Backup.Server.Infrastructure.Services.Adapters;
@@ -269,6 +270,10 @@ builder.Services
             "Storage:SecretKey",
             "Storage:SecretKey_FILE");
     });
+
+builder.Services
+    .AddOptions<RetentionOptions>()
+    .Bind(builder.Configuration.GetSection(RetentionOptions.SectionName));
 
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {

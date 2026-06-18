@@ -48,17 +48,14 @@ public class BackupArtifactRepository : IBackupArtifactRepository
         await _dbContext.BackupArtifacts.AddAsync(artifact);
     }
 
-    public async Task<List<BackupArtifact>> GetExpiredArtifactsAsync(CancellationToken cancellationToken)
+    public async Task<List<BackupArtifact>> GetArtifactsForRetentionAsync(CancellationToken cancellationToken)
     {
-        var candidates = await _dbContext.BackupArtifacts
+        return await _dbContext.BackupArtifacts
             .Include(a => a.Job).ThenInclude(j => j.Policy)
-            .Where(a => a.Job.Policy.RetentionDays != null)
+            .Where(a => a.Job.Policy.RetentionDays != null
+                || a.Job.Policy.RetentionMaxCount != null
+                || a.Job.Policy.RetentionMaxTotalBytes != null)
             .ToListAsync(cancellationToken);
-
-        var now = DateTime.UtcNow;
-        return candidates
-            .Where(a => a.CreatedAt < now.AddDays(-a.Job.Policy.RetentionDays!.Value))
-            .ToList();
     }
 
     public async Task DeleteArtifactAsync(Guid id, CancellationToken cancellationToken)

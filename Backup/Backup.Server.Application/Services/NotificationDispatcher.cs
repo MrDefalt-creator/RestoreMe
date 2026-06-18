@@ -162,6 +162,25 @@ public class NotificationDispatcher : INotificationService
         return DispatchAsync(evt, cancellationToken);
     }
 
+    public Task NotifyRetentionCleanedAsync(
+        int deletedCount, long bytesFreed,
+        CancellationToken cancellationToken = default)
+    {
+        var evt = new NotificationEvent(
+            NotificationEventType.RetentionCleaned,
+            "Retention cleanup completed",
+            $"Pruned {deletedCount} expired artifact(s), freed {bytesFreed} byte(s)",
+            null,
+            DateTime.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["deletedCount"] = deletedCount.ToString(CultureInfo.InvariantCulture),
+                ["bytesFreed"] = bytesFreed.ToString(CultureInfo.InvariantCulture),
+            });
+
+        return DispatchAsync(evt, cancellationToken);
+    }
+
     /// <summary>
     /// Sends an event to one explicit channel — used by the "Test channel"
     /// admin button. Bypasses the SubscribedEvents filter so operators

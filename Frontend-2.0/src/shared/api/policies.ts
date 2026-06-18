@@ -22,6 +22,8 @@ export interface BackupPolicy {
   createdAt: string
   updatedAt?: string
   retentionDays: number | null
+  retentionMaxCount: number | null
+  retentionMaxTotalBytes: number | null
   consecutiveFailureCount: number
   lastFailureReason: string | null
   autoDisabledAt: string | null
@@ -36,6 +38,8 @@ export type UpsertPolicyInput = {
   isEnabled: boolean
   databaseSettings: BackupPolicy['databaseSettings']
   retentionDays: number | null
+  retentionMaxCount: number | null
+  retentionMaxTotalBytes: number | null
 }
 
 export async function getPolicies(): Promise<BackupPolicy[]> {
@@ -56,6 +60,8 @@ export async function createPolicy(input: UpsertPolicyInput): Promise<BackupPoli
     interval: input.intervalSeconds,
     databaseSettings: input.databaseSettings,
     retentionDays: input.retentionDays,
+    retentionMaxCount: input.retentionMaxCount,
+    retentionMaxTotalBytes: input.retentionMaxTotalBytes,
   })
   const policyId = response.data.policyId ?? response.data.id
   if (!policyId) {
@@ -74,6 +80,8 @@ export async function updatePolicy(policyId: string, policy: UpsertPolicyInput):
     isEnabled: policy.isEnabled,
     databaseSettings: policy.databaseSettings,
     retentionDays: policy.retentionDays,
+    retentionMaxCount: policy.retentionMaxCount,
+    retentionMaxTotalBytes: policy.retentionMaxTotalBytes,
   })
   return response.data
 }

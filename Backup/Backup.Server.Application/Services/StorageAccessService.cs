@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Infrastructure.Options;
 using Backup.Shared.Contracts.DTOs.Jobs;
@@ -188,6 +189,32 @@ public class StorageAccessService : IStorageAccessService
             cancellationToken);
 
         return new StorageObjectInfo(objectStat.Size);
+    }
+
+    public async Task<string> ComputeObjectSha256Async(
+        string objectKey,
+        CancellationToken cancellationToken)
+    {
+        // Stream the object through an incremental hasher — never buffer the
+        // whole (multi-GB) artifact in memory.
+        using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[81920];
+
+        await _minioClient.GetObjectAsync(
+            new GetObjectArgs()
+                .WithBucket(_storageOptions.BucketName)
+                .WithObject(objectKey)
+                .WithCallbackStream(async (sourceStream, callbackCt) =>
+                {
+                    int read;
+                    while ((read = await sourceStream.ReadAsync(buffer, callbackCt)) > 0)
+                    {
+                        hasher.AppendData(buffer, 0, read);
+                    }
+                }),
+            cancellationToken);
+
+        return Convert.ToHexString(hasher.GetHashAndReset()).ToLowerInvariant();
     }
 
     private static string? ResolvePublicEndpoint(

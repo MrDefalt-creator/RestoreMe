@@ -19,4 +19,9 @@ public interface INotificationService
         int failures,
         string? lastReason,
         CancellationToken cancellationToken = default);
+
+    Task NotifyRetentionCleanedAsync(
+        int deletedCount,
+        long bytesFreed,
+        CancellationToken cancellationToken = default);
 }

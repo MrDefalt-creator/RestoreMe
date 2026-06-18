@@ -25,4 +25,15 @@ public class StorageOptions
     public bool UseAdaptiveExpiry { get; set; } = true;
     public int AdaptiveBaseSeconds { get; set; } = 600;
     public int AdaptivePerGbSeconds { get; set; } = 300;
+
+    // Integrity verification: before an uploaded artifact is accepted (and the
+    // job allowed to complete), the backend re-reads the object from MinIO and
+    // recomputes its SHA256, comparing it to the checksum the agent reported.
+    // This catches silent corruption / truncation that a size-only check misses.
+    public bool VerifyChecksumBeforeComplete { get; set; } = true;
+
+    // Re-hashing streams the whole artifact through the backend, which is costly
+    // for very large backups. Objects larger than this many bytes skip the
+    // re-hash (existence + size are still verified). null = no cap, always verify.
+    public long? ChecksumVerifyMaxBytes { get; set; }
 }

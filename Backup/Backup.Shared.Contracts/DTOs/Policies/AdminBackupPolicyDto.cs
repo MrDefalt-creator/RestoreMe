@@ -15,6 +15,8 @@ public record AdminBackupPolicyDto(
     DateTime? LastRunAt,
     BackupPolicyDatabaseSettingsDto? DatabaseSettings,
     int? RetentionDays,
+    int? RetentionMaxCount,
+    long? RetentionMaxTotalBytes,
     [Required] int ConsecutiveFailureCount,
     string? LastFailureReason,
     DateTime? AutoDisabledAt

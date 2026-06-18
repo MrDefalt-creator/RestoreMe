@@ -35,6 +35,8 @@ const policySchema = z.object({
   username: z.string(),
   password: z.string(),
   retentionDays: z.number().int().min(1).max(3650).nullable(),
+  retentionMaxCount: z.number().int().min(1).max(10000).nullable(),
+  retentionMaxSizeGb: z.number().positive().nullable(),
 }).superRefine((values, context) => {
   if (values.type === 'filesystem' && values.sourcePath.trim().length < 3) {
     context.addIssue({
@@ -103,7 +105,11 @@ const defaultValues: PolicyFormValues = {
   username: '',
   password: '',
   retentionDays: null,
+  retentionMaxCount: null,
+  retentionMaxSizeGb: null,
 }
+
+const BYTES_PER_GB = 1024 ** 3
 
 function secondsToInterval(intervalSeconds: number): Pick<PolicyFormValues, 'intervalValue' | 'intervalUnit'> {
   if (intervalSeconds >= 86_400 && intervalSeconds % 86_400 === 0) {
@@ -150,6 +156,9 @@ function toFormValues(policy: BackupPolicy | null, agents: Agent[]): PolicyFormV
     username: policy.databaseSettings?.username ?? '',
     password: policy.databaseSettings?.password ?? '',
     retentionDays: policy.retentionDays ?? null,
+    retentionMaxCount: policy.retentionMaxCount ?? null,
+    retentionMaxSizeGb:
+      policy.retentionMaxTotalBytes != null ? policy.retentionMaxTotalBytes / BYTES_PER_GB : null,
   }
 }
 
@@ -164,6 +173,9 @@ function toPayload(values: PolicyFormValues): UpsertPolicyInput {
     intervalSeconds: intervalToSeconds(values),
     isEnabled: values.isEnabled,
     retentionDays: values.retentionDays,
+    retentionMaxCount: values.retentionMaxCount,
+    retentionMaxTotalBytes:
+      values.retentionMaxSizeGb != null ? Math.round(values.retentionMaxSizeGb * BYTES_PER_GB) : null,
     databaseSettings: isFilesystem
       ? null
       : {
@@ -336,6 +348,31 @@ export function PolicyFormDialog({
             step={1}
             placeholder={t('Unlimited')}
             {...form.register('retentionDays', {
+              setValueAs: (value) => (value === '' || value === null ? null : Number(value)),
+            })}
+          />
+        </Field>
+
+        <Field label={t('Keep last N backups')} error={formError(form.formState.errors.retentionMaxCount?.message)}>
+          <Input
+            type="number"
+            min={1}
+            max={10000}
+            step={1}
+            placeholder={t('Unlimited')}
+            {...form.register('retentionMaxCount', {
+              setValueAs: (value) => (value === '' || value === null ? null : Number(value)),
+            })}
+          />
+        </Field>
+
+        <Field label={t('Max total size (GB)')} error={formError(form.formState.errors.retentionMaxSizeGb?.message)}>
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            placeholder={t('Unlimited')}
+            {...form.register('retentionMaxSizeGb', {
               setValueAs: (value) => (value === '' || value === null ? null : Number(value)),
             })}
           />

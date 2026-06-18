@@ -25,6 +25,13 @@ public class BackupPolicy
 
     public int? RetentionDays { get; set; }
 
+    // Keep at most the newest N artifacts of this policy. null = unlimited.
+    public int? RetentionMaxCount { get; set; }
+
+    // Keep at most this many bytes of artifacts for this policy; oldest beyond
+    // the budget are pruned (newest is always preserved). null = unlimited.
+    public long? RetentionMaxTotalBytes { get; set; }
+
     public int ConsecutiveFailureCount { get; set; }
     public string? LastFailureReason { get; set; }
     public DateTime? AutoDisabledAt { get; set; }

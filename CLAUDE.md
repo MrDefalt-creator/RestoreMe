@@ -131,12 +131,28 @@ Production also enables `UseHsts()` (30-day, includes subdomains) and `UseHttpsR
 
 Adaptive presigned URL expiry (default on): `expiry = AdaptiveBaseSeconds + sizeGB * AdaptivePerGbSeconds`, capped at 7 days. Defaults `AdaptiveBaseSeconds=600`, `AdaptivePerGbSeconds=300`. Disable with `Storage:UseAdaptiveExpiry=false` to fall back to static `Storage:UploadUrlExpirySeconds`. `Storage:DownloadUrlExpirySeconds` overrides the restore-download window.
 
+### Artifact integrity verification
+
+When an agent reports a finished upload (`AddArtifact` in `BackupJobsService`), the backend gates job completion on more than size. With `Storage:VerifyChecksumBeforeComplete=true` (default) it streams the stored object back out of MinIO through an `IncrementalHash` (`StorageAccessService.ComputeObjectSha256Async` — never buffers the whole artifact) and compares the recomputed SHA256 to the agent-reported checksum. A mismatch throws, so `AddArtifact` fails and the job is marked **Failed** — it never becomes `Completed` with a silently-corrupted/truncated artifact that happened to match on size. Success is audit-logged as `artifact.verified`.
+
+Re-hashing is costly for huge backups: `Storage:ChecksumVerifyMaxBytes` (null = no cap) skips the re-hash for objects larger than the limit — existence + size are still checked, and the skip is audit-logged as `artifact.verify_skipped`. Verification is also skipped when the agent reports no checksum.
+
+### Retention
+
+Policies carry three optional retention knobs (`BackupPolicy`): `RetentionDays`, `RetentionMaxCount` (keep newest N), `RetentionMaxTotalBytes` (size budget). `RetentionEvaluator.SelectForDeletion` is **pure, DB-free** decision logic (heavily unit-tested in `Backup.Server.Tests/Retention`):
+- Per policy, newest-first; the newest artifact is **never** deleted (a policy always keeps ≥1 copy — the "floor").
+- **Keep-union**: when days and/or count are set, an artifact survives if it is within `RetentionDays` **OR** among the newest `RetentionMaxCount`. Pruned ones are attributed reason `Age`/`Count`.
+- **Size cap (hard)**: among survivors, walking newest-first, any artifact whose cumulative size exceeds `RetentionMaxTotalBytes` is pruned (reason `Size`), except the floor.
+- A policy with no retention rule configured prunes nothing.
+
+`RetentionCleanupService` (`BackgroundService`, `Retention:CleanupIntervalHours` cadence, default 24h) pulls candidates via `IBackupArtifactRepository.GetArtifactsForRetentionAsync` (only artifacts of policies that have at least one rule, with Job+Policy loaded), runs the evaluator, deletes each from MinIO then DB, audit-logs each as `retention.deleted` (`ActorId=null`, system action), and fires `NotifyRetentionCleanedAsync`.
+
 ### Notifications (multi-channel)
 
 The old single `Notifications:FailureWebhookUrl` config has been replaced by an admin-managed, DB-backed notification system (no notification config in `appsettings.json` anymore).
 
 - **Channels** are `NotificationChannel` rows (admin-managed via `NotificationChannelsController` → `/notifications` page). Each has a `Type` (`Webhook`, `Telegram`, `Slack`, `Discord`), a per-type `Settings` JSON blob (encrypted at rest via DataProtection — every type carries a secret: bot token, webhook URL, or HMAC secret), and a comma-separated `SubscribedEvents` filter. `SubscribedEvents = NULL` means "all events" (the trivial upgrade path from the legacy single webhook).
-- **Event types** (`NotificationEventType`): `BackupFailed`, `RestoreFailed`, `BackupCompleted`, `AgentOffline`, `AgentBackOnline`, `PolicyAutoDisabled`.
+- **Event types** (`NotificationEventType`): `BackupFailed`, `RestoreFailed`, `BackupCompleted`, `AgentOffline`, `AgentBackOnline`, `PolicyAutoDisabled`, `RetentionCleaned`.
 - **`NotificationDispatcher`** (`INotificationService`) builds a channel-neutral `NotificationEvent`, fans it out to every enabled+subscribed channel, and routes each through its `INotificationChannelAdapter` (`GenericWebhookAdapter`/`TelegramAdapter`/`SlackAdapter`/`DiscordAdapter`, registered as typed `HttpClient`s with a capped timeout). Delivery is **best-effort**: a failing adapter (or even a DB error enumerating channels) is swallowed per-channel and logged, so one broken Slack URL can't suppress Telegram or block the failing backup job that triggered it. Every attempt is audit-logged as `notification.sent` / `notification.failed` (rendered message body and secrets deliberately excluded).
 - **Test send**: `SendTestAsync` bypasses the `SubscribedEvents` filter so the admin "Test channel" button works even on channels that haven't opted into the test event.
 
@@ -226,6 +242,6 @@ Additional flags/env: `--reset-state` / `RESTOREME_RESET_STATE=1` wipes `state/a
 
 ## Memory / branch status
 
-- `codex/security-hardening-spike` is the active branch.
+- `feature/retention-and-integrity` is the active branch (retention strategies + artifact checksum verification).
 - `main` is frozen — coordinate before pushing.
 - Legacy `Frontend/` was removed on this branch; the only UI is `Frontend-2.0/`.

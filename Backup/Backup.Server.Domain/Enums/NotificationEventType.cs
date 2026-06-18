@@ -8,4 +8,5 @@ public enum NotificationEventType
     AgentOffline = 3,
     AgentBackOnline = 4,
     PolicyAutoDisabled = 5,
+    RetentionCleaned = 6,
 }

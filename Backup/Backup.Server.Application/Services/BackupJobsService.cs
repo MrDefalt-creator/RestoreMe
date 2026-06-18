@@ -1,8 +1,10 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Domain.Enums;
+using Backup.Server.Infrastructure.Options;
 using Backup.Shared.Contracts.DTOs;
 using Backup.Shared.Contracts.DTOs.Jobs;
+using Microsoft.Extensions.Options;
 
 namespace Backup.Server.Application.Services;
 
@@ -17,6 +19,7 @@ public class BackupJobsService
     private readonly IStorageAccessService _storageAccessService;
     private readonly INotificationService _notificationService;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly StorageOptions _storageOptions;
 
     public BackupJobsService(
         IPolicyRepository policyRepository,
@@ -25,7 +28,8 @@ public class BackupJobsService
         IBackupArtifactRepository backupArtifactRepository,
         IStorageAccessService storageAccessService,
         INotificationService notificationService,
-        IAuditLogRepository auditLogRepository)
+        IAuditLogRepository auditLogRepository,
+        IOptions<StorageOptions> storageOptions)
     {
         _policyRepository = policyRepository;
         _agentRepository = agentRepository;
@@ -34,6 +38,7 @@ public class BackupJobsService
         _storageAccessService = storageAccessService;
         _notificationService = notificationService;
         _auditLogRepository = auditLogRepository;
+        _storageOptions = storageOptions.Value;
     }
     
     public async Task<List<BackupJob>> GetAllJobs()
@@ -278,6 +283,42 @@ public class BackupJobsService
         if (objectInfo.SizeBytes != size)
         {
             throw new InvalidOperationException("Artifact size does not match the uploaded object.");
+        }
+
+        // Integrity gate before the job is allowed to complete: re-hash the
+        // stored object and compare to the checksum the agent reported. A
+        // mismatch (silent corruption / truncation that matched on size) throws,
+        // so the agent's AddArtifact call fails and the job is marked Failed —
+        // it never becomes Completed with a bad artifact.
+        var verify = _storageOptions.VerifyChecksumBeforeComplete
+            && !string.IsNullOrWhiteSpace(checksum)
+            && (_storageOptions.ChecksumVerifyMaxBytes is null
+                || size <= _storageOptions.ChecksumVerifyMaxBytes.Value);
+
+        if (verify)
+        {
+            var storedChecksum = await _storageAccessService.ComputeObjectSha256Async(objectKey, cancellationToken);
+            if (!string.Equals(storedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Artifact checksum verification failed: the stored object does not match the reported SHA256.");
+            }
+
+            await _auditLogRepository.AddAsync(Audit(
+                RequireAgentId(job),
+                "artifact.verified",
+                jobId,
+                $"objectKey={objectKey} sha256={checksum}"));
+        }
+        else if (_storageOptions.VerifyChecksumBeforeComplete
+            && _storageOptions.ChecksumVerifyMaxBytes is not null
+            && size > _storageOptions.ChecksumVerifyMaxBytes.Value)
+        {
+            await _auditLogRepository.AddAsync(Audit(
+                RequireAgentId(job),
+                "artifact.verify_skipped",
+                jobId,
+                $"objectKey={objectKey} size={size} limit={_storageOptions.ChecksumVerifyMaxBytes.Value}"));
         }
 
         var backupArtifact = new BackupArtifact

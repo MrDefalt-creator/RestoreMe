@@ -14,7 +14,10 @@ public interface IBackupArtifactRepository
 
     public Task AddArtifact(BackupArtifact artifact);
 
-    public Task<List<BackupArtifact>> GetExpiredArtifactsAsync(CancellationToken cancellationToken);
+    // All artifacts belonging to policies that have at least one retention rule
+    // configured (days / max-count / max-total-bytes). The caller (RetentionEvaluator)
+    // decides which of these to prune. Includes Job + Policy for evaluation.
+    public Task<List<BackupArtifact>> GetArtifactsForRetentionAsync(CancellationToken cancellationToken);
 
     public Task DeleteArtifactAsync(Guid id, CancellationToken cancellationToken);
 

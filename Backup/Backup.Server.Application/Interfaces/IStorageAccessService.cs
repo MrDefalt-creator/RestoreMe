@@ -25,6 +25,12 @@ public interface IStorageAccessService
         string objectKey,
         CancellationToken cancellationToken);
 
+    // Streams the object from storage and returns its SHA256 as a lowercase
+    // hex string (same format the agent's ChecksumService produces).
+    Task<string> ComputeObjectSha256Async(
+        string objectKey,
+        CancellationToken cancellationToken);
+
     Task<string> CreateDownloadTicketAsync(
         string objectKey,
         long sizeBytes,

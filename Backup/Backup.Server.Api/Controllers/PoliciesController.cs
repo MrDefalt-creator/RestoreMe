@@ -63,6 +63,8 @@ public class PoliciesController : ControllerBase
                 request.Interval,
                 request.DatabaseSettings,
                 request.RetentionDays,
+                request.RetentionMaxCount,
+                request.RetentionMaxTotalBytes,
                 actorUserId.Value);
 
             var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
@@ -129,6 +131,8 @@ public class PoliciesController : ControllerBase
                 request.IsEnabled,
                 request.DatabaseSettings,
                 request.RetentionDays,
+                request.RetentionMaxCount,
+                request.RetentionMaxTotalBytes,
                 actorUserId.Value);
         }
         catch (InvalidOperationException ex)
@@ -210,6 +214,8 @@ public class PoliciesController : ControllerBase
             policy.LastRunAt,
             MapDatabaseSettings(policy.DatabaseSettings, includePassword: false),
             policy.RetentionDays,
+            policy.RetentionMaxCount,
+            policy.RetentionMaxTotalBytes,
             policy.ConsecutiveFailureCount,
             policy.LastFailureReason,
             policy.AutoDisabledAt);

@@ -8,6 +8,7 @@ export type NotificationEventType =
   | 'BackupCompleted'
   | 'AgentOffline'
   | 'AgentBackOnline'
+  | 'RetentionCleaned'
 
 export interface NotificationChannel {
   id: string

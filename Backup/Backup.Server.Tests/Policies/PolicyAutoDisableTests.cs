@@ -2,8 +2,10 @@ using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Domain.Enums;
+using Backup.Server.Infrastructure.Options;
 using Backup.Shared.Contracts.DTOs.Agents;
 using Backup.Shared.Contracts.DTOs.Jobs;
+using Microsoft.Extensions.Options;
 
 namespace Backup.Server.Tests.Policies;
 
@@ -36,7 +38,8 @@ public sealed class PolicyAutoDisableTests
             artifacts,
             new FakeStorageAccessService(),
             notifications,
-            audit);
+            audit,
+            Options.Create(new StorageOptions()));
 
         return (service, policies, notifications, audit);
     }
@@ -201,7 +204,7 @@ public sealed class PolicyAutoDisableTests
         public Task<List<BackupArtifact>> GetArtifactsByJobIdAsync(Guid jobId) => throw new NotImplementedException();
         public Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId) => throw new NotImplementedException();
         public Task AddArtifact(BackupArtifact artifact) => throw new NotImplementedException();
-        public Task<List<BackupArtifact>> GetExpiredArtifactsAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<List<BackupArtifact>> GetArtifactsForRetentionAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task DeleteArtifactAsync(Guid id, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task SaveChanges() => throw new NotImplementedException();
     }
@@ -237,6 +240,7 @@ public sealed class PolicyAutoDisableTests
         public Task NotifyBackupCompletedAsync(Guid jobId, Guid policyId, Guid agentId, string policyName, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task NotifyAgentOfflineAsync(Guid agentId, string agentName, DateTime? lastSeenAt, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task NotifyAgentBackOnlineAsync(Guid agentId, string agentName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NotifyRetentionCleanedAsync(int deletedCount, long bytesFreed, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeStorageAccessService : IStorageAccessService
@@ -245,6 +249,7 @@ public sealed class PolicyAutoDisableTests
         public Task<UploadTicketResponse> CreateUploadTicketAsync(Guid backupJobId, Guid policyId, Guid agentId, string fileName, string contentType, long sizeBytes, string? publicServerBaseUrl, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task WriteObjectToAsync(string objectKey, Stream destination, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<StorageObjectInfo> GetObjectInfoAsync(string objectKey, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<string> ComputeObjectSha256Async(string objectKey, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<string> CreateDownloadTicketAsync(string objectKey, long sizeBytes, string? publicServerBaseUrl, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task DeleteObjectAsync(string objectKey, CancellationToken cancellationToken) => throw new NotImplementedException();
     }

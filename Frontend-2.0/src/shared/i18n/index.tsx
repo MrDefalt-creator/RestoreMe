@@ -582,6 +582,9 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Backup completed': 'Бэкап завершен',
     'Agent offline': 'Агент офлайн',
     'Agent back online': 'Агент снова онлайн',
+    'Retention cleanup': 'Очистка по сроку хранения',
+    'Keep last N backups': 'Хранить последние N копий',
+    'Max total size (GB)': 'Лимит размера (ГБ)',
 
     // First-run + onboarding (modal & floating widget)
     'Welcome to RestoreMe': 'Добро пожаловать в RestoreMe',

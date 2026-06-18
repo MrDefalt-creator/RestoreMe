@@ -24,13 +24,15 @@ public class PoliciesService
         int interval,
         BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
         int? retentionDays,
+        int? retentionMaxCount,
+        long? retentionMaxTotalBytes,
         Guid actorUserId)
     {
         name = name.Trim();
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
         ValidateInterval(interval);
-        ValidateRetentionDays(retentionDays);
+        ValidateRetention(retentionDays, retentionMaxCount, retentionMaxTotalBytes);
 
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
 
@@ -48,7 +50,9 @@ public class PoliciesService
             SourcePath = sourcePath,
             IntervalSeconds =  interval,
             NextRunAt = DateTime.UtcNow,
-            RetentionDays = retentionDays
+            RetentionDays = retentionDays,
+            RetentionMaxCount = retentionMaxCount,
+            RetentionMaxTotalBytes = retentionMaxTotalBytes
         };
 
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id);
@@ -99,6 +103,8 @@ public class PoliciesService
         bool isEnabled,
         BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
         int? retentionDays,
+        int? retentionMaxCount,
+        long? retentionMaxTotalBytes,
         Guid actorUserId)
     {
         var policy = await _policyRepository.GetPolicyById(policyId);
@@ -110,7 +116,7 @@ public class PoliciesService
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
         ValidateInterval(intervalSeconds);
-        ValidateRetentionDays(retentionDays);
+        ValidateRetention(retentionDays, retentionMaxCount, retentionMaxTotalBytes);
 
         var reEnabling = !policy.IsEnabled && isEnabled;
 
@@ -122,6 +128,8 @@ public class PoliciesService
         policy.IsEnabled = isEnabled;
         policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
         policy.RetentionDays = retentionDays;
+        policy.RetentionMaxCount = retentionMaxCount;
+        policy.RetentionMaxTotalBytes = retentionMaxTotalBytes;
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id, policy.DatabaseSettings);
 
         if (reEnabling)
@@ -367,11 +375,21 @@ public class PoliciesService
         }
     }
 
-    private static void ValidateRetentionDays(int? retentionDays)
+    private static void ValidateRetention(int? retentionDays, int? retentionMaxCount, long? retentionMaxTotalBytes)
     {
         if (retentionDays.HasValue && retentionDays.Value < 1)
         {
             throw new InvalidOperationException("Retention days must be at least 1 when set.");
+        }
+
+        if (retentionMaxCount.HasValue && retentionMaxCount.Value < 1)
+        {
+            throw new InvalidOperationException("Retention max count must be at least 1 when set.");
+        }
+
+        if (retentionMaxTotalBytes.HasValue && retentionMaxTotalBytes.Value < 1)
+        {
+            throw new InvalidOperationException("Retention max total bytes must be at least 1 when set.");
         }
     }
 }

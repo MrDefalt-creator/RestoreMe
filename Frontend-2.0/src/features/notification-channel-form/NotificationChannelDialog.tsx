@@ -24,6 +24,7 @@ const ALL_EVENTS: NotificationEventType[] = [
   'BackupCompleted',
   'AgentOffline',
   'AgentBackOnline',
+  'RetentionCleaned',
 ]
 
 type FormState = {
@@ -397,5 +398,7 @@ function eventLabelKey(event: NotificationEventType): string {
       return 'Agent offline'
     case 'AgentBackOnline':
       return 'Agent back online'
+    case 'RetentionCleaned':
+      return 'Retention cleanup'
   }
 }
