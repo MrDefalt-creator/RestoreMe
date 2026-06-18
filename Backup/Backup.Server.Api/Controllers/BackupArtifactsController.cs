@@ -33,6 +33,15 @@ public class BackupArtifactsController : ControllerBase
         return Ok(artifacts.Select(MapArtifact));
     }
 
+    [HttpPost("{artifactId:guid}/verify")]
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    public async Task<IActionResult> VerifyArtifact([FromRoute] Guid artifactId, CancellationToken cancellationToken)
+    {
+        var actorId = User.TryGetUserId();
+        var result = await _backupArtifactsService.VerifyArtifactAsync(artifactId, actorId, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("{artifactId:guid}/download")]
     public async Task DownloadArtifact([FromRoute] Guid artifactId, CancellationToken cancellationToken)
     {
