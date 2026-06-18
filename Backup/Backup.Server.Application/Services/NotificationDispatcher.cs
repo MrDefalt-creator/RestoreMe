@@ -181,6 +181,24 @@ public class NotificationDispatcher : INotificationService
         return DispatchAsync(evt, cancellationToken);
     }
 
+    public Task NotifyIntegrityCheckFailedAsync(
+        int failedCount,
+        CancellationToken cancellationToken = default)
+    {
+        var evt = new NotificationEvent(
+            NotificationEventType.IntegrityCheckFailed,
+            "Artifact integrity check failed",
+            $"{failedCount} stored artifact(s) failed SHA256 re-verification",
+            "Run a manual verify or inspect the audit log for the affected artifacts.",
+            DateTime.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["failedCount"] = failedCount.ToString(CultureInfo.InvariantCulture),
+            });
+
+        return DispatchAsync(evt, cancellationToken);
+    }
+
     /// <summary>
     /// Sends an event to one explicit channel — used by the "Test channel"
     /// admin button. Bypasses the SubscribedEvents filter so operators

@@ -241,6 +241,7 @@ public sealed class PolicyAutoDisableTests
         public Task NotifyAgentOfflineAsync(Guid agentId, string agentName, DateTime? lastSeenAt, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task NotifyAgentBackOnlineAsync(Guid agentId, string agentName, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task NotifyRetentionCleanedAsync(int deletedCount, long bytesFreed, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NotifyIntegrityCheckFailedAsync(int failedCount, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeStorageAccessService : IStorageAccessService

@@ -187,5 +187,6 @@ public sealed class ArtifactChecksumVerificationTests
         public Task NotifyAgentBackOnlineAsync(Guid agentId, string agentName, CancellationToken ct = default) => Task.CompletedTask;
         public Task NotifyPolicyAutoDisabledAsync(Guid policyId, Guid agentId, string policyName, int failures, string? lastReason, CancellationToken ct = default) => Task.CompletedTask;
         public Task NotifyRetentionCleanedAsync(int deletedCount, long bytesFreed, CancellationToken ct = default) => Task.CompletedTask;
+        public Task NotifyIntegrityCheckFailedAsync(int failedCount, CancellationToken ct = default) => Task.CompletedTask;
     }
 }

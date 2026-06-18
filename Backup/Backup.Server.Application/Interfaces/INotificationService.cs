@@ -24,4 +24,8 @@ public interface INotificationService
         int deletedCount,
         long bytesFreed,
         CancellationToken cancellationToken = default);
+
+    Task NotifyIntegrityCheckFailedAsync(
+        int failedCount,
+        CancellationToken cancellationToken = default);
 }

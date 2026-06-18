@@ -9,4 +9,5 @@ public enum NotificationEventType
     AgentBackOnline = 4,
     PolicyAutoDisabled = 5,
     RetentionCleaned = 6,
+    IntegrityCheckFailed = 7,
 }
