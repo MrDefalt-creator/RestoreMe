@@ -70,6 +70,8 @@ public class BackupArtifactsController : ControllerBase
             artifact.ObjectKey,
             artifact.SizeBytes,
             artifact.Checksum,
-            artifact.CreatedAt);
+            artifact.CreatedAt,
+            artifact.IntegrityStatus.ToString(),
+            artifact.LastVerifiedAt);
     }
 }

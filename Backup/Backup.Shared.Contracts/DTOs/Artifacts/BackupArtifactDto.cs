@@ -9,5 +9,7 @@ public record BackupArtifactDto(
     [Required] string ObjectKey,
     [Required] long Size,
     [Required] string Checksum,
-    [Required] DateTime CreatedAt
+    [Required] DateTime CreatedAt,
+    [Required] string IntegrityStatus,
+    DateTime? LastVerifiedAt
 );
