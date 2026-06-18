@@ -126,6 +126,8 @@ public sealed class ArtifactChecksumVerificationTests
         public Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId) => throw new NotImplementedException();
         public Task<int> CountByJobIdAsync(Guid jobId) => throw new NotImplementedException();
         public Task<List<BackupArtifact>> GetArtifactsForRetentionAsync(CancellationToken ct) => throw new NotImplementedException();
+        public Task<List<BackupArtifact>> GetArtifactsForScrubAsync(int batchSize, CancellationToken ct) => throw new NotImplementedException();
+        public Task UpdateIntegrityAsync(Guid id, Backup.Server.Domain.Enums.ArtifactIntegrityStatus status, DateTime? lastVerifiedAt, CancellationToken ct) => throw new NotImplementedException();
         public Task DeleteArtifactAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
     }
 

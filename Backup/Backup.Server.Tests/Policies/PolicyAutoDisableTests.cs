@@ -205,6 +205,8 @@ public sealed class PolicyAutoDisableTests
         public Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId) => throw new NotImplementedException();
         public Task AddArtifact(BackupArtifact artifact) => throw new NotImplementedException();
         public Task<List<BackupArtifact>> GetArtifactsForRetentionAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<List<BackupArtifact>> GetArtifactsForScrubAsync(int batchSize, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task UpdateIntegrityAsync(Guid id, Backup.Server.Domain.Enums.ArtifactIntegrityStatus status, DateTime? lastVerifiedAt, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task DeleteArtifactAsync(Guid id, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task SaveChanges() => throw new NotImplementedException();
     }
