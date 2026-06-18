@@ -4,7 +4,7 @@
 
 **Goal:** Detect at-rest artifact corruption proactively (scheduled scrub) and refuse to apply a corrupt restore, with the integrity state surfaced in the admin UI.
 
-**Architecture:** A new `IntegrityScrubService` background worker (modeled on `RetentionCleanupService`) re-hashes stored artifacts in throttled batches and records per-artifact integrity state on `BackupArtifact`. The agent's `RestoreExecuter` verifies the downloaded artifact's SHA256 against the expected checksum before touching the restore target. The artifacts page shows an integrity badge + a manual "Verify now" action.
+**Architecture:** A new `IntegrityScrubService` background worker (modeled on `RetentionCleanupService`) re-hashes stored artifacts in throttled batches and records per-artifact integrity state on `BackupArtifact`. The scrub cadence is **not hardcoded** — it is admin-configurable, DB-backed (`IntegrityScrubSettings`: enabled / every-N-days / time-of-day UTC / batch size), edited via `GET/PUT /api/integrity-settings` and a settings UI; the worker wakes on a small fixed tick and runs only when the schedule is due. The agent's `RestoreExecuter` verifies the downloaded artifact's SHA256 against the expected checksum before touching the restore target. The artifacts page shows an integrity badge + a manual "Verify now" action.
 
 **Tech Stack:** ASP.NET Core 10, EF Core (PostgreSQL prod / SQLite tests), xUnit, React + TanStack Query (Frontend-2.0).
 
@@ -170,9 +170,13 @@ git commit -m "feat(integrity): IntegrityCheckFailed notification event"
 - Produces:
   - `enum ScrubOutcome { Skipped, Verified, Failed }`
   - `static ScrubOutcome IntegrityScrubDecision.Evaluate(long sizeBytes, long? maxBytes, string expectedChecksum, string? computedChecksum)`
-  - `IntegrityOptions { const string SectionName = "Integrity"; int ScrubIntervalHours = 168; int ScrubBatchSize = 50; }`
+  - `static DateTime IntegrityScheduleCalculator.ComputeNextRun(DateTime fromUtc, int intervalDays, int runAtMinutesUtc)`
+  - `IntegrityOptions { const string SectionName = "Integrity"; int CheckIntervalSeconds = 60; }`
   - `IBackupArtifactRepository.GetArtifactsForScrubAsync(int batchSize, CancellationToken) : Task<List<BackupArtifact>>`
   - `IBackupArtifactRepository.UpdateIntegrityAsync(Guid id, ArtifactIntegrityStatus status, DateTime? lastVerifiedAt, CancellationToken) : Task`
+
+> Note: `BatchSize` is **not** in `IntegrityOptions` — it lives on the
+> `IntegrityScrubSettings` DB row (Task 3b), so the operator can tune it at runtime.
 
 - [ ] **Step 1: Write the failing decision test**
 
@@ -265,7 +269,10 @@ public static class IntegrityScrubDecision
 Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegrityScrubDecisionTests"`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Create the options class**
+- [ ] **Step 5: Create the options class (deployment knob only)**
+
+The scrub *schedule* is admin-managed in the DB (Task 3b/3c). `appsettings` holds
+only the internal wake cadence.
 
 ```csharp
 // Backup/Backup.Server.Domain/Options/IntegrityOptions.cs
@@ -275,13 +282,85 @@ public class IntegrityOptions
 {
     public const string SectionName = "Integrity";
 
-    // How often the scrub sweep runs. Defaults to weekly.
-    public int ScrubIntervalHours { get; set; } = 168;
-
-    // Max artifacts re-hashed per tick (throttles MinIO I/O).
-    public int ScrubBatchSize { get; set; } = 50;
+    // How often the worker wakes to test whether a scheduled scrub is due.
+    // This is NOT the scrub cadence (that lives in IntegrityScrubSettings).
+    public int CheckIntervalSeconds { get; set; } = 60;
 }
 ```
+
+- [ ] **Step 5a: Write the failing schedule-calculator test**
+
+```csharp
+// Backup/Backup.Server.Tests/Integrity/IntegrityScheduleCalculatorTests.cs
+using Backup.Server.Application.Services;
+
+namespace Backup.Server.Tests.Integrity;
+
+public sealed class IntegrityScheduleCalculatorTests
+{
+    [Fact]
+    public void NextRun_LaterToday_WhenTimeNotYetPassed()
+    {
+        var from = new DateTime(2026, 6, 19, 1, 0, 0, DateTimeKind.Utc); // 01:00
+        var next = IntegrityScheduleCalculator.ComputeNextRun(from, intervalDays: 7, runAtMinutesUtc: 180); // 03:00
+        Assert.Equal(new DateTime(2026, 6, 19, 3, 0, 0, DateTimeKind.Utc), next);
+    }
+
+    [Fact]
+    public void NextRun_AdvancesByInterval_WhenTimeAlreadyPassed()
+    {
+        var from = new DateTime(2026, 6, 19, 5, 0, 0, DateTimeKind.Utc); // 05:00, past 03:00
+        var next = IntegrityScheduleCalculator.ComputeNextRun(from, intervalDays: 7, runAtMinutesUtc: 180);
+        Assert.Equal(new DateTime(2026, 6, 26, 3, 0, 0, DateTimeKind.Utc), next);
+    }
+
+    [Fact]
+    public void NextRun_TreatsNonPositiveIntervalAsDaily()
+    {
+        var from = new DateTime(2026, 6, 19, 5, 0, 0, DateTimeKind.Utc);
+        var next = IntegrityScheduleCalculator.ComputeNextRun(from, intervalDays: 0, runAtMinutesUtc: 180);
+        Assert.Equal(new DateTime(2026, 6, 20, 3, 0, 0, DateTimeKind.Utc), next);
+    }
+}
+```
+
+- [ ] **Step 5b: Run it, expect FAIL**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegrityScheduleCalculatorTests"`
+Expected: compile failure — `IntegrityScheduleCalculator` does not exist.
+
+- [ ] **Step 5c: Implement the schedule calculator**
+
+```csharp
+// Backup/Backup.Server.Application/Services/IntegrityScheduleCalculator.cs
+namespace Backup.Server.Application.Services;
+
+/// <summary>
+/// Pure next-run calculation: the next occurrence of the configured time-of-day
+/// (minutes since midnight UTC) at least one tick in the future, advancing by
+/// IntervalDays when today's slot has already passed.
+/// </summary>
+public static class IntegrityScheduleCalculator
+{
+    public static DateTime ComputeNextRun(DateTime fromUtc, int intervalDays, int runAtMinutesUtc)
+    {
+        var step = intervalDays > 0 ? intervalDays : 1;
+        var minutes = Math.Clamp(runAtMinutesUtc, 0, 24 * 60 - 1);
+        var candidate = fromUtc.Date.AddMinutes(minutes);
+        while (candidate <= fromUtc)
+        {
+            candidate = candidate.AddDays(step);
+        }
+
+        return DateTime.SpecifyKind(candidate, DateTimeKind.Utc);
+    }
+}
+```
+
+- [ ] **Step 5d: Run the calculator test, expect PASS**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegrityScheduleCalculatorTests"`
+Expected: PASS (3 tests).
 
 - [ ] **Step 6: Add the repository interface methods**
 
@@ -338,7 +417,428 @@ Expected: build succeeds; all tests pass.
 ```bash
 cd D:/projects/RestorMe
 git add Backup/Backup.Server.Application Backup/Backup.Server.Domain Backup/Backup.Server.Infrastructure Backup/Backup.Server.Tests
-git commit -m "feat(integrity): scrub decision helper, options, repo scrub/update methods"
+git commit -m "feat(integrity): scrub decision, schedule calculator, options, repo methods"
+```
+
+---
+
+### Task 3b: IntegrityScrubSettings entity + repository + migration
+
+**Files:**
+- Create: `Backup/Backup.Server.Domain/Entities/IntegrityScrubSettings.cs`
+- Create: `Backup/Backup.Server.Application/Interfaces/IIntegrityScrubSettingsRepository.cs`
+- Create: `Backup/Backup.Server.Infrastructure/Services/IntegrityScrubSettingsRepository.cs`
+- Modify: `Backup/Backup.Server.Infrastructure/Configuration/AppDbContext.cs` (add `DbSet`)
+- Modify: `Backup/Backup.Server.Api/Program.cs` (register repo)
+- Create (generated): migration `<timestamp>_AddIntegrityScrubSettings.cs` (+ `.Designer.cs`) + snapshot update
+- Create test: `Backup/Backup.Server.Tests/Integrity/IntegrityScrubSettingsRepositoryTests.cs`
+
+**Interfaces:**
+- Produces:
+  - `IntegrityScrubSettings { Guid Id; bool IsEnabled=true; int IntervalDays=7; int RunAtMinutesUtc=180; int BatchSize=50; DateTime? LastRunAt; DateTime NextRunAt; }`
+  - `IIntegrityScrubSettingsRepository.GetOrCreateAsync(CancellationToken) : Task<IntegrityScrubSettings>` (single-row; creates with defaults + computed `NextRunAt` if absent)
+  - `IIntegrityScrubSettingsRepository.UpdateAsync(IntegrityScrubSettings, CancellationToken) : Task`
+
+- [ ] **Step 1: Create the entity**
+
+```csharp
+// Backup/Backup.Server.Domain/Entities/IntegrityScrubSettings.cs
+namespace Backup.Server.Domain.Entities;
+
+// Single-row, admin-managed schedule for the background integrity scrub.
+public class IntegrityScrubSettings
+{
+    public Guid Id { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public int IntervalDays { get; set; } = 7;        // "когда" — every N days
+    public int RunAtMinutesUtc { get; set; } = 180;   // "во сколько" — 03:00 UTC
+    public int BatchSize { get; set; } = 50;          // artifacts re-hashed per run
+    public DateTime? LastRunAt { get; set; }
+    public DateTime NextRunAt { get; set; }
+}
+```
+
+- [ ] **Step 2: Create the repository interface**
+
+```csharp
+// Backup/Backup.Server.Application/Interfaces/IIntegrityScrubSettingsRepository.cs
+using Backup.Server.Domain.Entities;
+
+namespace Backup.Server.Application.Interfaces;
+
+public interface IIntegrityScrubSettingsRepository
+{
+    Task<IntegrityScrubSettings> GetOrCreateAsync(CancellationToken cancellationToken);
+    Task UpdateAsync(IntegrityScrubSettings settings, CancellationToken cancellationToken);
+}
+```
+
+- [ ] **Step 3: Add the DbSet to AppDbContext**
+
+In `AppDbContext.cs`, add alongside the other `DbSet` properties:
+```csharp
+    public DbSet<IntegrityScrubSettings> IntegrityScrubSettings => Set<IntegrityScrubSettings>();
+```
+> Match the exact `DbSet` declaration style already used in that file (some use `{ get; set; }`, some expression-bodied). Ensure `using Backup.Server.Domain.Entities;` is present.
+
+- [ ] **Step 4: Write the failing repository test**
+
+```csharp
+// Backup/Backup.Server.Tests/Integrity/IntegrityScrubSettingsRepositoryTests.cs
+using Backup.Server.Infrastructure.Configuration;
+using Backup.Server.Infrastructure.Services;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+
+namespace Backup.Server.Tests.Integrity;
+
+public sealed class IntegrityScrubSettingsRepositoryTests : IAsyncLifetime
+{
+    private SqliteConnection _connection = null!;
+    private DbContextOptions<AppDbContext> _options = null!;
+    private IDataProtectionProvider _dp = null!;
+
+    public Task InitializeAsync()
+    {
+        _connection = new SqliteConnection("Filename=:memory:");
+        _connection.Open();
+        _options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options;
+        _dp = new EphemeralDataProtectionProvider();
+        using var ctx = new AppDbContext(_options, _dp);
+        ctx.Database.EnsureCreated();
+        return Task.CompletedTask;
+    }
+
+    public Task DisposeAsync() { _connection.Dispose(); return Task.CompletedTask; }
+
+    [Fact]
+    public async Task GetOrCreate_CreatesDefaults_ThenReturnsSameRow()
+    {
+        var repo1 = new IntegrityScrubSettingsRepository(new AppDbContext(_options, _dp));
+        var created = await repo1.GetOrCreateAsync(CancellationToken.None);
+
+        Assert.True(created.IsEnabled);
+        Assert.Equal(7, created.IntervalDays);
+        Assert.Equal(180, created.RunAtMinutesUtc);
+        Assert.Equal(50, created.BatchSize);
+        Assert.True(created.NextRunAt > DateTime.UtcNow);
+
+        var repo2 = new IntegrityScrubSettingsRepository(new AppDbContext(_options, _dp));
+        var fetched = await repo2.GetOrCreateAsync(CancellationToken.None);
+        Assert.Equal(created.Id, fetched.Id);
+
+        using var ctx = new AppDbContext(_options, _dp);
+        Assert.Equal(1, await ctx.IntegrityScrubSettings.CountAsync());
+    }
+}
+```
+
+- [ ] **Step 5: Run it, expect FAIL (repo not defined)**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegrityScrubSettingsRepositoryTests"`
+Expected: compile failure — `IntegrityScrubSettingsRepository` does not exist.
+
+- [ ] **Step 6: Implement the repository**
+
+```csharp
+// Backup/Backup.Server.Infrastructure/Services/IntegrityScrubSettingsRepository.cs
+using Backup.Server.Application.Interfaces;
+using Backup.Server.Application.Services;
+using Backup.Server.Domain.Entities;
+using Backup.Server.Infrastructure.Configuration;
+using Microsoft.EntityFrameworkCore;
+
+namespace Backup.Server.Infrastructure.Services;
+
+public class IntegrityScrubSettingsRepository : IIntegrityScrubSettingsRepository
+{
+    private readonly AppDbContext _dbContext;
+
+    public IntegrityScrubSettingsRepository(AppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<IntegrityScrubSettings> GetOrCreateAsync(CancellationToken cancellationToken)
+    {
+        var existing = await _dbContext.IntegrityScrubSettings.FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var created = new IntegrityScrubSettings { Id = Guid.NewGuid() };
+        created.NextRunAt = IntegrityScheduleCalculator.ComputeNextRun(
+            DateTime.UtcNow, created.IntervalDays, created.RunAtMinutesUtc);
+
+        _dbContext.IntegrityScrubSettings.Add(created);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return created;
+    }
+
+    public async Task UpdateAsync(IntegrityScrubSettings settings, CancellationToken cancellationToken)
+    {
+        _dbContext.IntegrityScrubSettings.Update(settings);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+```
+
+- [ ] **Step 7: Register the repo in Program.cs**
+
+Near the other artifact/notification repo registrations:
+```csharp
+builder.Services.AddScoped<IIntegrityScrubSettingsRepository, IntegrityScrubSettingsRepository>();
+```
+
+- [ ] **Step 8: Generate the migration**
+
+Run:
+```bash
+cd D:/projects/RestorMe/Backup
+dotnet ef migrations add AddIntegrityScrubSettings --project ./Backup.Server.Infrastructure/Backup.Server.Infrastructure.csproj --startup-project ./Backup.Server.Api/Backup.Server.Api.csproj --output-dir Migrations
+```
+Expected: a `IntegrityScrubSettings` table is created.
+
+- [ ] **Step 9: Run repo test + full suite**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegrityScrubSettingsRepositoryTests"` then the full `dotnet test ...`.
+Expected: PASS.
+
+- [ ] **Step 10: Commit**
+
+```bash
+cd D:/projects/RestorMe
+git add Backup/Backup.Server.Domain Backup/Backup.Server.Application Backup/Backup.Server.Infrastructure Backup/Backup.Server.Api Backup/Backup.Server.Tests
+git commit -m "feat(integrity): admin-managed scrub settings entity + repository + migration"
+```
+
+---
+
+### Task 3c: Integrity settings service + API endpoint
+
+**Files:**
+- Create: `Backup/Backup.Shared.Contracts/DTOs/Integrity/IntegrityScrubSettingsDto.cs`
+- Create: `Backup/Backup.Shared.Contracts/DTOs/Integrity/UpdateIntegrityScrubSettingsRequest.cs`
+- Create: `Backup/Backup.Server.Application/Services/IntegritySettingsService.cs`
+- Create: `Backup/Backup.Server.Api/Controllers/IntegritySettingsController.cs`
+- Modify: `Backup/Backup.Server.Api/Program.cs` (register service)
+- Create test: `Backup/Backup.Server.Tests/Integrity/IntegritySettingsServiceTests.cs`
+
+**Interfaces:**
+- Consumes: `IIntegrityScrubSettingsRepository`, `IntegrityScheduleCalculator.ComputeNextRun`, `IAuditLogRepository`.
+- Produces:
+  - `record IntegrityScrubSettingsDto(bool IsEnabled, int IntervalDays, int RunAtMinutesUtc, int BatchSize, DateTime? LastRunAt, DateTime NextRunAt)`
+  - `record UpdateIntegrityScrubSettingsRequest(bool IsEnabled, int IntervalDays, int RunAtMinutesUtc, int BatchSize)`
+  - `IntegritySettingsService.GetAsync(CancellationToken)` / `UpdateAsync(UpdateIntegrityScrubSettingsRequest, Guid? actorId, CancellationToken)` → `Task<IntegrityScrubSettingsDto>`
+  - `GET /api/integrity-settings` (admin read) / `PUT /api/integrity-settings` (admin write)
+
+- [ ] **Step 1: Create the DTOs**
+
+```csharp
+// Backup/Backup.Shared.Contracts/DTOs/Integrity/IntegrityScrubSettingsDto.cs
+namespace Backup.Shared.Contracts.DTOs.Integrity;
+
+public record IntegrityScrubSettingsDto(
+    bool IsEnabled,
+    int IntervalDays,
+    int RunAtMinutesUtc,
+    int BatchSize,
+    DateTime? LastRunAt,
+    DateTime NextRunAt
+);
+```
+```csharp
+// Backup/Backup.Shared.Contracts/DTOs/Integrity/UpdateIntegrityScrubSettingsRequest.cs
+using System.ComponentModel.DataAnnotations;
+
+namespace Backup.Shared.Contracts.DTOs.Integrity;
+
+public record UpdateIntegrityScrubSettingsRequest(
+    bool IsEnabled,
+    [Range(1, 3650)] int IntervalDays,
+    [Range(0, 1439)] int RunAtMinutesUtc,
+    [Range(1, 1000000)] int BatchSize
+);
+```
+
+- [ ] **Step 2: Write the failing service test**
+
+```csharp
+// Backup/Backup.Server.Tests/Integrity/IntegritySettingsServiceTests.cs
+using Backup.Server.Application.Interfaces;
+using Backup.Server.Application.Services;
+using Backup.Server.Domain.Entities;
+using Backup.Shared.Contracts.DTOs.Integrity;
+
+namespace Backup.Server.Tests.Integrity;
+
+public sealed class IntegritySettingsServiceTests
+{
+    [Fact]
+    public async Task Update_PersistsValues_AndRecomputesNextRun()
+    {
+        var repo = new InMemorySettingsRepo();
+        var service = new IntegritySettingsService(repo, new StubAudit());
+
+        var result = await service.UpdateAsync(
+            new UpdateIntegrityScrubSettingsRequest(IsEnabled: false, IntervalDays: 1, RunAtMinutesUtc: 600, BatchSize: 25),
+            actorId: null, CancellationToken.None);
+
+        Assert.False(result.IsEnabled);
+        Assert.Equal(1, result.IntervalDays);
+        Assert.Equal(600, result.RunAtMinutesUtc);
+        Assert.Equal(25, result.BatchSize);
+        Assert.Equal(600, result.NextRunAt.Hour * 60 + result.NextRunAt.Minute); // 10:00 UTC
+        Assert.Equal(25, repo.Saved!.BatchSize);
+    }
+
+    private sealed class InMemorySettingsRepo : IIntegrityScrubSettingsRepository
+    {
+        private IntegrityScrubSettings _row = new() { Id = Guid.NewGuid(), NextRunAt = DateTime.UtcNow };
+        public IntegrityScrubSettings? Saved { get; private set; }
+        public Task<IntegrityScrubSettings> GetOrCreateAsync(CancellationToken ct) => Task.FromResult(_row);
+        public Task UpdateAsync(IntegrityScrubSettings settings, CancellationToken ct) { _row = settings; Saved = settings; return Task.CompletedTask; }
+    }
+
+    private sealed class StubAudit : IAuditLogRepository
+    {
+        public Task AddAsync(AuditLog log) => Task.CompletedTask;
+        public Task SaveChangesAsync() => Task.CompletedTask;
+        public Task<AuditLogQueryResult> QueryAsync(AuditLogQuery query, CancellationToken ct) => throw new NotImplementedException();
+    }
+}
+```
+
+- [ ] **Step 3: Run it, expect FAIL (service missing)**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegritySettingsServiceTests"`
+Expected: compile failure — `IntegritySettingsService` does not exist.
+
+- [ ] **Step 4: Implement the service**
+
+```csharp
+// Backup/Backup.Server.Application/Services/IntegritySettingsService.cs
+using Backup.Server.Application.Interfaces;
+using Backup.Server.Domain.Entities;
+using Backup.Shared.Contracts.DTOs.Integrity;
+
+namespace Backup.Server.Application.Services;
+
+public class IntegritySettingsService
+{
+    private readonly IIntegrityScrubSettingsRepository _repo;
+    private readonly IAuditLogRepository _auditLogRepository;
+
+    public IntegritySettingsService(
+        IIntegrityScrubSettingsRepository repo,
+        IAuditLogRepository auditLogRepository)
+    {
+        _repo = repo;
+        _auditLogRepository = auditLogRepository;
+    }
+
+    public async Task<IntegrityScrubSettingsDto> GetAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _repo.GetOrCreateAsync(cancellationToken);
+        return Map(settings);
+    }
+
+    public async Task<IntegrityScrubSettingsDto> UpdateAsync(
+        UpdateIntegrityScrubSettingsRequest request, Guid? actorId, CancellationToken cancellationToken)
+    {
+        var settings = await _repo.GetOrCreateAsync(cancellationToken);
+        settings.IsEnabled = request.IsEnabled;
+        settings.IntervalDays = Math.Max(1, request.IntervalDays);
+        settings.RunAtMinutesUtc = Math.Clamp(request.RunAtMinutesUtc, 0, 24 * 60 - 1);
+        settings.BatchSize = Math.Max(1, request.BatchSize);
+        settings.NextRunAt = IntegrityScheduleCalculator.ComputeNextRun(
+            DateTime.UtcNow, settings.IntervalDays, settings.RunAtMinutesUtc);
+
+        await _repo.UpdateAsync(settings, cancellationToken);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            ActorId = actorId,
+            Action = "integrity.settings_updated",
+            TargetId = null,
+            Details = $"enabled={settings.IsEnabled} intervalDays={settings.IntervalDays} runAtMinutesUtc={settings.RunAtMinutesUtc} batchSize={settings.BatchSize}",
+            OccurredAt = DateTime.UtcNow,
+        });
+        await _auditLogRepository.SaveChangesAsync();
+
+        return Map(settings);
+    }
+
+    private static IntegrityScrubSettingsDto Map(IntegrityScrubSettings s) =>
+        new(s.IsEnabled, s.IntervalDays, s.RunAtMinutesUtc, s.BatchSize, s.LastRunAt, s.NextRunAt);
+}
+```
+> If `AuditLog.TargetId` is non-nullable `Guid` in this codebase, pass `Guid.Empty` instead of `null`. Confirm against `Backup.Server.Domain.Entities.AuditLog`.
+
+- [ ] **Step 5: Run service test, expect PASS**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegritySettingsServiceTests"`
+Expected: PASS.
+
+- [ ] **Step 6: Add the controller**
+
+```csharp
+// Backup/Backup.Server.Api/Controllers/IntegritySettingsController.cs
+using Backup.Server.Api.Security;
+using Backup.Server.Application.Services;
+using Backup.Shared.Contracts.DTOs.Integrity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Backup.Server.Api.Controllers;
+
+[ApiController]
+[Route("api/integrity-settings")]
+[Authorize(Policy = AuthConstants.AdminReadPolicy)]
+public class IntegritySettingsController : ControllerBase
+{
+    private readonly IntegritySettingsService _service;
+
+    public IntegritySettingsController(IntegritySettingsService service)
+    {
+        _service = service;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Get(CancellationToken cancellationToken)
+        => Ok(await _service.GetAsync(cancellationToken));
+
+    [HttpPut]
+    [Authorize(Policy = AuthConstants.AdminWritePolicy)]
+    public async Task<IActionResult> Update([FromBody] UpdateIntegrityScrubSettingsRequest request, CancellationToken cancellationToken)
+    {
+        var actorId = User.TryGetUserId();
+        return Ok(await _service.UpdateAsync(request, actorId, cancellationToken));
+    }
+}
+```
+
+- [ ] **Step 7: Register the service in Program.cs**
+
+Near the other `AddScoped<...Service>()` registrations:
+```csharp
+builder.Services.AddScoped<IntegritySettingsService>();
+```
+
+- [ ] **Step 8: Build + full suite**
+
+Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx`
+Expected: all pass.
+
+- [ ] **Step 9: Commit**
+
+```bash
+cd D:/projects/RestorMe
+git add Backup/Backup.Shared.Contracts Backup/Backup.Server.Application Backup/Backup.Server.Api Backup/Backup.Server.Tests
+git commit -m "feat(integrity): integrity scrub settings service + admin API"
 ```
 
 ---
@@ -352,8 +852,8 @@ git commit -m "feat(integrity): scrub decision helper, options, repo scrub/updat
 - Create test: `Backup/Backup.Server.Tests/Integrity/IntegrityScrubServiceTests.cs`
 
 **Interfaces:**
-- Consumes: `IBackupArtifactRepository.GetArtifactsForScrubAsync` / `UpdateIntegrityAsync`, `IStorageAccessService.ComputeObjectSha256Async`, `IAuditLogRepository`, `INotificationService.NotifyIntegrityCheckFailedAsync`, `IntegrityScrubDecision.Evaluate`, `IntegrityOptions`, `StorageOptions.ChecksumVerifyMaxBytes`.
-- Produces: `IntegrityScrubService.RunScrubAsync(CancellationToken)` (internal, test-callable) returning `Task<int>` (failure count).
+- Consumes: `IIntegrityScrubSettingsRepository.GetOrCreateAsync` / `UpdateAsync` (Task 3b), `IBackupArtifactRepository.GetArtifactsForScrubAsync` / `UpdateIntegrityAsync`, `IStorageAccessService.ComputeObjectSha256Async`, `IAuditLogRepository`, `INotificationService.NotifyIntegrityCheckFailedAsync`, `IntegrityScrubDecision.Evaluate`, `IntegrityScheduleCalculator.ComputeNextRun`, `IntegrityOptions.CheckIntervalSeconds`, `StorageOptions.ChecksumVerifyMaxBytes`.
+- Produces: `IntegrityScrubService.TickAsync(CancellationToken)` (loads settings, runs when due, advances `NextRunAt`) and `RunScrubAsync(int batchSize, CancellationToken) : Task<int>` (failure count) — both internal, test-callable.
 
 - [ ] **Step 1: Write the failing scrub-service test**
 
@@ -403,7 +903,7 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
     {
         using var ctx = NewContext();
         var agent = new Agent { Id = Guid.NewGuid(), Name = "a", MachineName = "m", OsType = "linux", Version = "1", Status = AgentStatus.Online };
-        var policy = new BackupPolicy { Id = Guid.NewGuid(), AgentId = agent.Id, Name = "p", Type = BackupPolicyType.FileSystem, SourcePath = "/x", Schedule = "* * * * *" };
+        var policy = new BackupPolicy { Id = Guid.NewGuid(), AgentId = agent.Id, Name = "p", Type = BackupPolicyType.FileSystem, SourcePath = "/x", IntervalSeconds = 3600 };
         var job = new BackupJob { Id = Guid.NewGuid(), AgentId = agent.Id, PolicyId = policy.Id, Status = BackupJobStatus.Completed };
         var artifact = new BackupArtifact { Id = Guid.NewGuid(), JobId = job.Id, ObjectKey = objectKey, FileName = "f.zip", SizeBytes = size, Checksum = checksum };
         ctx.AddRange(agent, policy, job, artifact);
@@ -418,7 +918,7 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
         return new IntegrityScrubService(
             new SingleScopeFactory(repo, storage, audit, notifier),
             NullLogger<IntegrityScrubService>.Instance,
-            Options.Create(new IntegrityOptions { ScrubBatchSize = 50 }),
+            Options.Create(new IntegrityOptions()),
             Options.Create(new StorageOptions()));
     }
 
@@ -430,7 +930,7 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
         var notifier = new RecordingNotifier();
         var service = BuildService(storage, notifier);
 
-        var failures = await service.RunScrubAsync(CancellationToken.None);
+        var failures = await service.RunScrubAsync(50, CancellationToken.None);
 
         Assert.Equal(0, failures);
         using var ctx = NewContext();
@@ -448,7 +948,7 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
         var notifier = new RecordingNotifier();
         var service = BuildService(storage, notifier);
 
-        var failures = await service.RunScrubAsync(CancellationToken.None);
+        var failures = await service.RunScrubAsync(50, CancellationToken.None);
 
         Assert.Equal(1, failures);
         using var ctx = NewContext();
@@ -466,12 +966,64 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
         var notifier = new RecordingNotifier();
         var service = BuildService(storage, notifier);
 
-        var failures = await service.RunScrubAsync(CancellationToken.None);
+        var failures = await service.RunScrubAsync(50, CancellationToken.None);
 
         Assert.Equal(1, failures);
         using var ctx = NewContext();
         var artifact = await ctx.BackupArtifacts.FindAsync(id);
         Assert.Equal(ArtifactIntegrityStatus.Failed, artifact!.IntegrityStatus);
+    }
+
+    private (IntegrityScrubService service, IntegrityScrubSettingsRepository settingsRepo) BuildServiceWithSettings(StubStorage storage, RecordingNotifier notifier)
+    {
+        var artifactRepo = new BackupArtifactRepository(NewContext());
+        var settingsRepo = new IntegrityScrubSettingsRepository(NewContext());
+        var service = new IntegrityScrubService(
+            new SingleScopeFactory(artifactRepo, storage, new StubAudit(), notifier, settingsRepo),
+            NullLogger<IntegrityScrubService>.Instance,
+            Options.Create(new IntegrityOptions()),
+            Options.Create(new StorageOptions()));
+        return (service, settingsRepo);
+    }
+
+    [Fact]
+    public async Task Tick_Disabled_DoesNotScrub()
+    {
+        var id = SeedArtifact("d1", "abc");
+        var (service, settingsRepo) = BuildServiceWithSettings(new StubStorage(new() { ["d1"] = "abc" }), new RecordingNotifier());
+
+        var settings = await settingsRepo.GetOrCreateAsync(CancellationToken.None);
+        settings.IsEnabled = false;
+        settings.NextRunAt = DateTime.UtcNow.AddDays(-1); // due, but disabled
+        await settingsRepo.UpdateAsync(settings, CancellationToken.None);
+
+        await service.TickAsync(CancellationToken.None);
+
+        using var ctx = NewContext();
+        var artifact = await ctx.BackupArtifacts.FindAsync(id);
+        Assert.Equal(ArtifactIntegrityStatus.Unverified, artifact!.IntegrityStatus);
+    }
+
+    [Fact]
+    public async Task Tick_Due_RunsScrub_AndAdvancesNextRun()
+    {
+        var id = SeedArtifact("d2", "abc");
+        var (service, settingsRepo) = BuildServiceWithSettings(new StubStorage(new() { ["d2"] = "ABC" }), new RecordingNotifier());
+
+        var settings = await settingsRepo.GetOrCreateAsync(CancellationToken.None);
+        settings.IsEnabled = true;
+        settings.NextRunAt = DateTime.UtcNow.AddMinutes(-1);
+        await settingsRepo.UpdateAsync(settings, CancellationToken.None);
+
+        await service.TickAsync(CancellationToken.None);
+
+        using var ctx = NewContext();
+        var artifact = await ctx.BackupArtifacts.FindAsync(id);
+        Assert.Equal(ArtifactIntegrityStatus.Verified, artifact!.IntegrityStatus);
+
+        var after = await settingsRepo.GetOrCreateAsync(CancellationToken.None);
+        Assert.True(after.NextRunAt > DateTime.UtcNow);
+        Assert.NotNull(after.LastRunAt);
     }
 
     // --- stubs ---
@@ -517,8 +1069,9 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
         private readonly IStorageAccessService _storage;
         private readonly IAuditLogRepository _audit;
         private readonly INotificationService _notifier;
-        public SingleScopeFactory(IBackupArtifactRepository repo, IStorageAccessService storage, IAuditLogRepository audit, INotificationService notifier)
-        { _repo = repo; _storage = storage; _audit = audit; _notifier = notifier; }
+        private readonly IIntegrityScrubSettingsRepository? _settings;
+        public SingleScopeFactory(IBackupArtifactRepository repo, IStorageAccessService storage, IAuditLogRepository audit, INotificationService notifier, IIntegrityScrubSettingsRepository? settings = null)
+        { _repo = repo; _storage = storage; _audit = audit; _notifier = notifier; _settings = settings; }
         public IServiceScope CreateScope() => this;
         public IServiceProvider ServiceProvider => this;
         public void Dispose() { }
@@ -528,6 +1081,7 @@ public sealed class IntegrityScrubServiceTests : IAsyncLifetime
             if (serviceType == typeof(IStorageAccessService)) return _storage;
             if (serviceType == typeof(IAuditLogRepository)) return _audit;
             if (serviceType == typeof(INotificationService)) return _notifier;
+            if (serviceType == typeof(IIntegrityScrubSettingsRepository)) return _settings;
             return null;
         }
     }
@@ -573,8 +1127,8 @@ public class IntegrityScrubService : BackgroundService
         _logger = logger;
         _integrityOptions = integrityOptions.Value;
         _storageOptions = storageOptions.Value;
-        var hours = _integrityOptions.ScrubIntervalHours;
-        _interval = TimeSpan.FromHours(hours > 0 ? hours : 168);
+        var seconds = _integrityOptions.CheckIntervalSeconds;
+        _interval = TimeSpan.FromSeconds(seconds > 0 ? seconds : 60);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -583,7 +1137,7 @@ public class IntegrityScrubService : BackgroundService
         {
             try
             {
-                await RunScrubAsync(stoppingToken);
+                await TickAsync(stoppingToken);
             }
             catch (OperationCanceledException) { /* shutdown */ }
             catch (Exception ex)
@@ -595,7 +1149,33 @@ public class IntegrityScrubService : BackgroundService
         }
     }
 
-    internal async Task<int> RunScrubAsync(CancellationToken cancellationToken)
+    // Wakes on CheckIntervalSeconds; runs a scrub only when the admin-configured
+    // DB schedule says it is due, then advances NextRunAt.
+    internal async Task TickAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var settingsRepo = scope.ServiceProvider.GetRequiredService<IIntegrityScrubSettingsRepository>();
+        var settings = await settingsRepo.GetOrCreateAsync(cancellationToken);
+
+        if (!settings.IsEnabled)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (now < settings.NextRunAt)
+        {
+            return;
+        }
+
+        await RunScrubAsync(settings.BatchSize, cancellationToken);
+
+        settings.LastRunAt = now;
+        settings.NextRunAt = IntegrityScheduleCalculator.ComputeNextRun(now, settings.IntervalDays, settings.RunAtMinutesUtc);
+        await settingsRepo.UpdateAsync(settings, cancellationToken);
+    }
+
+    internal async Task<int> RunScrubAsync(int batchSize, CancellationToken cancellationToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var artifactRepo = scope.ServiceProvider.GetRequiredService<IBackupArtifactRepository>();
@@ -603,7 +1183,7 @@ public class IntegrityScrubService : BackgroundService
         var auditRepo = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
         var notifications = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-        var batch = await artifactRepo.GetArtifactsForScrubAsync(_integrityOptions.ScrubBatchSize, cancellationToken);
+        var batch = await artifactRepo.GetArtifactsForScrubAsync(batchSize, cancellationToken);
         if (batch.Count == 0)
         {
             return 0;
@@ -697,16 +1277,15 @@ builder.Services.AddHostedService<IntegrityScrubService>();
 - [ ] **Step 5: Run the scrub tests, expect PASS**
 
 Run: `dotnet test D:/projects/RestorMe/Backup/BackupSystem.slnx --filter "FullyQualifiedName~IntegrityScrubServiceTests"`
-Expected: PASS (3 tests). If a seed property name failed to compile, fix the seed (not the assertions) and re-run.
+Expected: PASS (5 tests: 3 RunScrubAsync + 2 TickAsync). If a seed property name failed to compile, fix the seed (not the assertions) and re-run.
 
 - [ ] **Step 6: Document config in appsettings.example.json**
 
-After the `"Retention": { ... }` block, add:
+After the `"Retention": { ... }` block, add (deployment knob only — the schedule is admin-managed via `/api/integrity-settings`):
 ```jsonc
   "Integrity": {
-    "_": "Background scrub re-hashes stored artifacts to detect at-rest bit-rot. ScrubBatchSize throttles MinIO I/O per tick; objects larger than Storage:ChecksumVerifyMaxBytes are skipped (existence/size still effectively checked on access).",
-    "ScrubIntervalHours": 168,
-    "ScrubBatchSize": 50
+    "_": "Deployment knob only. The scrub SCHEDULE (enabled, interval, run time, batch size) is admin-managed at runtime via /api/integrity-settings, not here. CheckIntervalSeconds is just how often the worker wakes to test whether a scheduled run is due.",
+    "CheckIntervalSeconds": 60
   },
 ```
 
@@ -1296,19 +1875,206 @@ git commit -m "feat(integrity): artifact integrity badge + verify-now action"
 
 ---
 
+### Task 9: Frontend — scrub schedule settings form
+
+**Files:**
+- Create: `Frontend-2.0/src/shared/api/integritySettings.ts`
+- Create: `Frontend-2.0/src/features/integrity-settings/IntegrityScrubSettingsCard.tsx`
+- Modify: an existing admin settings surface to mount the card (e.g. the notifications page `Frontend-2.0/src/pages/notifications/...` or a settings page — confirm the actual route/page in the repo and mount there)
+- Modify: `Frontend-2.0/src/shared/i18n/index.tsx` (en/ru keys)
+
+**Interfaces:**
+- Consumes: `GET /api/integrity-settings` → `IntegrityScrubSettings`; `PUT /api/integrity-settings` with `{ isEnabled, intervalDays, runAtMinutesUtc, batchSize }`.
+- Produces: `getIntegritySettings()`, `updateIntegritySettings(body)`, and the `IntegrityScrubSettingsCard` component.
+
+- [ ] **Step 1: API client**
+
+```ts
+// Frontend-2.0/src/shared/api/integritySettings.ts
+import apiClient from './client'
+
+export interface IntegrityScrubSettings {
+  isEnabled: boolean
+  intervalDays: number
+  runAtMinutesUtc: number
+  batchSize: number
+  lastRunAt?: string | null
+  nextRunAt: string
+}
+
+export type UpdateIntegrityScrubSettings = Pick<
+  IntegrityScrubSettings,
+  'isEnabled' | 'intervalDays' | 'runAtMinutesUtc' | 'batchSize'
+>
+
+export async function getIntegritySettings(): Promise<IntegrityScrubSettings> {
+  const response = await apiClient.get('/api/integrity-settings')
+  return response.data
+}
+
+export async function updateIntegritySettings(body: UpdateIntegrityScrubSettings): Promise<IntegrityScrubSettings> {
+  const response = await apiClient.put('/api/integrity-settings', body)
+  return response.data
+}
+```
+
+- [ ] **Step 2: Settings card component**
+
+Create `IntegrityScrubSettingsCard.tsx`. Use the existing UI primitives (`Card`, `Button`, `Input`, and the project's toggle/switch primitive — confirm its name under `@/shared/ui`). The time-of-day field is an `<input type="time">` whose `HH:MM` maps to `runAtMinutesUtc = hours*60 + minutes` (and back for display). Load with `useQuery(queryKeys... or ['integrity-settings'], getIntegritySettings)`, save with `useMutation(updateIntegritySettings)` that invalidates the query and toasts.
+
+```tsx
+// Frontend-2.0/src/features/integrity-settings/IntegrityScrubSettingsCard.tsx
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { getIntegritySettings, updateIntegritySettings } from '@/shared/api/integritySettings'
+import { Button } from '@/shared/ui/Button'
+import { Card, CardContent } from '@/shared/ui/Card'
+import { Input } from '@/shared/ui/Input'
+import { useI18n } from '@/shared/i18n'
+
+const QUERY_KEY = ['integrity-settings'] as const
+
+function minutesToHHMM(m: number): string {
+  const h = Math.floor(m / 60).toString().padStart(2, '0')
+  const mm = (m % 60).toString().padStart(2, '0')
+  return `${h}:${mm}`
+}
+function hhmmToMinutes(value: string): number {
+  const [h, m] = value.split(':').map((n) => parseInt(n, 10))
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
+}
+
+export function IntegrityScrubSettingsCard() {
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+  const settingsQuery = useQuery({ queryKey: QUERY_KEY, queryFn: getIntegritySettings })
+
+  const [isEnabled, setIsEnabled] = useState(true)
+  const [intervalDays, setIntervalDays] = useState(7)
+  const [time, setTime] = useState('03:00')
+  const [batchSize, setBatchSize] = useState(50)
+
+  useEffect(() => {
+    const s = settingsQuery.data
+    if (!s) return
+    setIsEnabled(s.isEnabled)
+    setIntervalDays(s.intervalDays)
+    setTime(minutesToHHMM(s.runAtMinutesUtc))
+    setBatchSize(s.batchSize)
+  }, [settingsQuery.data])
+
+  const saveMutation = useMutation({
+    mutationFn: () => updateIntegritySettings({ isEnabled, intervalDays, runAtMinutesUtc: hhmmToMinutes(time), batchSize }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY })
+      toast.success(t('Integrity schedule saved'))
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('Could not save settings')),
+  })
+
+  return (
+    <Card>
+      <CardContent className="space-y-4">
+        <div>
+          <h3 className="font-medium text-foreground">{t('Integrity scrub schedule')}</h3>
+          <p className="text-sm text-muted-foreground">{t('Periodically re-hash stored backups to detect silent corruption.')}</p>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />
+          {t('Enabled')}
+        </label>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="text-sm">
+            {t('Every (days)')}
+            <Input type="number" min={1} value={intervalDays} onChange={(e) => setIntervalDays(Math.max(1, Number(e.target.value)))} />
+          </label>
+          <label className="text-sm">
+            {t('At time (UTC)')}
+            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </label>
+          <label className="text-sm">
+            {t('Batch size')}
+            <Input type="number" min={1} value={batchSize} onChange={(e) => setBatchSize(Math.max(1, Number(e.target.value)))} />
+          </label>
+        </div>
+
+        {settingsQuery.data?.nextRunAt ? (
+          <p className="text-xs text-muted-foreground">
+            {t('Next run')}: {new Date(settingsQuery.data.nextRunAt).toLocaleString()}
+          </p>
+        ) : null}
+
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? t('Saving...') : t('Save')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+```
+> Confirm `Input` supports `type="time"`/`type="number"` (it wraps a native `<input>` in this project). If the project has a dedicated `Switch`/`Toggle` primitive, use it instead of the raw checkbox to match the design system.
+
+- [ ] **Step 3: Mount the card on an admin settings surface**
+
+Find the admin page that already hosts global/admin configuration (the notifications page is the closest existing precedent). Import and render `<IntegrityScrubSettingsCard />` there, guarded to admins if that page mixes roles. Confirm the exact page file and section.
+
+- [ ] **Step 4: i18n keys (ru)**
+
+Add to the `ru` dictionary:
+```ts
+  'Integrity scrub schedule': 'Расписание проверки целостности',
+  'Periodically re-hash stored backups to detect silent corruption.': 'Периодически перехэшировать хранимые бэкапы для обнаружения тихого повреждения.',
+  'Every (days)': 'Каждые (дней)',
+  'At time (UTC)': 'Во сколько (UTC)',
+  'Batch size': 'Размер партии',
+  'Next run': 'Следующий запуск',
+  'Integrity schedule saved': 'Расписание сохранено',
+  'Could not save settings': 'Не удалось сохранить настройки',
+  'Enabled': 'Включено',
+  'Saving...': 'Сохранение...',
+  'Save': 'Сохранить',
+```
+
+- [ ] **Step 5: Typecheck + lint**
+
+Run:
+```bash
+cd D:/projects/RestorMe/Frontend-2.0
+yarn typecheck && yarn lint
+```
+Expected: no errors.
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd D:/projects/RestorMe
+git add Frontend-2.0
+git commit -m "feat(integrity): admin scrub-schedule settings UI"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
 - Data model (IntegrityStatus + LastVerifiedAt + migration) → Task 1. ✓
-- Scrub sweep (service, options, prioritised batch, size cap, audit, notification) → Tasks 3 + 4. ✓
+- Admin-configurable scrub schedule — no hardcoded interval (entity, repo, migration, service, API) → Tasks 3b + 3c. ✓
+- Schedule "когда/во сколько" (interval-days + time-of-day, pure `ComputeNextRun`) → Task 3 (Steps 5a–5d) + Tasks 3b/3c. ✓
+- Scrub sweep (settings-driven, prioritised batch, size cap, audit, notification) → Tasks 3 + 4. ✓
 - `IntegrityCheckFailed` notification event → Task 2. ✓
 - Verify-on-restore (DTO Checksum + agent gate, target untouched, legacy skip) → Task 7. ✓
-- Minimal UI (badge + Verify now + endpoint + i18n) → Tasks 5, 6, 8. ✓
-- Testing (pure decision unit, scrub integration, manual-verify, restore gate) → Tasks 3, 4, 5, 7. ✓
-- Config additions (`Integrity` section) → Task 4 Step 6. ✓
+- Minimal UI (artifact badge + Verify now + endpoint) → Tasks 5, 6, 8. ✓
+- Settings UI (admin scrub-schedule form) → Task 9. ✓
+- Testing (decision + schedule-calculator units, scrub/Tick integration, settings repo/service, manual-verify, restore gate) → Tasks 3, 3b, 3c, 4, 5, 7. ✓
+- Config: `Integrity:CheckIntervalSeconds` deployment knob only (schedule is DB/admin) → Task 4 Step 6. ✓
 
-**Placeholder scan:** No TBD/TODO; every code step shows full code. Two explicit "confirm against existing code" notes (Badge className, seed property names) are guardrails, not placeholders — the fallback behavior is specified.
+**Placeholder scan:** No TBD/TODO; every backend code step shows full code. The frontend tasks (8, 9) contain full component code plus explicit "confirm against existing code" guardrails (Badge `className`, `Input` native types, Switch primitive, exact admin page to mount on, DbSet declaration style, `AuditLog.TargetId` nullability) — these are verification notes with specified fallbacks, not missing content.
 
-**Type consistency:** `ArtifactIntegrityStatus` (Task 1) used consistently in repo (Task 3), service (Task 4), manual verify (Task 5), DTO mapping (Task 6). `ScrubOutcome`/`IntegrityScrubDecision.Evaluate` signature identical across Tasks 3 and 4. `GetArtifactsForScrubAsync(int, CancellationToken)` and `UpdateIntegrityAsync(Guid, ArtifactIntegrityStatus, DateTime?, CancellationToken)` identical in interface (Task 3), impl (Task 3), and all test stubs (Tasks 3, 4, 5). `NotifyIntegrityCheckFailedAsync(int, CancellationToken)` identical across interface, dispatcher, and stubs (Tasks 2, 4). `PendingRestoreResponse.Checksum` appended last and populated (Task 7). `RestoreChecksumGate.ShouldProceed(string?, string?)` identical in test and impl (Task 7).
+**Type consistency:** `ArtifactIntegrityStatus` used consistently across repo/service/manual-verify/DTO (Tasks 1,3,4,5,6). `ScrubOutcome`/`IntegrityScrubDecision.Evaluate` and `IntegrityScheduleCalculator.ComputeNextRun(DateTime,int,int)` identical across Tasks 3, 3b, 3c, 4. `IIntegrityScrubSettingsRepository.GetOrCreateAsync`/`UpdateAsync` identical across interface (3b), impl (3b), service (3c), worker (4), and test stubs/factory (3b, 3c, 4). `IntegrityOptions.CheckIntervalSeconds` used in worker ctor (4) and bound in Program.cs. `IntegrityScrubService.TickAsync` / `RunScrubAsync(int,CancellationToken)` identical in impl and tests (4). `NotifyIntegrityCheckFailedAsync(int, CancellationToken)` identical across interface, dispatcher, stubs (2, 4). `PendingRestoreResponse.Checksum` appended last and populated (7). `RestoreChecksumGate.ShouldProceed(string?, string?)` identical in test and impl (7).
+
+**Sequencing:** Task 4 (worker) depends on 3 (schedule calc), 3b (settings repo); Task 3c (settings API) depends on 3b. Execution order: 1 → 2 → 3 → 3b → 3c → 4 → 5 → 6 → 7 → 8 → 9.
 
 **Known follow-ups (out of scope, noted in spec):** verified restore-drills; at-rest encryption; replication-based auto-remediation of Failed artifacts.
