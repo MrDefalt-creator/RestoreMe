@@ -1,3 +1,5 @@
+using Backup.Server.Domain.Enums;
+
 namespace Backup.Server.Domain.Entities;
 
 public class BackupArtifact
@@ -8,6 +10,12 @@ public class BackupArtifact
     public string FileName { get; set; } = null!;
     public long SizeBytes { get; set; }
     public string Checksum { get; set; } = null!;
+
+    // Result of the most recent integrity check (scrub or manual verify).
+    public ArtifactIntegrityStatus IntegrityStatus { get; set; } = ArtifactIntegrityStatus.Unverified;
+
+    // When the stored object was last successfully re-hashed and matched.
+    public DateTime? LastVerifiedAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
