@@ -168,6 +168,7 @@ builder.Services.AddSingleton<BucketReadyState>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddHostedService<MinioBucketInitializer>();
 builder.Services.AddHostedService<RetentionCleanupService>();
+builder.Services.AddHostedService<IntegrityScrubService>();
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 ValidateProductionConfiguration(builder.Configuration, builder.Environment, jwtOptions, corsOrigins);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
@@ -276,6 +277,10 @@ builder.Services
 builder.Services
     .AddOptions<RetentionOptions>()
     .Bind(builder.Configuration.GetSection(RetentionOptions.SectionName));
+
+builder.Services
+    .AddOptions<IntegrityOptions>()
+    .Bind(builder.Configuration.GetSection(IntegrityOptions.SectionName));
 
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
