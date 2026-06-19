@@ -52,11 +52,11 @@ src/
 - agents page with filtering, policy coverage and details dialog
 - **install-agent wizard** on the Agents page — admins/operators copy a one-liner that installs and enrols an agent on Linux or Windows; server URL is taken from the panel, enrollment token from `GET /api/agents/enrollment-info`
 - pending agents page with approve and reject flows
-- policies page with create, edit and toggle, plus an "Auto-disabled" badge and one-click re-enable for policies stopped after repeated failures
+- policies page with create, edit and toggle, plus an "Auto-disabled" badge and one-click re-enable for policies stopped after repeated failures; the policy form includes retention controls (keep by age / count / total size)
 - jobs page with resilient labels based on agent/policy lookup
-- backups/artifacts page with download flow
+- backups/artifacts page with download flow, a per-artifact integrity badge and a "Verify now" action
 - users page for administrator access management
-- **notification channels page** (admin-only) — create/edit/test Webhook, Telegram, Slack and Discord channels with per-event subscriptions
+- **notification channels page** (admin-only) — create/edit/test Webhook, Telegram, Slack and Discord channels with per-event subscriptions; also hosts the admin-only integrity scrub-schedule settings
 - account page for password change
 - dark/light theme toggle
 - SPA routing for direct links such as `/backups`, `/jobs` and `/policies`
@@ -76,6 +76,8 @@ Main API groups:
 - `GET /api/backupjobs`
 - `GET /api/backupartifacts`
 - `GET /api/backupartifacts/{artifactId}/download`
+- `POST /api/backupartifacts/{artifactId}/verify` (operator/admin — verify integrity now)
+- `GET/PUT /api/integrity-settings` (admin-only — scrub schedule)
 - `GET /api/users`
 - `GET/POST/PUT/DELETE /api/notification-channels`, `POST /api/notification-channels/{id}/test` (admin-only)
 - `GET /api/audit-logs` (admin-only)

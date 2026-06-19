@@ -57,6 +57,8 @@ RestorMe/
 - multi-channel notifications (Webhook / Telegram / Slack / Discord) with per-event subscriptions, secrets encrypted at rest
 - automatic policy auto-disable after repeated consecutive failures
 - agent offline / back-online detection via a background health sweep
+- retention policies (age / count / total-size budget) with a background cleanup sweep
+- artifact integrity verification — SHA256 re-hash on upload, on-demand verify, and a scheduled background scrub
 - audit log of critical actions
 
 ### Agent
@@ -77,7 +79,9 @@ RestorMe/
 - pending agent approve and reject flows
 - policies, jobs and backups/artifacts views aligned with current backend DTOs
 - policies page surfaces the "Auto-disabled" state with a one-click re-enable
-- admin-only notification channels page (`/notifications`) — add/edit/test Webhook, Telegram, Slack and Discord channels
+- retention controls in the policy form (keep by age / count / total size)
+- backups/artifacts page shows a per-artifact integrity badge with a "Verify now" action
+- admin-only notification channels page (`/notifications`) — add/edit/test Webhook, Telegram, Slack and Discord channels; also hosts the integrity scrub-schedule settings
 - automatic polling and query invalidation
 - admin-only audit log view
 
@@ -232,6 +236,9 @@ Important sections:
 - `Storage:BucketName`, `Storage:UseSsl`
 - `Storage:UseAdaptiveExpiry`, `Storage:AdaptiveBaseSeconds`, `Storage:AdaptivePerGbSeconds` — adaptive presigned URL lifetime (see below)
 - `Storage:UploadUrlExpirySeconds`, `Storage:DownloadUrlExpirySeconds` — static expiry fallbacks
+- `Storage:VerifyChecksumBeforeComplete`, `Storage:ChecksumVerifyMaxBytes` — artifact integrity gate on upload (see [Artifact integrity verification](#artifact-integrity-verification))
+- `Retention:CleanupIntervalHours` — cadence of the background retention cleanup sweep
+- `Integrity:CheckIntervalSeconds` — how often the worker checks whether a scheduled integrity scrub is due (the schedule itself is admin-managed at runtime, not in config)
 - `Jwt:Issuer`, `Jwt:Audience`
 - `Jwt:SigningKey` — user-token signing key
 - `Jwt:AgentSigningKey` — optional dedicated key for agent JWTs; rotating it does not invalidate user sessions
@@ -288,6 +295,7 @@ RestoreMe ships a multi-channel notification system. Channels are created and ma
 - `BackupFailed`, `RestoreFailed`, `BackupCompleted`
 - `AgentOffline`, `AgentBackOnline`
 - `PolicyAutoDisabled`
+- `RetentionCleaned`, `IntegrityCheckFailed`
 
 How it works:
 - Each channel stores a per-type `Settings` JSON blob (bot token / webhook URL / shared secret). The whole blob is **encrypted at rest** via ASP.NET Core DataProtection — secrets are never returned by the API.
@@ -306,6 +314,26 @@ Receivers should constant-time compare against the same digest computed over the
 ### Policy auto-disable
 
 A policy that fails **3 consecutive backups** is automatically disabled (`IsEnabled=false`), stamped with `AutoDisabledAt` and the last failure reason, written to the audit log as `policy.auto_disabled`, and announced through the `PolicyAutoDisabled` notification event — so a broken source or bad credentials stops spamming the audit log and notifications every interval. A successful backup resets the streak. The frontend marks such policies with an "Auto-disabled" badge; re-enabling one (toggle, or saving it enabled) clears the streak so the next failure starts a fresh count.
+
+### Retention
+
+Each policy carries three optional retention knobs: `RetentionDays`, `RetentionMaxCount` (keep the newest N) and `RetentionMaxTotalBytes` (size budget). A background `RetentionCleanupService` runs every `Retention:CleanupIntervalHours` (default 24h) and prunes artifacts that fall outside their policy's rules:
+
+- newest-first, per policy; the newest artifact is **never** deleted — a policy always keeps at least one copy (the "floor")
+- **keep-union** — when days and/or count are set, an artifact survives if it is within `RetentionDays` **or** among the newest `RetentionMaxCount`
+- **size cap (hard)** — among the survivors, walking newest-first, anything whose cumulative size exceeds `RetentionMaxTotalBytes` is pruned (except the floor)
+- a policy with no retention rule configured prunes nothing
+
+Each deletion removes the object from MinIO, then the database row, is written to the audit log as `retention.deleted` (system action, no actor), and fires the `RetentionCleaned` notification event. The retention fields are editable in the policy form on the Policies page.
+
+### Artifact integrity verification
+
+RestoreMe guards against silently corrupted or truncated artifacts at several points:
+
+- **On upload** — when an agent reports a finished upload, the backend re-reads the stored object from MinIO and recomputes its SHA256 (streamed through an incremental hash, so the whole artifact is never buffered) and compares it to the agent-reported checksum. With `Storage:VerifyChecksumBeforeComplete=true` (default) a mismatch fails the job — it never becomes `Completed` with a bad artifact; success is audit-logged as `artifact.verified`. `Storage:ChecksumVerifyMaxBytes` (null = no cap) skips the re-hash for objects larger than the limit — existence + size are still checked and the skip is logged as `artifact.verify_skipped`. Verification is also skipped when the agent reports no checksum.
+- **On demand** — operators/admins can trigger `POST /api/backupartifacts/{id}/verify` ("Verify now") from the backups/artifacts page; each artifact shows an integrity badge (verified / failed / unverified).
+- **On a schedule** — a background scrub sweep periodically re-verifies stored artifacts. The schedule (enabled, interval, run time, batch size) is **admin-managed at runtime** via `GET/PUT /api/integrity-settings` and the scrub-schedule card on the `/notifications` page — it is *not* hardcoded in config. `Integrity:CheckIntervalSeconds` only controls how often the worker wakes to check whether a run is due. A failed scrub fires the `IntegrityCheckFailed` notification event.
+- **Before restore** — the agent re-checks the artifact checksum before applying a restore, so a corrupted copy is never written over a live target.
 
 ### Health endpoint
 
@@ -375,7 +403,7 @@ Admins can revoke an individual agent from the Agents page (only visible to `adm
 
 ### Audit log
 
-The backend writes audit entries for every critical action: user create / delete / status change / role change / password reset, agent approve / reject / revoke, policy auto-disable (`policy.auto_disabled`), and notification delivery outcomes (`notification.sent` / `notification.failed`). Admin-only `GET /api/audit-logs` returns paginated entries with actor username joined server-side. The frontend exposes a read-only `/audit-log` page (admin-only) with filtering by action.
+The backend writes audit entries for every critical action: user create / delete / status change / role change / password reset, agent approve / reject / revoke, policy auto-disable (`policy.auto_disabled`), artifact integrity outcomes (`artifact.verified` / `artifact.verify_skipped`), retention deletions (`retention.deleted`), and notification delivery outcomes (`notification.sent` / `notification.failed`). Admin-only `GET /api/audit-logs` returns paginated entries with actor username joined server-side. The frontend exposes a read-only `/audit-log` page (admin-only) with filtering by action.
 
 ## Installing the Agent
 
