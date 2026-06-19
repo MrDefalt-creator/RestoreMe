@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Backup.Agent.Worker/Backup.Agent.Worker.csproj" />
+  <Project Path="Backup.Agent.Worker.Tests/Backup.Agent.Worker.Tests.csproj" />
   <Project Path="Backup.Server.Api/Backup.Server.Api.csproj" />
   <Project Path="Backup.Server.Application/Backup.Server.Application.csproj" />
   <Project Path="Backup.Server.Domain/Backup.Server.Domain.csproj" />

@@ -8,4 +8,5 @@ public record PendingRestoreResponse(
     string FileName,
     string PolicyType,
     string SourcePath,
-    BackupPolicyDatabaseSettingsDto? DatabaseSettings);
+    BackupPolicyDatabaseSettingsDto? DatabaseSettings,
+    string? Checksum);

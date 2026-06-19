@@ -102,7 +102,8 @@ public class RestoreJobsService
             artifact.FileName,
             MapPolicyType(policy.Type),
             policy.SourcePath,
-            MapDatabaseSettings(policy.DatabaseSettings));
+            MapDatabaseSettings(policy.DatabaseSettings),
+            artifact.Checksum);
     }
 
     public async Task<string> GetDownloadTicketAsync(

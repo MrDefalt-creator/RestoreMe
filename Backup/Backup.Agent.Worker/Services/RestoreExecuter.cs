@@ -9,17 +9,20 @@ public class RestoreExecuter : IRestoreExecutor
     private readonly IRestoreApiClient _restoreApiClient;
     private readonly IMinioStorageClient _storageClient;
     private readonly LogicalRestoreService _logicalRestoreService;
+    private readonly IChecksumService _checksumService;
 
     public RestoreExecuter(
         ILogger<RestoreExecuter> logger,
         IRestoreApiClient restoreApiClient,
         IMinioStorageClient storageClient,
-        LogicalRestoreService logicalRestoreService)
+        LogicalRestoreService logicalRestoreService,
+        IChecksumService checksumService)
     {
         _logger = logger;
         _restoreApiClient = restoreApiClient;
         _storageClient = storageClient;
         _logicalRestoreService = logicalRestoreService;
+        _checksumService = checksumService;
     }
 
     public async Task ExecutePendingAsync(Guid agentId, CancellationToken cancellationToken)
@@ -35,6 +38,20 @@ public class RestoreExecuter : IRestoreExecutor
 
             var downloadUrl = await _restoreApiClient.RequestDownloadTicketAsync(pending.JobId, cancellationToken);
             await _storageClient.DownloadFileAsync(downloadUrl, tempFilePath, cancellationToken);
+
+            // Integrity gate: verify the downloaded artifact's SHA256 against the
+            // expected checksum BEFORE touching the restore target, so a corrupt
+            // or truncated download can never overwrite live data.
+            var computedChecksum = await _checksumService.ComputeSha256Async(tempFilePath, cancellationToken);
+            if (!RestoreChecksumGate.ShouldProceed(pending.Checksum, computedChecksum))
+            {
+                throw new InvalidOperationException(
+                    "Artifact checksum verification failed: downloaded data does not match the expected SHA256. Restore target left untouched.");
+            }
+            if (string.IsNullOrWhiteSpace(pending.Checksum))
+            {
+                _logger.LogWarning("Restore job {JobId}: artifact has no recorded checksum; skipping integrity check", pending.JobId);
+            }
 
             await ApplyRestoreAsync(pending.PolicyType, pending.SourcePath, pending.DatabaseSettings, tempFilePath, cancellationToken);
 
