@@ -1,5 +1,7 @@
 import apiClient from './client'
 
+export type ArtifactIntegrityStatus = 'Unverified' | 'Verified' | 'Failed'
+
 export interface Artifact {
   id: string
   name?: string
@@ -12,6 +14,14 @@ export interface Artifact {
   downloadUrl?: string
   objectKey?: string
   checksum?: string
+  integrityStatus?: ArtifactIntegrityStatus
+  lastVerifiedAt?: string | null
+}
+
+export interface ArtifactVerifyResult {
+  id: string
+  integrityStatus: ArtifactIntegrityStatus
+  lastVerifiedAt?: string | null
 }
 
 export async function getArtifacts(): Promise<Artifact[]> {
@@ -33,6 +43,11 @@ export async function downloadArtifact(artifactId: string): Promise<Blob> {
   const response = await apiClient.get(`/api/backupartifacts/${artifactId}/download`, {
     responseType: 'blob',
   })
+  return response.data
+}
+
+export async function verifyArtifact(artifactId: string): Promise<ArtifactVerifyResult> {
+  const response = await apiClient.post(`/api/backupartifacts/${artifactId}/verify`)
   return response.data
 }
 

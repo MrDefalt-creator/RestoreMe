@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   CalendarClock,
@@ -10,10 +10,13 @@ import {
   RotateCcw,
   RefreshCw,
   Search,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { downloadArtifact, getArtifacts, type Artifact } from '@/shared/api/artifacts'
+import { downloadArtifact, getArtifacts, verifyArtifact, type Artifact } from '@/shared/api/artifacts'
 import { RestoreWizardDialog } from '@/features/restore-artifact'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType } from '@/shared/lib/format'
@@ -44,6 +47,24 @@ export function ArtifactsPage() {
     queryKey: queryKeys.artifacts,
     queryFn: getArtifacts,
     ...liveQueryOptions,
+  })
+
+  const queryClient = useQueryClient()
+  const verifyMutation = useMutation({
+    mutationFn: (artifact: Artifact) => verifyArtifact(artifact.id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.artifacts })
+      if (result.integrityStatus === 'Verified') {
+        toast.success(t('Integrity verified'))
+      } else if (result.integrityStatus === 'Failed') {
+        toast.error(t('Integrity check failed'))
+      } else {
+        toast.message(t('Integrity check skipped'))
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Integrity check failed'))
+    },
   })
 
   const downloadMutation = useMutation({
@@ -177,8 +198,10 @@ export function ArtifactsPage() {
                   artifact={artifact}
                   isDownloading={downloadingId === artifact.id}
                   isRestoring={false}
+                  isVerifying={verifyMutation.isPending && verifyMutation.variables?.id === artifact.id}
                   onDownload={() => downloadMutation.mutate(artifact)}
                   onRestore={() => setWizardArtifact(artifact)}
+                  onVerify={() => verifyMutation.mutate(artifact)}
                   t={t}
                 />
               ))}
@@ -234,15 +257,19 @@ function ArtifactRow({
   artifact,
   isDownloading,
   isRestoring,
+  isVerifying,
   onDownload,
   onRestore,
+  onVerify,
   t,
 }: {
   artifact: Artifact
   isDownloading: boolean
   isRestoring: boolean
+  isVerifying: boolean
   onDownload: () => void
   onRestore: () => void
+  onVerify: () => void
   t: (key: string, params?: Record<string, string | number>) => string
 }) {
   const { hasExpiry, isExpired, expiresSoon } = useMemo(() => {
@@ -279,6 +306,7 @@ function ArtifactRow({
             <Badge variant={artifactType === 'filesystem' ? 'neutral' : 'accent'}>
               {formatPolicyType(artifactType)}
             </Badge>
+            <IntegrityBadge status={artifact.integrityStatus} t={t} />
           </div>
           <p className="mt-1 truncate text-sm text-muted-foreground">
             {t('Created')} {formatRelativeTime(artifact.createdAt)} | {formatDateTime(artifact.createdAt)}
@@ -305,6 +333,16 @@ function ArtifactRow({
         <Button
           variant="secondary"
           size="sm"
+          onClick={onVerify}
+          disabled={isVerifying}
+          title={t('Re-hash the stored object and compare to its recorded checksum')}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          {isVerifying ? t('Verifying...') : t('Verify now')}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onRestore}
           disabled={isRestoring || isExpired}
           title={isExpired ? t('This artifact is expired') : t('Queue a restore job on the originating agent')}
@@ -324,6 +362,37 @@ function ArtifactRow({
         </Button>
       </div>
     </div>
+  )
+}
+
+function IntegrityBadge({
+  status,
+  t,
+}: {
+  status?: Artifact['integrityStatus']
+  t: (key: string, params?: Record<string, string | number>) => string
+}) {
+  if (status === 'Verified') {
+    return (
+      <Badge variant="success">
+        <ShieldCheck className="mr-1 h-3 w-3" />
+        {t('Verified')}
+      </Badge>
+    )
+  }
+  if (status === 'Failed') {
+    return (
+      <Badge variant="destructive">
+        <ShieldAlert className="mr-1 h-3 w-3" />
+        {t('Corrupt')}
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="neutral">
+      <ShieldQuestion className="mr-1 h-3 w-3" />
+      {t('Unverified')}
+    </Badge>
   )
 }
 
