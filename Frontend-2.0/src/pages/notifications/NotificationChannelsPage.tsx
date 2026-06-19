@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/app/store/auth-store'
 import { DeleteNotificationChannelDialog } from '@/features/notification-channel-form/DeleteNotificationChannelDialog'
 import { NotificationChannelDialog } from '@/features/notification-channel-form/NotificationChannelDialog'
+import { IntegrityScrubSettingsCard } from '@/features/integrity-settings/IntegrityScrubSettingsCard'
 import {
   getNotificationChannels,
   testNotificationChannel,
@@ -123,6 +124,8 @@ export function NotificationChannelsPage() {
           ))}
         </div>
       )}
+
+      <IntegrityScrubSettingsCard />
 
       <NotificationChannelDialog
         key={editing?.id ?? (createOpen ? 'new' : 'closed')}
