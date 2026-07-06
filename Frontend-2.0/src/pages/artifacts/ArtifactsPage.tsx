@@ -28,6 +28,7 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
+import { useDeepLinkHighlight } from '@/shared/lib/useDeepLinkHighlight'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 
@@ -94,6 +95,9 @@ export function ArtifactsPage() {
 
 
   const artifacts = artifactsQuery.data ?? EMPTY_ARTIFACTS
+  // ?id= deep link from the command palette: scroll to and highlight the
+  // linked artifact once the shelf is on screen.
+  const highlightId = useDeepLinkHighlight(artifacts.length > 0)
   const normalizedQuery = query.trim().toLowerCase()
 
   const filteredArtifacts = useMemo(() => {
@@ -199,6 +203,7 @@ export function ArtifactsPage() {
                 <ArtifactRow
                   key={artifact.id}
                   artifact={artifact}
+                  highlighted={artifact.id === highlightId}
                   isDownloading={downloadingId === artifact.id}
                   isRestoring={false}
                   isVerifying={verifyMutation.isPending && verifyMutation.variables?.id === artifact.id}
@@ -258,6 +263,7 @@ function ArtifactMetric({
 
 function ArtifactRow({
   artifact,
+  highlighted,
   isDownloading,
   isRestoring,
   isVerifying,
@@ -267,6 +273,7 @@ function ArtifactRow({
   t,
 }: {
   artifact: Artifact
+  highlighted: boolean
   isDownloading: boolean
   isRestoring: boolean
   isVerifying: boolean
@@ -292,7 +299,14 @@ function ArtifactRow({
   const artifactType = getArtifactType(artifact)
 
   return (
-    <div className="grid gap-4 p-4 transition hover:bg-secondary/35 lg:grid-cols-[1.35fr_1fr_auto] lg:items-center">
+    <div
+      data-deep-link-id={artifact.id}
+      className={
+        highlighted
+          ? 'grid gap-4 bg-primary/8 p-4 shadow-[inset_2px_0_0_hsl(var(--primary))] transition lg:grid-cols-[1.35fr_1fr_auto] lg:items-center'
+          : 'grid gap-4 p-4 transition hover:bg-secondary/35 lg:grid-cols-[1.35fr_1fr_auto] lg:items-center'
+      }
+    >
       <div className="flex min-w-0 items-center gap-3">
         <div
           className={

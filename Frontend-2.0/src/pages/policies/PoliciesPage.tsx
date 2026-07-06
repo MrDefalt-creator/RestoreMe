@@ -16,6 +16,7 @@ import { queryKeys } from '@/shared/lib/query'
 import { formatDurationSeconds, formatDateTime } from '@/shared/lib/format'
 import { toast } from 'sonner'
 import { useI18n } from '@/shared/i18n'
+import { useDeepLinkHighlight } from '@/shared/lib/useDeepLinkHighlight'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 import { useAuthStore } from '@/app/store/auth-store'
@@ -72,6 +73,9 @@ export function PoliciesPage() {
   })
 
   const policies = policiesQuery.data ?? []
+  // ?id= deep link from the command palette / JobDrawer: scroll to and
+  // highlight the linked policy once the list is on screen.
+  const highlightId = useDeepLinkHighlight(policies.length > 0)
   const agentNameMap = new Map((agentsQuery.data ?? []).map((agent) => [agent.id, agent.name]))
   const searchValue = search.trim().toLowerCase()
   const filteredPolicies = policies.filter((policy) => {
@@ -166,7 +170,15 @@ export function PoliciesPage() {
                     {filteredPolicies.map((policy) => {
                       const autoDisabled = !policy.isEnabled && policy.autoDisabledAt !== null
                       return (
-                      <tr key={policy.id} className="hover:bg-secondary/35">
+                      <tr
+                        key={policy.id}
+                        data-deep-link-id={policy.id}
+                        className={
+                          policy.id === highlightId
+                            ? 'bg-primary/8 shadow-[inset_2px_0_0_hsl(var(--primary))]'
+                            : 'hover:bg-secondary/35'
+                        }
+                      >
                         <Td>{policy.name}</Td>
                         <Td className="uppercase tracking-wider">{formatPolicyType(policy.type, t)}</Td>
                         <Td className="max-w-[220px] truncate">
@@ -235,7 +247,12 @@ export function PoliciesPage() {
                   return (
                   <div
                     key={policy.id}
-                    className="rounded-lg border border-border bg-card/80 p-4"
+                    data-deep-link-id={policy.id}
+                    className={
+                      policy.id === highlightId
+                        ? 'rounded-lg border border-primary/50 bg-primary/8 p-4'
+                        : 'rounded-lg border border-border bg-card/80 p-4'
+                    }
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

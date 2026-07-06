@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
@@ -84,6 +84,10 @@ export function AgentsPage() {
   const [filtersOpen, setFiltersOpen] = useState(
     () => statusFilter !== 'all' || osFilter !== 'all' || policyCoverageFilter !== 'all',
   )
+  // Entity deep link (?id= from the command palette / JobDrawer) opens the
+  // details dialog for that agent; closing it drops the param.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const deepLinkAgentId = searchParams.get('id')
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,
@@ -98,6 +102,17 @@ export function AgentsPage() {
   const agents = agentsQuery.data ?? EMPTY_AGENTS
   const policies = policiesQuery.data ?? EMPTY_POLICIES
   const policiesByAgent = useMemo(() => groupPoliciesByAgent(policies), [policies])
+  const deepLinkAgent = deepLinkAgentId
+    ? agents.find((agent) => agent.id === deepLinkAgentId) ?? null
+    : null
+
+  function closeDeepLink() {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('id')
+      return next
+    }, { replace: true })
+  }
   const normalizedQuery = query.trim().toLowerCase()
   const hasActiveFilters =
     statusFilter !== 'all' ||
@@ -295,6 +310,14 @@ export function AgentsPage() {
         />
       )}
 
+      {deepLinkAgent ? (
+        <AgentDetailsDialog
+          agent={deepLinkAgent}
+          policies={getAgentPolicies(deepLinkAgent, policiesByAgent)}
+          open
+          onClose={closeDeepLink}
+        />
+      ) : null}
     </div>
   )
 }
