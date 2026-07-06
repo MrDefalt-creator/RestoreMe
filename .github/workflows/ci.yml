@@ -4,7 +4,11 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [main]
+    branches: [main, preview]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -28,7 +32,16 @@ jobs:
 
       - name: Test
         working-directory: Backup
-        run: dotnet test BackupSystem.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test BackupSystem.slnx --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: Backup/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   frontend:
     name: Frontend build
@@ -54,6 +67,10 @@ jobs:
       - name: Typecheck
         working-directory: Frontend-2.0
         run: yarn typecheck
+
+      - name: Test
+        working-directory: Frontend-2.0
+        run: yarn test
 
       - name: Build
         working-directory: Frontend-2.0
