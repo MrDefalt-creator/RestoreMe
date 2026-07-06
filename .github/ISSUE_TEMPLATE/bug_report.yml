@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in RestoreMe doesn't work as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Backend API
+        - Agent worker
+        - Frontend (admin panel)
+        - Installers
+        - Docker Compose stack
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+      placeholder: |
+        1. Created a policy with …
+        2. Waited for the scheduled run …
+        3. Expected …, but got …
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Backend/agent logs, browser console, `docker compose logs`. Redact secrets.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: preview @ abc1234
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Docker Compose on Ubuntu 24.04 / agent on Windows Server 2022
