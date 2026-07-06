@@ -105,12 +105,28 @@ public sealed class PagedQueryRepositoryTests : IAsyncLifetime
         var repo = new BackupJobRepository(ctx);
 
         var result = await repo.QueryBackupJobsAsync(
-            new PagedQuery(1, 3, null, SortDescending: true), CancellationToken.None);
+            new PagedQuery(1, 3, null, SortDescending: true), status: null, CancellationToken.None);
 
         Assert.Equal(7, result.Total);
         Assert.Equal(3, result.Items.Count);
         Assert.Equal(Base.AddMinutes(6), result.Items[0].StartedAt);
         Assert.Equal(Base.AddMinutes(4), result.Items[2].StartedAt);
+    }
+
+    [Fact]
+    public async Task Jobs_status_filter_narrows_items_and_total()
+    {
+        await using var ctx = NewContext();
+        var repo = new BackupJobRepository(ctx);
+
+        var result = await repo.QueryBackupJobsAsync(
+            new PagedQuery(1, 10, null, SortDescending: true),
+            BackupJobStatus.Failed,
+            CancellationToken.None);
+
+        // Seed marks indexes 0, 3, 6 as Failed.
+        Assert.Equal(3, result.Total);
+        Assert.All(result.Items, job => Assert.Equal(BackupJobStatus.Failed, job.Status));
     }
 
     [Fact]
@@ -120,7 +136,7 @@ public sealed class PagedQueryRepositoryTests : IAsyncLifetime
         var repo = new BackupJobRepository(ctx);
 
         var page2 = await repo.QueryBackupJobsAsync(
-            new PagedQuery(2, 3, null, SortDescending: true), CancellationToken.None);
+            new PagedQuery(2, 3, null, SortDescending: true), status: null, CancellationToken.None);
 
         Assert.Equal(7, page2.Total);
         Assert.Equal(3, page2.Items.Count);
@@ -134,7 +150,7 @@ public sealed class PagedQueryRepositoryTests : IAsyncLifetime
         var repo = new BackupJobRepository(ctx);
 
         var result = await repo.QueryBackupJobsAsync(
-            new PagedQuery(1, 2, "definitely-not-a-column", SortDescending: false), CancellationToken.None);
+            new PagedQuery(1, 2, "definitely-not-a-column", SortDescending: false), status: null, CancellationToken.None);
 
         Assert.Equal(Base, result.Items[0].StartedAt);
     }

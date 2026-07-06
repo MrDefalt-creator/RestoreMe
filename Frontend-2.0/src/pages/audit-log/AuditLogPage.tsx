@@ -164,7 +164,7 @@ export function AuditLogPage() {
                   disabled={page <= 1 || query.isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  {t('Previous')}
+                  {t('Previous page')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -172,7 +172,7 @@ export function AuditLogPage() {
                   disabled={page >= totalPages || query.isFetching}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  {t('Next')}
+                  {t('Next page')}
                 </Button>
               </div>
             </div>

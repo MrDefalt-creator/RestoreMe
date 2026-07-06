@@ -182,6 +182,23 @@ public class DashboardSummaryService
         var totalSize = artifacts.Sum(a => a.SizeBytes);
         var jobToPolicy = jobs.ToDictionary(j => j.Id, j => j.PolicyId);
         var policyNames = policies.ToDictionary(p => p.Id, p => p.Name);
+        var policyTypes = policies.ToDictionary(p => p.Id, p => p.Type);
+
+        // Filesystem vs database split via the originating policy type.
+        // Artifacts whose policy is gone (deleted with "keep history")
+        // count as filesystem — same fallback the artifact shelf uses.
+        var database = 0;
+        foreach (var artifact in artifacts)
+        {
+            if (jobToPolicy.TryGetValue(artifact.JobId, out var policyId)
+                && policyId.HasValue
+                && policyTypes.TryGetValue(policyId.Value, out var type)
+                && type != BackupPolicyType.FileSystem)
+            {
+                database++;
+            }
+        }
+        var filesystem = artifacts.Count - database;
 
         var recent = artifacts
             .OrderByDescending(a => a.CreatedAt)
@@ -209,7 +226,7 @@ public class DashboardSummaryService
             })
             .ToList();
 
-        return new ArtifactSummaryDto(artifacts.Count, totalSize, recent);
+        return new ArtifactSummaryDto(artifacts.Count, totalSize, filesystem, database, recent);
     }
 
     private static string ShortId(Guid id) => id.ToString("N")[..8];

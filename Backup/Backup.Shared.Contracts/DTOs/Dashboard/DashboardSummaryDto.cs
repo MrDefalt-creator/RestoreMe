@@ -39,6 +39,10 @@ public sealed record RecentJobDto(
 public sealed record ArtifactSummaryDto(
     int Total,
     long TotalSize,
+    // Split by originating policy type (artifacts of deleted policies
+    // count as filesystem, matching the frontend's display fallback).
+    int Filesystem,
+    int Database,
     IReadOnlyList<RecentArtifactDto> Recent);
 
 public sealed record RecentArtifactDto(

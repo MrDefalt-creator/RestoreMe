@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { PagedResponse, SortDir } from './pagination'
 
 export interface Job {
   id: string
@@ -18,6 +19,21 @@ export interface Job {
 
 export async function getJobs(): Promise<Job[]> {
   const response = await apiClient.get('/api/backupjobs')
+  return response.data
+}
+
+export type JobSortKey = 'startedAt' | 'completedAt' | 'status'
+
+export interface JobsPageParams {
+  page: number
+  pageSize: number
+  sortBy?: JobSortKey
+  sortDir?: SortDir
+  status?: Job['status']
+}
+
+export async function getJobsPage(params: JobsPageParams): Promise<PagedResponse<Job>> {
+  const response = await apiClient.get('/api/backupjobs', { params })
   return response.data
 }
 

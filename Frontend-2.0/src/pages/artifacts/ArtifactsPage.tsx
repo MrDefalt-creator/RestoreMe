@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   CalendarClock,
@@ -16,7 +16,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { downloadArtifact, getArtifacts, verifyArtifact, type Artifact } from '@/shared/api/artifacts'
+import { downloadArtifact, getArtifactsPage, verifyArtifact, type Artifact, type ArtifactSortKey } from '@/shared/api/artifacts'
+import { getDashboardSummary } from '@/shared/api/dashboard'
+import type { SortDir } from '@/shared/api/pagination'
 import { RestoreWizardDialog } from '@/features/restore-artifact'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType } from '@/shared/lib/format'
@@ -26,6 +28,7 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
+import { Select } from '@/shared/ui/Select'
 import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useDeepLinkHighlight } from '@/shared/lib/useDeepLinkHighlight'
@@ -37,6 +40,18 @@ type TypeFilter = 'all' | ArtifactType
 
 const TYPE_FILTERS: readonly TypeFilter[] = ['all', 'filesystem', 'postgres', 'mysql']
 
+type ArtifactSortOption = 'newest' | 'oldest' | 'largest' | 'smallest' | 'name'
+const SORT_OPTIONS: readonly ArtifactSortOption[] = ['newest', 'oldest', 'largest', 'smallest', 'name']
+const SORT_MAP: Record<ArtifactSortOption, { sortBy: ArtifactSortKey; sortDir: SortDir }> = {
+  newest: { sortBy: 'createdAt', sortDir: 'desc' },
+  oldest: { sortBy: 'createdAt', sortDir: 'asc' },
+  largest: { sortBy: 'size', sortDir: 'desc' },
+  smallest: { sortBy: 'size', sortDir: 'asc' },
+  name: { sortBy: 'fileName', sortDir: 'asc' },
+}
+
+const PAGE_SIZE = 25
+
 const EMPTY_ARTIFACTS: Artifact[] = []
 
 export function ArtifactsPage() {
@@ -44,12 +59,32 @@ export function ArtifactsPage() {
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useUrlFilterState<TypeFilter>('type', 'all', TYPE_FILTERS)
+  const [sortOption, setSortOptionRaw] = useUrlFilterState<ArtifactSortOption>('sort', 'newest', SORT_OPTIONS)
+  const [pageParam, setPageParam] = useUrlFilterState<string>('page', '1')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [wizardArtifact, setWizardArtifact] = useState<Artifact | null>(null)
 
+  const page = Math.max(1, Number.parseInt(pageParam, 10) || 1)
+
+  // Re-sorting restarts from page 1 — page numbers from the old ordering
+  // would point at arbitrary rows.
+  function setSortOption(next: ArtifactSortOption) {
+    setSortOptionRaw(next)
+    setPageParam('1')
+  }
+
+  const { sortBy, sortDir } = SORT_MAP[sortOption]
   const artifactsQuery = useQuery({
-    queryKey: queryKeys.artifacts,
-    queryFn: getArtifacts,
+    queryKey: queryKeys.artifactsPage(page, sortOption),
+    queryFn: () => getArtifactsPage({ page, pageSize: PAGE_SIZE, sortBy, sortDir }),
+    placeholderData: keepPreviousData,
+    ...liveQueryOptions,
+  })
+  // Shelf-wide totals for the metric tiles; the paged list only carries
+  // the rows of the current page.
+  const summaryQuery = useQuery({
+    queryKey: [...queryKeys.dashboard, 'summary'] as const,
+    queryFn: getDashboardSummary,
     ...liveQueryOptions,
   })
 
@@ -94,12 +129,17 @@ export function ArtifactsPage() {
   })
 
 
-  const artifacts = artifactsQuery.data ?? EMPTY_ARTIFACTS
+  const artifacts = artifactsQuery.data?.items ?? EMPTY_ARTIFACTS
+  const total = artifactsQuery.data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   // ?id= deep link from the command palette: scroll to and highlight the
   // linked artifact once the shelf is on screen.
   const highlightId = useDeepLinkHighlight(artifacts.length > 0)
   const normalizedQuery = query.trim().toLowerCase()
 
+  // Type + search narrow the rows of the current page (the type is a
+  // display heuristic, not a server column — same pattern as the audit
+  // log categories).
   const filteredArtifacts = useMemo(() => {
     return artifacts.filter((artifact) => {
       const artifactType = getArtifactType(artifact)
@@ -121,15 +161,13 @@ export function ArtifactsPage() {
     })
   }, [artifacts, normalizedQuery, typeFilter])
 
-  const stats = useMemo(
-    () => ({
-      total: artifacts.length,
-      totalSize: artifacts.reduce((sum, artifact) => sum + artifact.size, 0),
-      filesystem: artifacts.filter((artifact) => getArtifactType(artifact) === 'filesystem').length,
-      database: artifacts.filter((artifact) => getArtifactType(artifact) !== 'filesystem').length,
-    }),
-    [artifacts],
-  )
+  const artifactStats = summaryQuery.data?.artifacts
+  const stats = {
+    total: artifactStats?.total ?? 0,
+    totalSize: artifactStats?.totalSize ?? 0,
+    filesystem: artifactStats?.filesystem ?? 0,
+    database: artifactStats?.database ?? 0,
+  }
 
   return (
     <div className="space-y-7">
@@ -163,6 +201,18 @@ export function ArtifactsPage() {
               className="pl-10"
             />
           </div>
+          <Select
+            value={sortOption}
+            onChange={(event) => setSortOption(event.target.value as ArtifactSortOption)}
+            aria-label={t('Sort')}
+            className="lg:w-auto"
+          >
+            <option value="newest">{t('Newest first')}</option>
+            <option value="oldest">{t('Oldest first')}</option>
+            <option value="largest">{t('Largest first')}</option>
+            <option value="smallest">{t('Smallest first')}</option>
+            <option value="name">{t('By name')}</option>
+          </Select>
           <div className="flex rounded-lg border border-border bg-secondary/50 p-1">
             {(['all', 'filesystem', 'postgres', 'mysql'] as TypeFilter[]).map((type) => (
               <button
@@ -214,16 +264,42 @@ export function ArtifactsPage() {
                 />
               ))}
             </div>
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+              <span>
+                {t('Page')} {page} / {totalPages} · {total} {t('records')}
+                {(normalizedQuery || typeFilter !== 'all') && ` · ${filteredArtifacts.length} ${t('shown')}`}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page <= 1 || artifactsQuery.isFetching}
+                  onClick={() => setPageParam(String(Math.max(1, page - 1)))}
+                >
+                  {t('Previous page')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page >= totalPages || artifactsQuery.isFetching}
+                  onClick={() => setPageParam(String(page + 1))}
+                >
+                  {t('Next page')}
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : (
         <EmptyState
           icon={<HardDriveDownload className="h-8 w-8 text-muted-foreground" />}
-          title={artifacts.length ? t('No artifacts match these filters') : t('No artifacts yet')}
+          title={total ? t('No artifacts match these filters') : t('No artifacts yet')}
           description={
-            artifacts.length
-              ? t('Clear the search or switch the artifact type.')
-              : t('Successful backups will appear here as downloadable recovery artifacts.')
+            normalizedQuery || typeFilter !== 'all'
+              ? t('No matches on this page — flip pages or clear the filters.')
+              : total
+                ? t('Clear the search or switch the artifact type.')
+                : t('Successful backups will appear here as downloadable recovery artifacts.')
           }
         />
       )}

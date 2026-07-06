@@ -139,7 +139,7 @@ public sealed class ArtifactChecksumVerificationTests
         public Task<BackupJob?> GetBackupJob(Guid jobId) => Task.FromResult<BackupJob?>(_job);
 
         public Task<List<BackupJob>> GetAllBackupJobsAsync() => throw new NotImplementedException();
-        public Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, CancellationToken ct) => throw new NotImplementedException();
+        public Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, Backup.Server.Domain.Enums.BackupJobStatus? status, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<BackupJob>> GetBackupJobsByAgentIdAsync(Guid agentId) => throw new NotImplementedException();
         public Task<List<BackupJob>> GetBackupJobsByPolicyIdAsync(Guid policyId) => throw new NotImplementedException();
         public Task AddBackupJob(BackupJob job) => throw new NotImplementedException();

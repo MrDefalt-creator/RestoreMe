@@ -43,7 +43,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
     unresolvedFailures: [],
     recent: [],
   },
-  artifacts: { total: 0, totalSize: 0, recent: [] },
+  artifacts: { total: 0, totalSize: 0, filesystem: 0, database: 0, recent: [] },
 }
 
 export function useOnboardingSteps(): OnboardingState {

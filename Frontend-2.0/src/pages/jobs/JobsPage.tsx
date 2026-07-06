@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
   Activity,
@@ -12,9 +12,11 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { getJobs, type Job } from '@/shared/api/jobs'
+import { getJobsPage, type Job, type JobSortKey } from '@/shared/api/jobs'
 import { getAgents } from '@/shared/api/agents'
+import { getDashboardSummary } from '@/shared/api/dashboard'
 import { getPolicies } from '@/shared/api/policies'
+import type { SortDir } from '@/shared/api/pagination'
 import { queryKeys } from '@/shared/lib/query'
 import { formatDateTime, formatDurationSeconds, formatRelativeTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
@@ -23,6 +25,7 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
+import { Select } from '@/shared/ui/Select'
 import { StatTile } from '@/shared/ui/StatTile'
 import { SegmentedControl } from '@/shared/ui/SegmentedControl'
 import { SkeletonList } from '@/shared/ui/Skeleton'
@@ -36,6 +39,16 @@ type StatusFilter = 'all' | Job['status']
 const STATUS_FILTERS: readonly StatusFilter[] = ['all', 'pending', 'running', 'failed', 'completed']
 type AgentLookup = Awaited<ReturnType<typeof getAgents>>[number]
 type PolicyLookup = Awaited<ReturnType<typeof getPolicies>>[number]
+
+type JobSortOption = 'newest' | 'oldest' | 'status'
+const SORT_OPTIONS: readonly JobSortOption[] = ['newest', 'oldest', 'status']
+const SORT_MAP: Record<JobSortOption, { sortBy: JobSortKey; sortDir: SortDir }> = {
+  newest: { sortBy: 'startedAt', sortDir: 'desc' },
+  oldest: { sortBy: 'startedAt', sortDir: 'asc' },
+  status: { sortBy: 'status', sortDir: 'asc' },
+}
+
+const PAGE_SIZE = 25
 
 const statusVariant: Record<Job['status'], 'success' | 'destructive' | 'accent' | 'neutral'> = {
   pending: 'neutral',
@@ -52,11 +65,43 @@ export function JobsPage() {
   const { t } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useUrlFilterState<StatusFilter>('status', 'all', STATUS_FILTERS)
+  const [statusFilter, setStatusFilterRaw] = useUrlFilterState<StatusFilter>('status', 'all', STATUS_FILTERS)
+  const [sortOption, setSortOptionRaw] = useUrlFilterState<JobSortOption>('sort', 'newest', SORT_OPTIONS)
+  const [pageParam, setPageParam] = useUrlFilterState<string>('page', '1')
   const [, setSearchParams] = useSearchParams()
+
+  const page = Math.max(1, Number.parseInt(pageParam, 10) || 1)
+
+  // Changing the filter or sort restarts from page 1 — page numbers from
+  // the old ordering would point at arbitrary rows.
+  function setStatusFilter(next: StatusFilter) {
+    setStatusFilterRaw(next)
+    setPageParam('1')
+  }
+  function setSortOption(next: JobSortOption) {
+    setSortOptionRaw(next)
+    setPageParam('1')
+  }
+
+  const { sortBy, sortDir } = SORT_MAP[sortOption]
   const jobsQuery = useQuery({
-    queryKey: queryKeys.jobs,
-    queryFn: getJobs,
+    queryKey: queryKeys.jobsPage(page, sortOption, statusFilter === 'all' ? undefined : statusFilter),
+    queryFn: () =>
+      getJobsPage({
+        page,
+        pageSize: PAGE_SIZE,
+        sortBy,
+        sortDir,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+      }),
+    placeholderData: keepPreviousData,
+    ...liveQueryOptions,
+  })
+  // Fleet-wide status counts for the tiles + segmented control; the paged
+  // list itself only carries the rows of the current page.
+  const summaryQuery = useQuery({
+    queryKey: [...queryKeys.dashboard, 'summary'] as const,
+    queryFn: getDashboardSummary,
     ...liveQueryOptions,
   })
   const agentsQuery = useQuery({
@@ -70,18 +115,22 @@ export function JobsPage() {
     ...liveQueryOptions,
   })
 
-  const jobs = jobsQuery.data ?? EMPTY_JOBS
+  const jobs = jobsQuery.data?.items ?? EMPTY_JOBS
+  const total = jobsQuery.data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const agents = agentsQuery.data ?? EMPTY_AGENTS
   const policies = policiesQuery.data ?? EMPTY_POLICIES
   const agentsById = useMemo(() => new Map(agents.map((agent) => [agent.id, agent])), [agents])
   const policiesById = useMemo(() => new Map(policies.map((policy) => [policy.id, policy])), [policies])
   const normalizedQuery = query.trim().toLowerCase()
 
-  const filteredJobs = useMemo(() => {
+  // Status filtering happens server-side; the search box narrows the
+  // rows of the current page (same pattern as the audit log categories).
+  const visibleJobs = useMemo(() => {
+    if (!normalizedQuery) return jobs
     return jobs.filter((job) => {
       const agent = job.agentId ? agentsById.get(job.agentId) : undefined
       const policy = job.policyId ? policiesById.get(job.policyId) : undefined
-      const matchesStatus = statusFilter === 'all' || job.status === statusFilter
       const searchable = [
         job.name,
         job.policyName,
@@ -98,20 +147,24 @@ export function JobsPage() {
         .join(' ')
         .toLowerCase()
 
-      return matchesStatus && (!normalizedQuery || searchable.includes(normalizedQuery))
+      return searchable.includes(normalizedQuery)
     })
-  }, [agentsById, jobs, normalizedQuery, policiesById, statusFilter])
+  }, [agentsById, jobs, normalizedQuery, policiesById])
 
-  const stats = useMemo(
-    () => ({
-      total: jobs.length,
-      completed: jobs.filter((job) => job.status === 'completed').length,
-      failed: jobs.filter((job) => job.status === 'failed').length,
-      running: jobs.filter((job) => job.status === 'running').length,
-      pending: jobs.filter((job) => job.status === 'pending').length,
-    }),
-    [jobs],
-  )
+  const jobStats = summaryQuery.data?.jobs
+  const stats = useMemo(() => {
+    const completed = jobStats?.completed ?? 0
+    const running = jobStats?.running ?? 0
+    const failed = jobStats?.failed ?? 0
+    const statsTotal = jobStats?.total ?? 0
+    return {
+      total: statsTotal,
+      completed,
+      running,
+      failed,
+      pending: Math.max(0, statsTotal - completed - running - failed),
+    }
+  }, [jobStats])
 
   return (
     <div className="space-y-7">
@@ -141,10 +194,20 @@ export function JobsPage() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t('Search by job, policy, agent, status, or error...')}
+              placeholder={t('Search this page by job, policy, agent, or error...')}
               className="pl-10"
             />
           </div>
+          <Select
+            value={sortOption}
+            onChange={(event) => setSortOption(event.target.value as JobSortOption)}
+            aria-label={t('Sort')}
+            className="lg:w-auto"
+          >
+            <option value="newest">{t('Newest first')}</option>
+            <option value="oldest">{t('Oldest first')}</option>
+            <option value="status">{t('By status')}</option>
+          </Select>
           <SegmentedControl
             value={statusFilter}
             onChange={setStatusFilter}
@@ -173,11 +236,11 @@ export function JobsPage() {
             </Button>
           }
         />
-      ) : filteredJobs.length ? (
+      ) : visibleJobs.length ? (
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {filteredJobs.map((job) => (
+              {visibleJobs.map((job) => (
                 <JobRow
                   key={job.id}
                   job={job}
@@ -188,15 +251,41 @@ export function JobsPage() {
                 />
               ))}
             </div>
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+              <span>
+                {t('Page')} {page} / {totalPages} · {total} {t('records')}
+                {normalizedQuery && ` · ${visibleJobs.length} ${t('shown')}`}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page <= 1 || jobsQuery.isFetching}
+                  onClick={() => setPageParam(String(Math.max(1, page - 1)))}
+                >
+                  {t('Previous page')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page >= totalPages || jobsQuery.isFetching}
+                  onClick={() => setPageParam(String(page + 1))}
+                >
+                  {t('Next page')}
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : (
         <EmptyState
-          title={jobs.length ? t('No jobs match these filters') : t('No jobs yet')}
+          title={total ? t('No jobs match these filters') : t('No jobs yet')}
           description={
-            jobs.length
-              ? t('Clear the search or switch the status filter.')
-              : t('Execution history will appear here after policies run.')
+            normalizedQuery
+              ? t('No matches on this page — flip pages or clear the search.')
+              : total
+                ? t('Clear the search or switch the status filter.')
+                : t('Execution history will appear here after policies run.')
           }
         />
       )}

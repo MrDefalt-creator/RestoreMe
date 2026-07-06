@@ -99,6 +99,8 @@ export interface RecentArtifact {
 export interface ArtifactSummary {
   total: number
   totalSize: number
+  filesystem: number
+  database: number
   recent: RecentArtifact[]
 }
 

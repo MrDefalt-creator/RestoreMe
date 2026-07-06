@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { PagedResponse, SortDir } from './pagination'
 
 export type ArtifactIntegrityStatus = 'Unverified' | 'Verified' | 'Failed'
 
@@ -26,6 +27,20 @@ export interface ArtifactVerifyResult {
 
 export async function getArtifacts(): Promise<Artifact[]> {
   const response = await apiClient.get('/api/backupartifacts')
+  return response.data
+}
+
+export type ArtifactSortKey = 'createdAt' | 'size' | 'fileName'
+
+export interface ArtifactsPageParams {
+  page: number
+  pageSize: number
+  sortBy?: ArtifactSortKey
+  sortDir?: SortDir
+}
+
+export async function getArtifactsPage(params: ArtifactsPageParams): Promise<PagedResponse<Artifact>> {
+  const response = await apiClient.get('/api/backupartifacts', { params })
   return response.data
 }
 

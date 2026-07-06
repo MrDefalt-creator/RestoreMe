@@ -190,7 +190,7 @@ public sealed class PolicyAutoDisableTests
         public Task ExecuteInTransactionAsync(Func<Task> action) => action();
 
         public Task<List<BackupJob>> GetAllBackupJobsAsync() => throw new NotImplementedException();
-        public Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, Backup.Server.Domain.Enums.BackupJobStatus? status, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<List<BackupJob>> GetBackupJobsByAgentIdAsync(Guid agentId) => throw new NotImplementedException();
         public Task<List<BackupJob>> GetBackupJobsByPolicyIdAsync(Guid policyId) => throw new NotImplementedException();
         public Task AddBackupJob(BackupJob job) => throw new NotImplementedException();

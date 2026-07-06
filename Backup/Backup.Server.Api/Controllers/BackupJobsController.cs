@@ -2,6 +2,7 @@ using Backup.Server.Api.Security;
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Domain.Enums;
 using Backup.Shared.Contracts.DTOs.Common;
 using Backup.Shared.Contracts.DTOs.Jobs;
 using Microsoft.AspNetCore.Authorization;
@@ -30,18 +31,24 @@ public class BackupJobsController : ControllerBase
         [FromQuery] int? pageSize,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDir,
+        [FromQuery] string? status,
         CancellationToken cancellationToken)
     {
         // No pagination params → legacy full-array shape, so older clients
         // (and internal callers) keep working unchanged.
-        if (page is null && pageSize is null && sortBy is null)
+        if (page is null && pageSize is null && sortBy is null && status is null)
         {
             var jobs = await _service.GetAllJobs();
             return Ok(jobs.Select(MapJob));
         }
 
+        // Unknown status strings are ignored rather than 400'd, matching
+        // the forgiving sortBy fallback.
+        BackupJobStatus? statusFilter =
+            Enum.TryParse<BackupJobStatus>(status, ignoreCase: true, out var parsed) ? parsed : null;
+
         var query = PagedQuery.Normalize(page, pageSize, sortBy, sortDir);
-        var result = await _service.QueryJobs(query, cancellationToken);
+        var result = await _service.QueryJobs(query, statusFilter, cancellationToken);
         return Ok(new PagedResponse<AdminBackupJobDto>(
             result.Items.Select(MapJob).ToList(),
             result.Total,

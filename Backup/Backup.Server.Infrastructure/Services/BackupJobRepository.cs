@@ -1,5 +1,6 @@
 using Backup.Server.Application.Interfaces;
 using Backup.Server.Domain.Entities;
+using Backup.Server.Domain.Enums;
 using Backup.Server.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,9 +22,13 @@ public class BackupJobRepository : IBackupJobRepository
             .ToListAsync();
     }
 
-    public async Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, CancellationToken cancellationToken)
+    public async Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, BackupJobStatus? status, CancellationToken cancellationToken)
     {
         var jobs = _dbContext.BackupJobs.AsNoTracking();
+        if (status.HasValue)
+        {
+            jobs = jobs.Where(x => x.Status == status.Value);
+        }
 
         var ordered = query.SortBy?.ToLowerInvariant() switch
         {
