@@ -50,6 +50,7 @@ import { SwitchField } from '@/shared/ui/Switch'
 import { formatFileSize } from '@/shared/lib/format'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 
 const statusTone: Record<Agent['status'], 'success' | 'warning' | 'neutral'> = {
   online: 'success',
@@ -62,17 +63,27 @@ const EMPTY_POLICIES: BackupPolicy[] = []
 type StatusFilter = 'all' | Agent['status']
 type PolicyCoverageFilter = 'all' | 'with-policies' | 'without-policies'
 
+const STATUS_FILTERS: readonly StatusFilter[] = ['all', 'online', 'stale', 'offline']
+const COVERAGE_FILTERS: readonly PolicyCoverageFilter[] = ['all', 'with-policies', 'without-policies']
+
 export function AgentsPage() {
   const { t } = useI18n()
   const role = useAuthStore((state) => state.user?.role)
   const canInstall = role === 'admin' || role === 'operator'
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const setInstallOpen = useUiStore((state) => state.setInstallAgentDialogOpen)
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [osFilter, setOsFilter] = useState('all')
-  const [policyCoverageFilter, setPolicyCoverageFilter] = useState<PolicyCoverageFilter>('all')
+  const [statusFilter, setStatusFilter] = useUrlFilterState<StatusFilter>('status', 'all', STATUS_FILTERS)
+  const [osFilter, setOsFilter] = useUrlFilterState<string>('os', 'all')
+  const [policyCoverageFilter, setPolicyCoverageFilter] = useUrlFilterState<PolicyCoverageFilter>(
+    'coverage',
+    'all',
+    COVERAGE_FILTERS,
+  )
+  // Open the filter panel when a deep link arrives with filters already applied.
+  const [filtersOpen, setFiltersOpen] = useState(
+    () => statusFilter !== 'all' || osFilter !== 'all' || policyCoverageFilter !== 'all',
+  )
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents,
     queryFn: getAgents,

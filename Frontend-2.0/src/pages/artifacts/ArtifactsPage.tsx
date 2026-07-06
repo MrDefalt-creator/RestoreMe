@@ -29,9 +29,12 @@ import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 
 type ArtifactType = 'filesystem' | 'postgres' | 'mysql'
 type TypeFilter = 'all' | ArtifactType
+
+const TYPE_FILTERS: readonly TypeFilter[] = ['all', 'filesystem', 'postgres', 'mysql']
 
 const EMPTY_ARTIFACTS: Artifact[] = []
 
@@ -39,7 +42,7 @@ export function ArtifactsPage() {
   const { t } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [typeFilter, setTypeFilter] = useUrlFilterState<TypeFilter>('type', 'all', TYPE_FILTERS)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [wizardArtifact, setWizardArtifact] = useState<Artifact | null>(null)
 

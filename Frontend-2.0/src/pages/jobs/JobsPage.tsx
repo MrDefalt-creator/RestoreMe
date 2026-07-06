@@ -28,9 +28,12 @@ import { SegmentedControl } from '@/shared/ui/SegmentedControl'
 import { SkeletonList } from '@/shared/ui/Skeleton'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 import { JobDrawer } from '@/widgets/job-drawer'
 
 type StatusFilter = 'all' | Job['status']
+
+const STATUS_FILTERS: readonly StatusFilter[] = ['all', 'pending', 'running', 'failed', 'completed']
 type AgentLookup = Awaited<ReturnType<typeof getAgents>>[number]
 type PolicyLookup = Awaited<ReturnType<typeof getPolicies>>[number]
 
@@ -49,7 +52,7 @@ export function JobsPage() {
   const { t } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [statusFilter, setStatusFilter] = useUrlFilterState<StatusFilter>('status', 'all', STATUS_FILTERS)
   const [, setSearchParams] = useSearchParams()
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs,

@@ -17,7 +17,12 @@ import { formatDurationSeconds, formatDateTime } from '@/shared/lib/format'
 import { toast } from 'sonner'
 import { useI18n } from '@/shared/i18n'
 import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
+import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 import { useAuthStore } from '@/app/store/auth-store'
+
+type PolicyStateFilter = 'all' | 'enabled' | 'disabled'
+
+const POLICY_STATE_FILTERS: readonly PolicyStateFilter[] = ['all', 'enabled', 'disabled']
 
 export function PoliciesPage() {
   const { t } = useI18n()
@@ -39,7 +44,7 @@ export function PoliciesPage() {
   const [search, setSearch] = useState('')
   const [editingPolicy, setEditingPolicy] = useState<BackupPolicy | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [policyFilter, setPolicyFilter] = useState('all')
+  const [policyFilter, setPolicyFilter] = useUrlFilterState<PolicyStateFilter>('state', 'all', POLICY_STATE_FILTERS)
   const toggleMutation = useMutation({
     mutationFn: (policy: { id: string; isEnabled: boolean }) =>
       togglePolicy(policy.id),
@@ -123,7 +128,7 @@ export function PoliciesPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={policyFilter} onChange={(event) => setPolicyFilter(event.target.value as 'all' | 'enabled' | 'disabled')}>
+          <Select value={policyFilter} onChange={(event) => setPolicyFilter(event.target.value as PolicyStateFilter)}>
             <option value="all">{t('All policies')}</option>
             <option value="enabled">{t('Enabled only')}</option>
             <option value="disabled">{t('Disabled only')}</option>

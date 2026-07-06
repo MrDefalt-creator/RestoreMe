@@ -9,6 +9,7 @@ import { useI18n } from '@/shared/i18n'
 import { cn } from '@/shared/lib/cn'
 import { formatDateTime, formatRelativeTime } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
+import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 import {
   categorize,
   renderAuditMessage,
@@ -30,8 +31,8 @@ export function AuditLogPage() {
   const isAdmin = currentUser?.role === 'admin'
 
   const [page, setPage] = useState(1)
-  const [actionFilter, setActionFilter] = useState('')
-  const [pendingAction, setPendingAction] = useState('')
+  const [actionFilter, setActionFilter] = useUrlFilterState<string>('action', '')
+  const [pendingAction, setPendingAction] = useState(actionFilter)
   const [activeCategories, setActiveCategories] = useState<AuditCategory[]>([])
 
   const query = useQuery({
