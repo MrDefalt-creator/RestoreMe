@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace Backup.Server.Api.Filters;
 
@@ -50,9 +51,17 @@ public sealed class ExceptionToStatusFilter : IExceptionFilter
             status,
             message);
 
-        context.Result = new ObjectResult(new { message })
+        var problem = new ProblemDetails
         {
-            StatusCode = status
+            Status = status,
+            Title = ReasonPhrases.GetReasonPhrase(status),
+            Detail = message
+        };
+
+        context.Result = new ObjectResult(problem)
+        {
+            StatusCode = status,
+            ContentTypes = { "application/problem+json" }
         };
         context.ExceptionHandled = true;
     }

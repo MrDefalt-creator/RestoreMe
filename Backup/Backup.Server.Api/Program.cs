@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Minio;
@@ -40,6 +41,7 @@ var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<st
                   ];
 
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ExceptionToStatusFilter>();
@@ -367,9 +369,21 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = async (context, cancellationToken) =>
     {
-        context.HttpContext.Response.ContentType = "application/json";
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        }
+
         await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Too many requests. Please slow down and try again." },
+            new ProblemDetails
+            {
+                Status = StatusCodes.Status429TooManyRequests,
+                Title = "Too Many Requests",
+                Detail = "Too many requests. Please slow down and try again."
+            },
+            options: null,
+            contentType: "application/problem+json",
             cancellationToken);
     };
 });
