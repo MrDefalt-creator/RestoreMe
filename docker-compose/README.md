@@ -165,6 +165,11 @@ This means the backend does not need hardcoded database or MinIO secrets in `doc
 - agents usually need only the backend address in simple deployments
 - local Docker PostgreSQL is best tested through `credentials` mode for logical dump policies
 - the backend persists ASP.NET Core DataProtection keys to a named `backend_keys` volume so cookie-bound JWTs survive `docker compose up --build`
+- the backend container runs as the non-root `app` user. A **fresh** `backend_keys` volume inherits the right ownership automatically, but a volume created by an older (root-based) image stays root-owned and the backend will fail to write keys on startup. One-shot fix (or `docker volume rm docker-compose_backend_keys` if you accept re-login for all users):
+
+  ```powershell
+  docker compose run --rm --user root --entrypoint chown backend -R app:app /app/keys
+  ```
 - `/health` is wired into the backend healthcheck and requires both PostgreSQL and MinIO to be reachable
 
 ## Storage Addressing in Compose

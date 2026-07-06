@@ -16,6 +16,10 @@ FROM httpd:2.4.66 AS final
 # Re-declare the build arg so the CSP can pin connect-src to the same
 # backend URL that was baked into the Vite bundle.
 ARG VITE_API_BASE_URL=http://localhost:8080
+# curl is only needed for the compose healthcheck (httpd image has none).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 RUN sed -i 's/^#LoadModule rewrite_module modules\/mod_rewrite.so/LoadModule rewrite_module modules\/mod_rewrite.so/' /usr/local/apache2/conf/httpd.conf \
     && sed -i 's/^#LoadModule headers_module modules\/mod_headers.so/LoadModule headers_module modules\/mod_headers.so/' /usr/local/apache2/conf/httpd.conf \
     && printf "ServerName localhost\n" > /usr/local/apache2/conf/extra/servername.conf \

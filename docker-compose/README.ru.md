@@ -165,6 +165,11 @@ restoreme_minio_dev_ChangeMe_2026!
 - в простых развёртываниях агенту обычно нужен только адрес бэкенда
 - локальный Docker PostgreSQL лучше всего тестировать через режим `credentials` для политик логических дампов
 - бэкенд хранит DataProtection-ключи на именованном volume `backend_keys`, чтобы cookie-bound JWT переживали `docker compose up --build`
+- контейнер бэкенда работает от non-root пользователя `app`. **Свежий** volume `backend_keys` автоматически получает правильного владельца, но volume, созданный старым (root-овым) образом, остаётся root-owned — бэкенд не сможет писать ключи при старте. Разовый фикс (или `docker volume rm docker-compose_backend_keys`, если готовы к повторному логину всех пользователей):
+
+  ```powershell
+  docker compose run --rm --user root --entrypoint chown backend -R app:app /app/keys
+  ```
 - `/health` подключён к healthcheck бэкенда и требует доступности и PostgreSQL, и MinIO
 
 ## Адресация хранилища в Compose

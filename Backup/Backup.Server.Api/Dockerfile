@@ -32,4 +32,11 @@ COPY --from=build /app/publish .
 COPY installers/install-agent.ps1     /app/wwwroot/installers/install-agent.ps1
 COPY installers/install-agent.sh      /app/wwwroot/installers/install-agent.sh
 COPY installers/restoreme-agent.service /app/wwwroot/installers/restoreme-agent.service
+# Run as the non-root `app` user shipped with the aspnet base image.
+# /app/keys is pre-created and chowned so a FRESH backend_keys volume
+# inherits app ownership. A keys volume created by an older root-based
+# image stays root-owned and breaks startup — see docker-compose/README.md
+# for the one-shot chown fix.
+RUN mkdir -p /app/keys && chown -R app:app /app
+USER app
 ENTRYPOINT ["dotnet", "Backup.Server.Api.dll"]
