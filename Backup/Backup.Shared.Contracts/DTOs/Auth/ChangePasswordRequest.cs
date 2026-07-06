@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Backup.Shared.Contracts.DTOs.Auth;
 
 public record ChangePasswordRequest(
-    string CurrentPassword,
-    string NewPassword);
+    [Required][StringLength(200)] string CurrentPassword,
+    [Required][StringLength(200)] string NewPassword);
