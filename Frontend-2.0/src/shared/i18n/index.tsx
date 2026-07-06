@@ -741,7 +741,7 @@ type I18nContextValue = {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
-function interpolate(value: string, params?: Record<string, string | number>) {
+export function interpolate(value: string, params?: Record<string, string | number>) {
   if (!params) {
     return value
   }
