@@ -1,7 +1,9 @@
 using Backup.Server.Api.Security;
+using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs.Artifacts;
+using Backup.Shared.Contracts.DTOs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,10 +22,28 @@ public class BackupArtifactsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetArtifacts()
+    public async Task<IActionResult> GetArtifacts(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDir,
+        CancellationToken cancellationToken)
     {
-        var artifacts = await _backupArtifactsService.GetAllArtifacts();
-        return Ok(artifacts.Select(MapArtifact));
+        // No pagination params → legacy full-array shape, so older clients
+        // (and internal callers) keep working unchanged.
+        if (page is null && pageSize is null && sortBy is null)
+        {
+            var artifacts = await _backupArtifactsService.GetAllArtifacts();
+            return Ok(artifacts.Select(MapArtifact));
+        }
+
+        var query = PagedQuery.Normalize(page, pageSize, sortBy, sortDir);
+        var result = await _backupArtifactsService.QueryArtifacts(query, cancellationToken);
+        return Ok(new PagedResponse<BackupArtifactDto>(
+            result.Items.Select(MapArtifact).ToList(),
+            result.Total,
+            query.Page,
+            query.PageSize));
     }
 
     [HttpGet("job/{jobId:guid}")]

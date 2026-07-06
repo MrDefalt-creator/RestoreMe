@@ -45,6 +45,11 @@ public class BackupJobsService
     {
         return await _backupJobRepository.GetAllBackupJobsAsync();
     }
+
+    public async Task<PagedResult<BackupJob>> QueryJobs(PagedQuery query, CancellationToken cancellationToken)
+    {
+        return await _backupJobRepository.QueryBackupJobsAsync(query, cancellationToken);
+    }
     
     public async Task<BackupJob> GetJobById(Guid jobId)
     {

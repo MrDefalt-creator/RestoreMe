@@ -5,6 +5,9 @@ namespace Backup.Server.Application.Interfaces;
 public interface IBackupJobRepository
 {
     public Task<List<BackupJob>> GetAllBackupJobsAsync();
+
+    // Sort keys: startedAt (default), completedAt, status.
+    public Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, CancellationToken cancellationToken);
     
     public Task<List<BackupJob>> GetBackupJobsByAgentIdAsync(Guid agentId);
     

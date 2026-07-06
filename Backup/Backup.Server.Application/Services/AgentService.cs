@@ -145,6 +145,11 @@ public class AgentService
         return await _agentRepository.GetAllAgentsAsync();
     }
 
+    public async Task<PagedResult<Agent>> QueryAgents(PagedQuery query, CancellationToken cancellationToken)
+    {
+        return await _agentRepository.QueryAgentsAsync(query, cancellationToken);
+    }
+
     public async Task<Agent> GetAgentById(Guid agentId)
     {
         var agent = await _agentRepository.GetAgentByIdAsync(agentId);

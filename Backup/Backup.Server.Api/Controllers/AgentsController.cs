@@ -4,6 +4,7 @@ using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
 using Backup.Server.Infrastructure.Options;
 using Backup.Shared.Contracts.DTOs.Agents;
+using Backup.Shared.Contracts.DTOs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -27,10 +28,28 @@ public class AgentsController : ControllerBase
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]
     [HttpGet]
-    public async Task<IActionResult> GetAgents()
+    public async Task<IActionResult> GetAgents(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDir,
+        CancellationToken cancellationToken)
     {
-        var agents = await _agentService.GetAllAgents();
-        return Ok(agents.Select(MapAgent));
+        // No pagination params → legacy full-array shape, so older clients
+        // (and internal callers) keep working unchanged.
+        if (page is null && pageSize is null && sortBy is null)
+        {
+            var agents = await _agentService.GetAllAgents();
+            return Ok(agents.Select(MapAgent));
+        }
+
+        var query = PagedQuery.Normalize(page, pageSize, sortBy, sortDir);
+        var result = await _agentService.QueryAgents(query, cancellationToken);
+        return Ok(new PagedResponse<AgentListItemDto>(
+            result.Items.Select(MapAgent).ToList(),
+            result.Total,
+            query.Page,
+            query.PageSize));
     }
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]

@@ -1,6 +1,8 @@
 using Backup.Server.Api.Security;
+using Backup.Server.Application.Interfaces;
 using Backup.Server.Application.Services;
 using Backup.Server.Domain.Entities;
+using Backup.Shared.Contracts.DTOs.Common;
 using Backup.Shared.Contracts.DTOs.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,10 +25,28 @@ public class BackupJobsController : ControllerBase
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]
     [HttpGet]
-    public async Task<IActionResult> GetJobs()
+    public async Task<IActionResult> GetJobs(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDir,
+        CancellationToken cancellationToken)
     {
-        var jobs = await _service.GetAllJobs();
-        return Ok(jobs.Select(MapJob));
+        // No pagination params → legacy full-array shape, so older clients
+        // (and internal callers) keep working unchanged.
+        if (page is null && pageSize is null && sortBy is null)
+        {
+            var jobs = await _service.GetAllJobs();
+            return Ok(jobs.Select(MapJob));
+        }
+
+        var query = PagedQuery.Normalize(page, pageSize, sortBy, sortDir);
+        var result = await _service.QueryJobs(query, cancellationToken);
+        return Ok(new PagedResponse<AdminBackupJobDto>(
+            result.Items.Select(MapJob).ToList(),
+            result.Total,
+            query.Page,
+            query.PageSize));
     }
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]

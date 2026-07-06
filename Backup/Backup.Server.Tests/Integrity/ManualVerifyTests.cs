@@ -61,6 +61,7 @@ public sealed class ManualVerifyTests
         public Task UpdateIntegrityAsync(Guid id, ArtifactIntegrityStatus status, DateTime? lastVerifiedAt, CancellationToken ct)
         { LastStatus = status; LastVerifiedAt = lastVerifiedAt; return Task.CompletedTask; }
         public Task<List<BackupArtifact>> GetAllArtifactsAsync() => throw new NotImplementedException();
+        public Task<PagedResult<BackupArtifact>> QueryArtifactsAsync(PagedQuery query, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<BackupArtifact>> GetArtifactsByJobIdAsync(Guid jobId) => throw new NotImplementedException();
         public Task<int> CountByJobIdAsync(Guid jobId) => throw new NotImplementedException();
         public Task AddArtifact(BackupArtifact artifact) => throw new NotImplementedException();

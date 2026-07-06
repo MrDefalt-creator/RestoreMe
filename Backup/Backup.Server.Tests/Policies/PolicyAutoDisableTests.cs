@@ -190,6 +190,7 @@ public sealed class PolicyAutoDisableTests
         public Task ExecuteInTransactionAsync(Func<Task> action) => action();
 
         public Task<List<BackupJob>> GetAllBackupJobsAsync() => throw new NotImplementedException();
+        public Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<List<BackupJob>> GetBackupJobsByAgentIdAsync(Guid agentId) => throw new NotImplementedException();
         public Task<List<BackupJob>> GetBackupJobsByPolicyIdAsync(Guid policyId) => throw new NotImplementedException();
         public Task AddBackupJob(BackupJob job) => throw new NotImplementedException();
@@ -201,6 +202,7 @@ public sealed class PolicyAutoDisableTests
         public Task<int> CountByJobIdAsync(Guid jobId) => Task.FromResult(1);
 
         public Task<List<BackupArtifact>> GetAllArtifactsAsync() => throw new NotImplementedException();
+        public Task<PagedResult<BackupArtifact>> QueryArtifactsAsync(PagedQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<List<BackupArtifact>> GetArtifactsByJobIdAsync(Guid jobId) => throw new NotImplementedException();
         public Task<BackupArtifact?> GetArtifactByIdAsync(Guid artifactId) => throw new NotImplementedException();
         public Task AddArtifact(BackupArtifact artifact) => throw new NotImplementedException();
@@ -260,6 +262,7 @@ public sealed class PolicyAutoDisableTests
     private sealed class FakeAgentRepository : IAgentRepository
     {
         public Task<List<Agent>> GetAllAgentsAsync() => throw new NotImplementedException();
+        public Task<PagedResult<Agent>> QueryAgentsAsync(PagedQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<Agent?> GetByMachineNameAsync(string machineName) => throw new NotImplementedException();
         public Task AddAgent(Agent agent) => throw new NotImplementedException();
         public Task SaveChangesAsync() => throw new NotImplementedException();

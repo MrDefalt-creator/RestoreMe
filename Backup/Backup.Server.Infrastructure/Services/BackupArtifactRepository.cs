@@ -23,6 +23,32 @@ public class BackupArtifactRepository : IBackupArtifactRepository
             .ToListAsync();
     }
     
+    public async Task<PagedResult<BackupArtifact>> QueryArtifactsAsync(PagedQuery query, CancellationToken cancellationToken)
+    {
+        var artifacts = _dbContext.BackupArtifacts.AsNoTracking();
+
+        var ordered = query.SortBy?.ToLowerInvariant() switch
+        {
+            "size" => query.SortDescending
+                ? artifacts.OrderByDescending(x => x.SizeBytes)
+                : artifacts.OrderBy(x => x.SizeBytes),
+            "filename" => query.SortDescending
+                ? artifacts.OrderByDescending(x => x.FileName)
+                : artifacts.OrderBy(x => x.FileName),
+            _ => query.SortDescending
+                ? artifacts.OrderByDescending(x => x.CreatedAt)
+                : artifacts.OrderBy(x => x.CreatedAt),
+        };
+
+        var total = await artifacts.CountAsync(cancellationToken);
+        var items = await ordered
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<BackupArtifact>(items, total);
+    }
+
     public async Task<List<BackupArtifact>> GetArtifactsByJobIdAsync(Guid jobId)
     {
         return await _dbContext.BackupArtifacts

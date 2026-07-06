@@ -6,6 +6,9 @@ namespace Backup.Server.Application.Interfaces;
 public interface IBackupArtifactRepository
 {
     public Task<List<BackupArtifact>> GetAllArtifactsAsync();
+
+    // Sort keys: createdAt (default), size, fileName.
+    public Task<PagedResult<BackupArtifact>> QueryArtifactsAsync(PagedQuery query, CancellationToken cancellationToken);
     
     public Task<List<BackupArtifact>> GetArtifactsByJobIdAsync(Guid jobId);
 

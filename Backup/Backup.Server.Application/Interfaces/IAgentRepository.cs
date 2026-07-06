@@ -6,6 +6,9 @@ namespace Backup.Server.Application.Interfaces;
 public interface IAgentRepository
 {
     Task<List<Agent>> GetAllAgentsAsync();
+
+    // Sort keys: createdAt (default), name, lastSeenAt, status.
+    Task<PagedResult<Agent>> QueryAgentsAsync(PagedQuery query, CancellationToken cancellationToken);
     Task<Agent?> GetByMachineNameAsync(string machineName);
     Task AddAgent(Agent agent);
     Task SaveChangesAsync();

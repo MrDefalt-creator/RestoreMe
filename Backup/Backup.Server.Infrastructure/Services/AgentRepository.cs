@@ -23,6 +23,36 @@ public class AgentRepository : IAgentRepository
             .ToListAsync();
     }
 
+    public async Task<PagedResult<Agent>> QueryAgentsAsync(PagedQuery query, CancellationToken cancellationToken)
+    {
+        var agents = _dbContext.Agents.AsNoTracking();
+
+        var ordered = query.SortBy?.ToLowerInvariant() switch
+        {
+            "name" => query.SortDescending
+                ? agents.OrderByDescending(a => a.Name)
+                : agents.OrderBy(a => a.Name),
+            "lastseenat" => query.SortDescending
+                ? agents.OrderByDescending(a => a.LastSeenAt)
+                : agents.OrderBy(a => a.LastSeenAt),
+            "status" => (query.SortDescending
+                    ? agents.OrderByDescending(a => a.Status)
+                    : agents.OrderBy(a => a.Status))
+                .ThenBy(a => a.Name),
+            _ => query.SortDescending
+                ? agents.OrderByDescending(a => a.CreatedAt)
+                : agents.OrderBy(a => a.CreatedAt),
+        };
+
+        var total = await agents.CountAsync(cancellationToken);
+        var items = await ordered
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Agent>(items, total);
+    }
+
     public async Task<Agent?> GetByMachineNameAsync(string machineName)
     {
         return await _dbContext.Agents

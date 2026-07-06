@@ -31,6 +31,11 @@ public class BackupArtifactsService
         return await _backupArtifactRepository.GetAllArtifactsAsync();
     }
 
+    public async Task<PagedResult<BackupArtifact>> QueryArtifacts(PagedQuery query, CancellationToken cancellationToken)
+    {
+        return await _backupArtifactRepository.QueryArtifactsAsync(query, cancellationToken);
+    }
+
     public async Task<List<BackupArtifact>> GetArtifactsByJobId(Guid jobId)
     {
         return await _backupArtifactRepository.GetArtifactsByJobIdAsync(jobId);

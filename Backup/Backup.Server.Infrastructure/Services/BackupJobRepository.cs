@@ -20,6 +20,33 @@ public class BackupJobRepository : IBackupJobRepository
             .OrderByDescending(x => x.StartedAt)
             .ToListAsync();
     }
+
+    public async Task<PagedResult<BackupJob>> QueryBackupJobsAsync(PagedQuery query, CancellationToken cancellationToken)
+    {
+        var jobs = _dbContext.BackupJobs.AsNoTracking();
+
+        var ordered = query.SortBy?.ToLowerInvariant() switch
+        {
+            "completedat" => query.SortDescending
+                ? jobs.OrderByDescending(x => x.CompletedAt)
+                : jobs.OrderBy(x => x.CompletedAt),
+            "status" => (query.SortDescending
+                    ? jobs.OrderByDescending(x => x.Status)
+                    : jobs.OrderBy(x => x.Status))
+                .ThenByDescending(x => x.StartedAt),
+            _ => query.SortDescending
+                ? jobs.OrderByDescending(x => x.StartedAt)
+                : jobs.OrderBy(x => x.StartedAt),
+        };
+
+        var total = await jobs.CountAsync(cancellationToken);
+        var items = await ordered
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<BackupJob>(items, total);
+    }
     
     public async Task<List<BackupJob>> GetBackupJobsByAgentIdAsync(Guid agentId)
     {
