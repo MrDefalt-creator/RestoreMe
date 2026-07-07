@@ -12,15 +12,18 @@ public class UsersService
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
 
     public UsersService(
         IAppUserRepository appUserRepository,
         IPasswordHasher<AppUser> passwordHasher,
-        IAuditLogRepository auditLogRepository)
+        IAuditLogRepository auditLogRepository,
+        IAdminEventBroadcaster eventBroadcaster)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
         _auditLogRepository = auditLogRepository;
+        _eventBroadcaster = eventBroadcaster;
     }
 
     public async Task<List<AdminUserDto>> GetUsersAsync()
@@ -55,6 +58,8 @@ public class UsersService
         await _auditLogRepository.AddAsync(Audit(actorId, "user.create", user.Id, $"username={user.Username} role={request.Role}"));
         await _appUserRepository.SaveChangesAsync();
 
+        _eventBroadcaster.Publish(AdminEventTopic.Users);
+
         return MapUser(user);
     }
 
@@ -68,6 +73,7 @@ public class UsersService
         await _appUserRepository.UpdateAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorUserId, "user.role_change", userId, $"new_role={role}"));
         await _appUserRepository.SaveChangesAsync();
+        _eventBroadcaster.Publish(AdminEventTopic.Users);
         return MapUser(user);
     }
 
@@ -80,6 +86,7 @@ public class UsersService
         await _appUserRepository.UpdateAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorUserId, "user.status_change", userId, $"is_active={isActive}"));
         await _appUserRepository.SaveChangesAsync();
+        _eventBroadcaster.Publish(AdminEventTopic.Users);
         return MapUser(user);
     }
 
@@ -110,6 +117,7 @@ public class UsersService
         await _appUserRepository.DeleteAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorUserId, "user.delete", userId, $"username={user.Username}"));
         await _appUserRepository.SaveChangesAsync();
+        _eventBroadcaster.Publish(AdminEventTopic.Users);
     }
 
     private async Task<AppUser> GetUserByIdAsync(Guid userId)

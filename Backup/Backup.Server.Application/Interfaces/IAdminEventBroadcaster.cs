@@ -14,7 +14,9 @@ public enum AdminEventTopic
     Artifacts,
     Restores,
     Agents,
-    Policies
+    Policies,
+    Users,
+    NotificationChannels
 }
 
 /// <summary>

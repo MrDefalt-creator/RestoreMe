@@ -93,6 +93,8 @@ public class EventsController : ControllerBase
         AdminEventTopic.Restores => "restores",
         AdminEventTopic.Agents => "agents",
         AdminEventTopic.Policies => "policies",
+        AdminEventTopic.Users => "users",
+        AdminEventTopic.NotificationChannels => "notification-channels",
         _ => throw new ArgumentOutOfRangeException(nameof(topic))
     };
 }

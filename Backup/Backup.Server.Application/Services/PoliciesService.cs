@@ -9,11 +9,16 @@ public class PoliciesService
 {
     private readonly IPolicyRepository _policyRepository;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
 
-    public PoliciesService(IPolicyRepository policyRepository, IAuditLogRepository auditLogRepository)
+    public PoliciesService(
+        IPolicyRepository policyRepository,
+        IAuditLogRepository auditLogRepository,
+        IAdminEventBroadcaster eventBroadcaster)
     {
         _policyRepository = policyRepository;
         _auditLogRepository = auditLogRepository;
+        _eventBroadcaster = eventBroadcaster;
     }
 
     public async Task<BackupPolicy> CreatePolicy(
@@ -65,6 +70,8 @@ public class PoliciesService
             $"agent={agentId} name={policy.Name} type={MapPolicyTypeForAudit(policyType)} interval={interval}"));
 
         await _policyRepository.SaveChangesAsync();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Policies);
 
         return policy;
     }
@@ -147,6 +154,8 @@ public class PoliciesService
             $"name={policy.Name} type={MapPolicyTypeForAudit(policyType)} enabled={isEnabled}"));
         await _policyRepository.SaveChangesAsync();
 
+        _eventBroadcaster.Publish(AdminEventTopic.Policies);
+
         return policy;
     }
 
@@ -178,6 +187,8 @@ public class PoliciesService
             $"name={policy.Name} enabled={policy.IsEnabled}"));
         await _policyRepository.SaveChangesAsync();
 
+        _eventBroadcaster.Publish(AdminEventTopic.Policies);
+
         return policy;
     }
 
@@ -193,6 +204,8 @@ public class PoliciesService
             policy.Id,
             $"name={policy.Name} agent={policy.AgentId}"));
         await _policyRepository.SaveChangesAsync();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Policies);
     }
 
     public async Task MarkPolicyExecuted(Guid policyId)

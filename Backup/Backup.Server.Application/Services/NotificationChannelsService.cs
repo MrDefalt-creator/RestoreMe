@@ -16,13 +16,16 @@ public class NotificationChannelsService
 {
     private readonly INotificationChannelRepository _repository;
     private readonly NotificationDispatcher _dispatcher;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
 
     public NotificationChannelsService(
         INotificationChannelRepository repository,
-        NotificationDispatcher dispatcher)
+        NotificationDispatcher dispatcher,
+        IAdminEventBroadcaster eventBroadcaster)
     {
         _repository = repository;
         _dispatcher = dispatcher;
+        _eventBroadcaster = eventBroadcaster;
     }
 
     public async Task<List<NotificationChannelDto>> ListAsync(CancellationToken cancellationToken)
@@ -56,6 +59,8 @@ public class NotificationChannelsService
 
         await _repository.AddAsync(channel, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        _eventBroadcaster.Publish(AdminEventTopic.NotificationChannels);
 
         return MapToDto(channel);
     }
@@ -98,6 +103,8 @@ public class NotificationChannelsService
         _repository.Update(channel);
         await _repository.SaveChangesAsync(cancellationToken);
 
+        _eventBroadcaster.Publish(AdminEventTopic.NotificationChannels);
+
         return MapToDto(channel);
     }
 
@@ -108,6 +115,8 @@ public class NotificationChannelsService
 
         _repository.Remove(channel);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        _eventBroadcaster.Publish(AdminEventTopic.NotificationChannels);
     }
 
     public async Task<TestNotificationChannelResponse> TestAsync(Guid channelId, Guid? actorId, CancellationToken cancellationToken)
