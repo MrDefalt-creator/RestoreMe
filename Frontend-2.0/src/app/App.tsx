@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { RouterProvider } from 'react-router-dom'
 import { Toaster } from 'sonner'
 
+import { ServerEventsBridge } from '@/app/providers/ServerEventsBridge'
 import { ThemeProvider } from '@/app/providers/ThemeProvider'
 import { router } from '@/app/router/router'
 import { env } from '@/shared/config/env'
@@ -30,6 +31,7 @@ export function App() {
       <ThemeProvider defaultMode="system">
         <I18nProvider>
           <QueryRefreshPreferences />
+          <ServerEventsBridge />
           <RouterProvider router={router} />
           <Toaster position="top-right" richColors duration={3000} />
         </I18nProvider>

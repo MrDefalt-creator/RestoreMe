@@ -373,6 +373,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Refresh data': 'Обновить данные',
     Live: 'В сети',
     'Last sync': 'Обновлено',
+    'Live updates connected — changes appear instantly':
+      'Живые обновления подключены — изменения появляются мгновенно',
     Source: 'Источник',
     Target: 'Назначение',
     Confirm: 'Подтверждение',

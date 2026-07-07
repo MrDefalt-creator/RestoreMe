@@ -2,21 +2,26 @@ import { useMemo } from 'react'
 
 import { env } from '@/shared/config/env'
 import { useI18n } from '@/shared/i18n'
+import { useServerEventsConnected } from '@/shared/lib/useServerEventsConnected'
 
 export function useLiveQueryOptions() {
   const { refreshIntervalMs } = useI18n()
+  const sseConnected = useServerEventsConnected()
   const isManual = refreshIntervalMs === false
 
   return useMemo(
     () => ({
       staleTime: isManual ? Number.POSITIVE_INFINITY : 5_000,
-      refetchInterval: env.isLive ? refreshIntervalMs : false,
+      // While the SSE stream is up, pushed invalidations drive freshness —
+      // interval polling would only duplicate the same requests. It resumes
+      // automatically the moment the stream drops.
+      refetchInterval: env.isLive && !sseConnected ? refreshIntervalMs : false,
       refetchIntervalInBackground: false,
       refetchOnMount: !isManual,
       refetchOnReconnect: !isManual,
       refetchOnWindowFocus: !isManual,
     }),
-    [isManual, refreshIntervalMs],
+    [isManual, refreshIntervalMs, sseConnected],
   )
 }
 
@@ -27,6 +32,7 @@ export function useLiveQueryOptions() {
 // "Manual refresh only" still wins.
 export function useLiveQueryOptionsWithFloor(minIntervalMs: number) {
   const { refreshIntervalMs } = useI18n()
+  const sseConnected = useServerEventsConnected()
   const isManual = refreshIntervalMs === false
 
   return useMemo(() => {
@@ -36,11 +42,11 @@ export function useLiveQueryOptionsWithFloor(minIntervalMs: number) {
 
     return {
       staleTime: isManual ? Number.POSITIVE_INFINITY : 5_000,
-      refetchInterval: env.isLive ? effectiveInterval : (false as const),
+      refetchInterval: env.isLive && !sseConnected ? effectiveInterval : (false as const),
       refetchIntervalInBackground: false,
       refetchOnMount: !isManual,
       refetchOnReconnect: !isManual,
       refetchOnWindowFocus: !isManual,
     }
-  }, [isManual, refreshIntervalMs, minIntervalMs])
+  }, [isManual, refreshIntervalMs, minIntervalMs, sseConnected])
 }

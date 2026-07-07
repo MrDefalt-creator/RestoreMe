@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react'
 
 import { Badge } from './Badge'
 import { useI18n } from '@/shared/i18n'
+import { useServerEventsConnected } from '@/shared/lib/useServerEventsConnected'
 
 const STALE_THRESHOLD_MS = 60_000
 const OFFLINE_THRESHOLD_MS = 180_000
@@ -22,6 +23,7 @@ export function LiveBadge() {
   const queryClient = useQueryClient()
   const isFetching = useIsFetching()
   const { t } = useI18n()
+  const sseConnected = useServerEventsConnected()
   // `now` updates only every TICK_MS so the dot can flip Live → Stale →
   // Offline. Storing it in state keeps the render function pure under
   // react-hooks/purity.
@@ -54,7 +56,13 @@ export function LiveBadge() {
   let dot: 'destructive' | 'warning' | 'success'
   let label: string
 
-  if (ageMs > OFFLINE_THRESHOLD_MS) {
+  // With the push stream open the server tells us the moment anything
+  // changes — quiet data is current data, not stale data. Age-based decay
+  // only applies while we're back on interval polling.
+  if (sseConnected) {
+    dot = 'success'
+    label = t('Live')
+  } else if (ageMs > OFFLINE_THRESHOLD_MS) {
     dot = 'destructive'
     label = t('Offline')
   } else if (ageMs > STALE_THRESHOLD_MS) {
@@ -70,7 +78,11 @@ export function LiveBadge() {
       type="button"
       onClick={() => void queryClient.invalidateQueries()}
       className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      title={`${t('Last sync')}: ${formatAge(ageMs)}`}
+      title={
+        sseConnected
+          ? t('Live updates connected — changes appear instantly')
+          : `${t('Last sync')}: ${formatAge(ageMs)}`
+      }
       aria-label={t('Refresh data')}
     >
       <Badge variant="outlineDot" dot={dot} className="cursor-pointer">
