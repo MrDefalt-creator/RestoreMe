@@ -14,17 +14,20 @@ public class AgentService
     private readonly IAgentRepository _agentRepository;
     private readonly IPendingAgentsRepository _pendingAgentsRepository;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
     private readonly IMemoryCache _cache;
 
     public AgentService(
         IAgentRepository agentRepository,
         IPendingAgentsRepository pendingAgentsRepository,
         IAuditLogRepository auditLogRepository,
+        IAdminEventBroadcaster eventBroadcaster,
         IMemoryCache cache)
     {
         _agentRepository = agentRepository;
         _pendingAgentsRepository = pendingAgentsRepository;
         _auditLogRepository = auditLogRepository;
+        _eventBroadcaster = eventBroadcaster;
         _cache = cache;
     }
 
@@ -82,6 +85,8 @@ public class AgentService
         // agent fails at auth time instead of after the cache TTL.
         _cache.Remove($"agent-tokver:{agentId}");
 
+        _eventBroadcaster.Publish(AdminEventTopic.Agents);
+
         return storageKeys;
     }
 
@@ -130,6 +135,8 @@ public class AgentService
 
         await _pendingAgentsRepository.AddAsync(pendingAgent);
         await _pendingAgentsRepository.SaveChangesAsync();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Agents);
 
         return pendingAgent.Id;
     }
@@ -182,6 +189,8 @@ public class AgentService
             await _auditLogRepository.AddAsync(Audit(actorId, "agent.approve", existingAgent.Id, $"machine={pendingAgent.MachineName}"));
             await _pendingAgentsRepository.SaveChangesAsync();
 
+            _eventBroadcaster.Publish(AdminEventTopic.Agents);
+
             return existingAgent.Id;
         }
 
@@ -207,6 +216,8 @@ public class AgentService
         await _pendingAgentsRepository.UpdateAsync(pendingAgent);
         await _auditLogRepository.AddAsync(Audit(actorId, "agent.approve", agent.Id, $"machine={pendingAgent.MachineName} name={name}"));
         await _pendingAgentsRepository.SaveChangesAsync();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Agents);
 
         return agent.Id;
     }
@@ -257,6 +268,8 @@ public class AgentService
             $"machine={machineName} name={agent.Name} via=install_token"));
         await _agentRepository.SaveChangesAsync();
 
+        _eventBroadcaster.Publish(AdminEventTopic.Agents);
+
         return agent;
     }
 
@@ -277,6 +290,8 @@ public class AgentService
         await _pendingAgentsRepository.UpdateAsync(pendingAgent);
         await _auditLogRepository.AddAsync(Audit(actorId, "agent.reject", pendingAgent.Id, $"machine={pendingAgent.MachineName}"));
         await _pendingAgentsRepository.SaveChangesAsync();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Agents);
     }
 
     public async Task Heartbeat(Guid agentId)

@@ -39,6 +39,7 @@ public sealed class PolicyAutoDisableTests
             new FakeStorageAccessService(),
             notifications,
             audit,
+            new AdminEventBroadcaster(),
             Options.Create(new StorageOptions()));
 
         return (service, policies, notifications, audit);

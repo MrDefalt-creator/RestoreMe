@@ -19,6 +19,7 @@ public class BackupJobsService
     private readonly IStorageAccessService _storageAccessService;
     private readonly INotificationService _notificationService;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
     private readonly StorageOptions _storageOptions;
 
     public BackupJobsService(
@@ -29,6 +30,7 @@ public class BackupJobsService
         IStorageAccessService storageAccessService,
         INotificationService notificationService,
         IAuditLogRepository auditLogRepository,
+        IAdminEventBroadcaster eventBroadcaster,
         IOptions<StorageOptions> storageOptions)
     {
         _policyRepository = policyRepository;
@@ -38,6 +40,7 @@ public class BackupJobsService
         _storageAccessService = storageAccessService;
         _notificationService = notificationService;
         _auditLogRepository = auditLogRepository;
+        _eventBroadcaster = eventBroadcaster;
         _storageOptions = storageOptions.Value;
     }
     
@@ -104,6 +107,8 @@ public class BackupJobsService
             $"policy={policy.Name} agent={agent.Name}"));
         await _backupJobRepository.SaveChangesAsync();
 
+        _eventBroadcaster.Publish(AdminEventTopic.Jobs);
+
         return backupJob.Id;
     }
 
@@ -169,6 +174,8 @@ public class BackupJobsService
 
         if (shouldNotify)
         {
+            _eventBroadcaster.Publish(AdminEventTopic.Jobs);
+
             var policy = await _policyRepository.GetPolicyById(policyId);
             policyName = policy?.Name ?? string.Empty;
             await _notificationService.NotifyBackupCompletedAsync(jobId, policyId, agentId, policyName);
@@ -235,6 +242,12 @@ public class BackupJobsService
 
             await _backupJobRepository.SaveChangesAsync();
         });
+
+        _eventBroadcaster.Publish(AdminEventTopic.Jobs);
+        if (policyAutoDisabled)
+        {
+            _eventBroadcaster.Publish(AdminEventTopic.Policies);
+        }
 
         await _notificationService.NotifyBackupFailedAsync(jobId, failedPolicyId, failedAgentId, errorMessage);
 
@@ -343,6 +356,8 @@ public class BackupJobsService
             backupArtifact.Id,
             $"job={jobId} size={size}"));
         await _backupArtifactRepository.SaveChanges();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Artifacts);
     }
 
     private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>

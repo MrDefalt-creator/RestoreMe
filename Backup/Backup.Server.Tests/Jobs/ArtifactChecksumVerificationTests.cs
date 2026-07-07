@@ -89,6 +89,7 @@ public sealed class ArtifactChecksumVerificationTests
             new StubStorage(storedSha, size),
             new ThrowingNotificationService(),
             new CollectingAuditRepo(),
+            new AdminEventBroadcaster(),
             Options.Create(options));
 
         return (service, artifacts);

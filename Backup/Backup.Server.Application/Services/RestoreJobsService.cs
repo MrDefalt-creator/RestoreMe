@@ -13,19 +13,22 @@ public class RestoreJobsService
     private readonly IBackupJobRepository _backupJobRepository;
     private readonly IStorageAccessService _storageAccessService;
     private readonly INotificationService _notificationService;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
 
     public RestoreJobsService(
         IRestoreJobRepository restoreJobRepository,
         IBackupArtifactRepository artifactRepository,
         IBackupJobRepository backupJobRepository,
         IStorageAccessService storageAccessService,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IAdminEventBroadcaster eventBroadcaster)
     {
         _restoreJobRepository = restoreJobRepository;
         _artifactRepository = artifactRepository;
         _backupJobRepository = backupJobRepository;
         _storageAccessService = storageAccessService;
         _notificationService = notificationService;
+        _eventBroadcaster = eventBroadcaster;
     }
 
     public async Task<Guid> CreateRestoreAsync(CreateRestoreRequest request, CancellationToken cancellationToken = default)
@@ -55,6 +58,8 @@ public class RestoreJobsService
 
         await _restoreJobRepository.AddAsync(job);
         await _restoreJobRepository.SaveChangesAsync();
+
+        _eventBroadcaster.Publish(AdminEventTopic.Restores);
 
         return job.Id;
     }
@@ -132,6 +137,7 @@ public class RestoreJobsService
             job.StartedAt = DateTime.UtcNow;
             await _restoreJobRepository.UpdateAsync(job);
             await _restoreJobRepository.SaveChangesAsync();
+            _eventBroadcaster.Publish(AdminEventTopic.Restores);
         }
 
         return await _storageAccessService.CreateDownloadTicketAsync(
@@ -148,6 +154,7 @@ public class RestoreJobsService
         job.CompletedAt = DateTime.UtcNow;
         await _restoreJobRepository.UpdateAsync(job);
         await _restoreJobRepository.SaveChangesAsync();
+        _eventBroadcaster.Publish(AdminEventTopic.Restores);
     }
 
     public async Task FailedAsync(Guid jobId, Guid agentId, string errorMessage)
@@ -158,6 +165,7 @@ public class RestoreJobsService
         job.ErrorMessage = errorMessage;
         await _restoreJobRepository.UpdateAsync(job);
         await _restoreJobRepository.SaveChangesAsync();
+        _eventBroadcaster.Publish(AdminEventTopic.Restores);
         await _notificationService.NotifyRestoreFailedAsync(jobId, agentId, errorMessage);
     }
 

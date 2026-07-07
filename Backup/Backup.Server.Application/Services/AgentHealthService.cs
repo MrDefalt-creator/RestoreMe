@@ -18,13 +18,16 @@ public class AgentHealthService
 
     private readonly IAgentRepository _agentRepository;
     private readonly INotificationService _notificationService;
+    private readonly IAdminEventBroadcaster _eventBroadcaster;
 
     public AgentHealthService(
         IAgentRepository agentRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IAdminEventBroadcaster eventBroadcaster)
     {
         _agentRepository = agentRepository;
         _notificationService = notificationService;
+        _eventBroadcaster = eventBroadcaster;
     }
 
     public async Task<int> SweepAsync(CancellationToken cancellationToken = default)
@@ -67,6 +70,12 @@ public class AgentHealthService
         }
 
         await _agentRepository.SaveChangesAsync();
+
+        if (transitions > 0)
+        {
+            _eventBroadcaster.Publish(AdminEventTopic.Agents);
+        }
+
         return transitions;
     }
 }

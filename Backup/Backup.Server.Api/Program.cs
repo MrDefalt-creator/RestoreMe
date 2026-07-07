@@ -167,6 +167,9 @@ builder.Services.AddScoped<IntegritySettingsService>();
 builder.Services.AddScoped<AgentHealthService>();
 builder.Services.AddHostedService<AgentHealthSweepService>();
 builder.Services.AddSingleton<BucketReadyState>();
+// In-process fan-out to connected admin SSE streams (EventsController).
+// Singleton so every scoped service publishes into the same subscriber set.
+builder.Services.AddSingleton<IAdminEventBroadcaster, AdminEventBroadcaster>();
 builder.Services.AddScoped<IStorageAccessService, StorageAccessService>();
 builder.Services.AddHostedService<MinioBucketInitializer>();
 builder.Services.AddHostedService<RetentionCleanupService>();
