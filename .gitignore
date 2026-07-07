@@ -84,3 +84,6 @@ nunit-*.xml
 .claude/
 .playwright-mcp/
 .codegraph/
+
+# Control-plane self-backups written by the compose sidecar
+docker-compose/backups/

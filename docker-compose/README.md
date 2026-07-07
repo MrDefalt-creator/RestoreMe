@@ -22,6 +22,7 @@ Current stack includes:
 - `backend` — ASP.NET Core API
 - `frontend-2` — RestoreMe admin panel served by Apache
 - `agent-builder` — opt-in one-shot service that publishes self-contained agent binaries (linux-x64 / linux-arm64 / win-x64) into a shared volume served by the backend
+- `control-plane-backup` — self-backup sidecar: dumps PostgreSQL metadata and the DataProtection key ring into `./backups/` on a schedule (see below)
 
 ## First-Time Startup
 
@@ -91,6 +92,28 @@ By default the stack publishes:
 - PostgreSQL: `localhost:5432`
 
 You can change these in `.env`.
+
+## Control-Plane Self-Backup (DR)
+
+The `control-plane-backup` sidecar runs with every stack. On its schedule
+(`BACKUP_INTERVAL_HOURS`, default 24 h) it writes into `./backups/`:
+
+- `db-<UTC-stamp>.dump` — `pg_dump --format=custom` of the metadata database
+- `keys-<UTC-stamp>.tar.gz` — the DataProtection key ring (`backend_keys` volume)
+
+keeping the newest `BACKUP_KEEP` copies of each (default 14). Both knobs go
+in `.env`. The container turns **unhealthy** when the newest backup is older
+than two cycles.
+
+The database and the key ring must be restored **as a pair** — notification
+channel secrets in the database are encrypted with those keys.
+
+> [!WARNING]
+> `./backups/` lives on the same machine as the data it protects. Ship it
+> off-host (rsync/rclone/restic) on a schedule. MinIO artifact data is NOT
+> included — see the runbook for options.
+
+Full restore procedure and rehearsal notes: [../docs/DR-RUNBOOK.md](../docs/DR-RUNBOOK.md).
 
 ## Secrets
 

@@ -34,6 +34,17 @@ No versions have been tagged yet — everything below is unreleased.
 - **Install-agent wizard**: one-liner installers for Linux/Windows served
   by the backend itself; agent binaries built on demand via the
   `agent-builder` compose profile — no GitHub dependency.
+- **Live updates over SSE**: the backend streams change events
+  (`GET /api/events`) for jobs, artifacts, restores, agents, policies,
+  users and notification channels; the admin panel applies them instantly
+  and suspends interval polling while the stream is up (polling returns
+  automatically as a fallback when it drops).
+- **Control-plane self-backup (DR)**: a compose sidecar dumps the
+  PostgreSQL metadata and the DataProtection key ring to the host on a
+  schedule with rotation, plus a written disaster-recovery runbook
+  (`docs/DR-RUNBOOK.md`).
+- Server-side pagination and sorting for Jobs, Backups and Agents lists;
+  entity deep links (`?id=…`) open their target on Agents/Policies/Backups.
 - Frontend test infrastructure: vitest + Testing Library with seed tests.
 - CI hardening: frontend tests in CI, backend coverage artifact, CodeQL
   scanning, Dependabot, run-concurrency cancellation.

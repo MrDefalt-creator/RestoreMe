@@ -22,6 +22,7 @@
 - `backend` — ASP.NET Core API
 - `frontend-2` — админ-панель RestoreMe (раздаётся Apache)
 - `agent-builder` — opt-in one-shot сервис, который публикует self-contained бинари агента (linux-x64 / linux-arm64 / win-x64) в shared volume, читаемый бэкендом
+- `control-plane-backup` — sidecar самобэкапа: по расписанию складывает дамп PostgreSQL-метаданных и ключи DataProtection в `./backups/` (см. ниже)
 
 ## Первый запуск
 
@@ -91,6 +92,28 @@ docker compose down
 - PostgreSQL: `localhost:5432`
 
 Меняются в `.env`.
+
+## Самобэкап control plane (DR)
+
+Sidecar `control-plane-backup` поднимается вместе со стеком. По расписанию
+(`BACKUP_INTERVAL_HOURS`, по умолчанию 24 ч) он пишет в `./backups/`:
+
+- `db-<UTC-метка>.dump` — `pg_dump --format=custom` базы метаданных
+- `keys-<UTC-метка>.tar.gz` — ключи DataProtection (volume `backend_keys`)
+
+и хранит по `BACKUP_KEEP` свежих копий каждого вида (по умолчанию 14). Обе
+настройки задаются в `.env`. Контейнер становится **unhealthy**, когда
+свежайший бэкап старше двух циклов.
+
+Базу и ключи восстанавливать нужно **парой** — секреты каналов уведомлений
+в базе зашифрованы именно этими ключами.
+
+> [!WARNING]
+> `./backups/` лежит на той же машине, что и защищаемые данные. Настройте
+> регулярную выгрузку наружу (rsync/rclone/restic). Данные артефактов в
+> MinIO сюда НЕ входят — варианты описаны в runbook.
+
+Полная процедура восстановления и заметки о репетиции: [../docs/DR-RUNBOOK.md](../docs/DR-RUNBOOK.md) (EN).
 
 ## Секреты
 

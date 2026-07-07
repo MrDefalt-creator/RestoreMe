@@ -29,12 +29,13 @@ unless noted.
 
 ### UX / UI
 
-- **Live job progress** via SSE (or WebSocket) — replaces 2-second polling.
-- **Server-side pagination + column sorting** for Jobs / Artifacts / Agents
-  (only AuditLog paginates today).
-- **Entity deep links**: `/agents?id=…`, `/policies?id=…` are emitted by the
-  command palette and JobDrawer but never read by the target pages
-  (known bug).
+- ~~**Live job progress** via SSE~~ — shipped: `/api/events` push
+  invalidation with polling as the fallback (audit log and in-drawer
+  restore progress still poll).
+- ~~**Server-side pagination + column sorting**~~ — shipped for
+  Jobs / Backups / Agents.
+- ~~**Entity deep links**~~ — shipped: `?id=…` opens its target on
+  Agents / Policies / Backups.
 - **Session-expiry warning + sliding session** (expiry is reactive-only
   today); proper Russian 3-form plurals in i18n.
 - **Bulk actions** (row selection) on Jobs/Artifacts; CSV export (Jobs,
@@ -47,9 +48,10 @@ unless noted.
 - **GHCR image publishing** (backend + frontend), first git tag, and a
   release workflow for the server (only agent binaries have a release
   pipeline today, and it has never fired — zero tags).
-- **DR for RestoreMe's own control plane**: pg_dump sidecar/cron, backup of
-  the `backend_keys` DataProtection volume, and a written restore runbook.
-  A backup product must have a story for backing up itself.
+- ~~**DR for RestoreMe's own control plane**~~ — shipped:
+  `control-plane-backup` compose sidecar (pg_dump + key-ring archive with
+  rotation) and `docs/DR-RUNBOOK.md`. Off-host shipping and MinIO data
+  replication remain operator responsibilities documented there.
 - **Installer hardening**: sha256 verification of the downloaded agent
   binary; systemd unit hardening (`ProtectSystem=strict`,
   `NoNewPrivileges`, …).

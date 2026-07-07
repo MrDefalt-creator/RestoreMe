@@ -127,6 +127,47 @@ services:
     volumes:
       - agent_binaries:/output
 
+  # Self-backup of the control plane (see docs/DR-RUNBOOK.md). Dumps the
+  # PostgreSQL metadata (pg_dump custom format) and archives the
+  # DataProtection key ring into ./backups on the host every
+  # BACKUP_INTERVAL_HOURS (default 24h), keeping the newest BACKUP_KEEP
+  # copies (default 14). Ship ./backups off-host to survive machine loss —
+  # a copy that lives next to the database it protects is only half a
+  # backup. MinIO artifact data is NOT covered here (see the runbook).
+  control-plane-backup:
+    # Same image as `db` so pg_dump always matches the server version.
+    image: postgres:18.3
+    container_name: restoreme-control-plane-backup
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/usr/local/bin/control-plane-backup.sh"]
+    environment:
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - ./scripts/control-plane-backup.sh:/usr/local/bin/control-plane-backup.sh:ro
+      - ./backups:/backups
+      # Key ring is read-only here; losing it makes encrypted notification
+      # settings in the restored database unreadable.
+      - backend_keys:/keys:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Unhealthy once the success marker is older than two backup cycles.
+      # $$ escapes compose interpolation — the arithmetic runs in the
+      # container shell against the env var set above.
+      test: ["CMD-SHELL", "find /backups/.last-success -mmin -$$(( $${BACKUP_INTERVAL_HOURS:-24} * 120 )) | grep -q ."]
+      interval: 5m
+      timeout: 5s
+      retries: 3
+      start_period: 2m
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    secrets:
+      - postgres-password
+
   frontend-2:
     build:
       context: ../Frontend-2.0
