@@ -43,6 +43,9 @@ public class BackupPolicyConfiguration : IEntityTypeConfiguration<BackupPolicy>
         builder.Property(x => x.LastFailureReason)
             .HasMaxLength(240);
 
+        builder.Property(x => x.CronExpression).HasMaxLength(100);
+        builder.Property(x => x.TimeZoneId).HasMaxLength(64);
+
         builder.HasMany(x => x.Jobs)
             .WithOne(x => x.Policy)
             .HasForeignKey(x => x.PolicyId)
