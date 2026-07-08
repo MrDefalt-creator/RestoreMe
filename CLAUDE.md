@@ -61,6 +61,8 @@ yarn dev            # dev server
 yarn build          # tsc -b && vite build
 yarn lint           # eslint
 yarn typecheck      # tsc --noEmit
+yarn test           # vitest run (single run)
+yarn test:watch     # vitest watch mode
 yarn preview        # preview build
 ```
 
@@ -162,9 +164,21 @@ A policy that fails `AutoDisableThreshold` (= **3**) consecutive backups is flip
 
 `AgentHealthSweepService` (`BackgroundService`, 30s cadence) polls heartbeat freshness and fires `AgentOffline`/`AgentBackOnline` transitions via `AgentHealthService.SweepAsync`. The first tick on startup is a non-notifying baseline pass.
 
+### Live updates (SSE)
+
+`GET /api/events` (user token, `AdminReadPolicy`) is a Server-Sent Events stream of **coarse topic events without payload** — `jobs`, `artifacts`, `restores`, `agents`, `policies`, `users`, `notification-channels`. Services publish through `IAdminEventBroadcaster` (`AdminEventBroadcaster` singleton: bounded channel of 64 per subscriber, `DropOldest`, publisher never blocks). The frontend (`shared/api/events.ts` + `ServerEventsBridge`) opens one `EventSource` and invalidates the matching TanStack Query groups with 250ms coalescing. While the stream is connected, `useLiveQueryOptions` disables interval polling; on disconnect, polling resumes automatically. Known gaps (intentional): audit log and in-drawer restore progress still poll; "Manual refresh only" UI mode disables SSE entirely; agent heartbeats are not published (offline/online transitions come from the health sweep); direct SQL edits bypass event publication.
+
 ### Health endpoint
 
 `GET /health` returns `200` only when the backend can reach both PostgreSQL (`AddDbContextCheck`) and MinIO (`BucketExistsAsync` probe). Docker Compose uses this for container healthchecks; backend waits for `db` and `minio` to be `service_healthy`.
+
+### Server-side pagination
+
+Jobs, Backups (artifacts) and Agents list endpoints take `page`/`pageSize`/`sortBy`/`sortDir` and return a paged envelope; the corresponding Frontend-2.0 pages drive pagination and column sorting from URL query params (which also serve as deep links — `?id=…` opens the target entity on Agents/Policies/Backups).
+
+### Control-plane self-backup (DR)
+
+The `control-plane-backup` compose sidecar (in the base `docker-compose.yml`, no profile) runs `docker-compose/scripts/control-plane-backup.sh`: `pg_dump -Fc` of the metadata DB + tar of the `backend_keys` DataProtection volume into the bind-mounted `./backups/` every `BACKUP_INTERVAL_HOURS` (default 24), keeping `BACKUP_KEEP` (default 14) copies. Healthcheck = freshness of `.last-success`. Full restore procedure lives in `docs/DR-RUNBOOK.md`. Off-host copying of `./backups/` and MinIO object data replication are operator responsibilities (documented in the runbook). Note: DB table names are EF case-sensitive (`"AppUsers"`, not `Users`) — quote them in manual SQL.
 
 ### Dev credentials
 
@@ -242,6 +256,8 @@ Additional flags/env: `--reset-state` / `RESTOREME_RESET_STATE=1` wipes `state/a
 
 ## Memory / branch status
 
-- `feature/retention-and-integrity` is the active branch (retention strategies + artifact checksum verification).
+- `preview` is the active branch — all current work lands there.
 - `main` is frozen — coordinate before pushing.
-- Legacy `Frontend/` was removed on this branch; the only UI is `Frontend-2.0/`.
+- Legacy `Frontend/` was removed; the only UI is `Frontend-2.0/`.
+- `docs/ROADMAP.md` is the prioritized backlog (Tier 2/3 of a July 2026 full-project audit); shipped items are struck through. `CHANGELOG.md` tracks delivered batches.
+- On Windows hosts, port 8080 may fall into the OS reserved-port range (`netsh interface ipv4 show excludedportrange protocol=tcp`); set `API_PORT` in `docker-compose/.env` (e.g. `8200`) to remap — the frontend bundle bakes the API URL from it at build time.
