@@ -46,6 +46,7 @@ RestorMe/
 - pending agent registration and approval flow
 - heartbeat processing
 - policy CRUD for filesystem and logical database backups
+- flexible policy scheduling — a fixed interval (optionally confined to a daily backup window, may span midnight) or a 5-field cron expression with an IANA timezone (DST-aware); all next-run computation happens server-side, agents are unaffected
 - backup jobs lifecycle: start, fail, complete
 - artifact storage in MinIO and artifact download through backend
 - automatic EF Core migrations on startup
@@ -80,6 +81,7 @@ RestorMe/
 - policies, jobs and backups/artifacts views aligned with current backend DTOs
 - policies page surfaces the "Auto-disabled" state with a one-click re-enable
 - retention controls in the policy form (keep by age / count / total size)
+- schedule editor in the policy form — interval or cron mode with daily/weekly/monthly presets, a timezone picker, an optional backup window and a live "next three runs" preview; policy lists render schedules human-readably ("Daily at 03:00 (Europe/Moscow)")
 - backups/artifacts page shows a per-artifact integrity badge with a "Verify now" action
 - admin-only notification channels page (`/notifications`) — add/edit/test Webhook, Telegram, Slack and Discord channels; also hosts the integrity scrub-schedule settings
 - automatic polling and query invalidation
@@ -726,7 +728,7 @@ If the manual command fails, the RestoreMe policy will fail too.
 3. Choose a policy type.
 4. For `Filesystem`, enter a source path.
 5. For `PostgreSQL` or `MySQL`, enter database settings and auth mode.
-6. Set interval.
+6. Choose a schedule: a fixed interval (optionally confined to a daily backup window) or a cron expression with a timezone — the form previews the next three runs.
 7. Save the policy.
 
 ### Execute and inspect a backup

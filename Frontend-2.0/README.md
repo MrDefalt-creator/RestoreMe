@@ -52,7 +52,7 @@ src/
 - agents page with filtering, policy coverage and details dialog
 - **install-agent wizard** on the Agents page — admins/operators copy a one-liner that installs and enrols an agent on Linux or Windows; server URL is taken from the panel, enrollment token from `GET /api/agents/enrollment-info`
 - pending agents page with approve and reject flows
-- policies page with create, edit and toggle, plus an "Auto-disabled" badge and one-click re-enable for policies stopped after repeated failures; the policy form includes retention controls (keep by age / count / total size)
+- policies page with create, edit and toggle, plus an "Auto-disabled" badge and one-click re-enable for policies stopped after repeated failures; the policy form includes retention controls (keep by age / count / total size) and a schedule editor — interval or cron mode with daily/weekly/monthly presets, a timezone picker, an optional backup window and a live "next three runs" preview
 - jobs page with resilient labels based on agent/policy lookup
 - backups/artifacts page with download flow, a per-artifact integrity badge and a "Verify now" action
 - users page for administrator access management
