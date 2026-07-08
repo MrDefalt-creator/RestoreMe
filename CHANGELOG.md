@@ -9,6 +9,15 @@ No versions have been tagged yet — everything below is unreleased.
 
 ### Added
 
+- **Cron schedules + backup windows**: policies can now run on a cron
+  schedule (5-field expression, IANA timezone, DST-aware) instead of a
+  fixed interval, and interval policies can be confined to a daily backup
+  window (e.g. 22:00–06:00, may span midnight). All computation stays
+  server-side — agents are unchanged. The policy form offers daily /
+  weekly / monthly presets or a custom cron expression, a timezone picker
+  and a live "next three runs" preview (`POST
+  /api/policies/schedule-preview`); policy lists show human-readable
+  schedules ("Daily at 03:00 (Europe/Moscow)").
 - **Retention strategies** per policy: `RetentionDays`, `RetentionMaxCount`
   (keep newest N) and `RetentionMaxTotalBytes` (size budget) with a pure,
   heavily-tested evaluator; a background cleanup service deletes pruned
