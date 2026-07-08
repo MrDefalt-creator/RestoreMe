@@ -78,7 +78,7 @@ public class PoliciesService
             actorUserId,
             "policy.create",
             policy.Id,
-            $"agent={agentId} name={policy.Name} type={MapPolicyTypeForAudit(policyType)} schedule={normalized.Kind} interval={normalized.IntervalSeconds} cron={normalized.CronExpression}"));
+            $"agent={agentId} name={policy.Name} type={MapPolicyTypeForAudit(policyType)} {DescribeScheduleForAudit(normalized)}"));
 
         await _policyRepository.SaveChangesAsync();
 
@@ -324,6 +324,14 @@ public class PoliciesService
         BackupPolicyType.PostgreSqlDump => "postgres",
         BackupPolicyType.MySqlDump => "mysql",
         _ => type.ToString().ToLowerInvariant()
+    };
+
+    // Only the schedule half that applies: interval policies carry no dangling
+    // "cron=", cron policies no meaningless "interval=0".
+    private static string DescribeScheduleForAudit(PolicySchedule schedule) => schedule.Kind switch
+    {
+        ScheduleKind.Cron => $"schedule=cron cron={schedule.CronExpression} tz={schedule.TimeZoneId}",
+        _ => $"schedule=interval interval={schedule.IntervalSeconds}"
     };
 
     private static AuditLog Audit(Guid actorId, string action, Guid? targetId = null, string? details = null) =>
