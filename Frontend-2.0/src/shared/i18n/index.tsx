@@ -373,6 +373,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Day of month': 'День месяца',
     'Cron expression': 'Cron-выражение',
     Timezone: 'Часовой пояс',
+    'Compress database dumps (zstd)': 'Сжимать дампы базы данных (zstd)',
     'Only run within a time window': 'Запускать только в заданном окне времени',
     'Window start': 'Начало окна',
     'Window end': 'Конец окна',

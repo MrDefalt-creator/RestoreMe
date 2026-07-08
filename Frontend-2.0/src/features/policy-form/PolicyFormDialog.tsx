@@ -57,6 +57,7 @@ const policySchema = z.object({
   windowEnabled: z.boolean(),
   windowStart: z.string(),
   windowEnd: z.string(),
+  compressDumps: z.boolean(),
 }).superRefine((values, context) => {
   if (values.type === 'filesystem' && values.sourcePath.trim().length < 3) {
     context.addIssue({
@@ -160,6 +161,7 @@ const defaultValues: PolicyFormValues = {
   windowEnabled: false,
   windowStart: '22:00',
   windowEnd: '06:00',
+  compressDumps: true,
 }
 
 const BYTES_PER_GB = 1024 ** 3
@@ -233,6 +235,7 @@ function toFormValues(policy: BackupPolicy | null, agents: Agent[]): PolicyFormV
     windowEnabled: policy.windowStartMinutes != null,
     windowStart: policy.windowStartMinutes != null ? minutesToTime(policy.windowStartMinutes) : '22:00',
     windowEnd: policy.windowEndMinutes != null ? minutesToTime(policy.windowEndMinutes) : '06:00',
+    compressDumps: policy.compressDumps ?? true,
   }
 }
 
@@ -272,6 +275,8 @@ function toPayload(values: PolicyFormValues): UpsertPolicyInput {
       values.scheduleKind === 'interval' && values.windowEnabled ? timeToMinutes(values.windowStart) : null,
     windowEndMinutes:
       values.scheduleKind === 'interval' && values.windowEnabled ? timeToMinutes(values.windowEnd) : null,
+    // Only meaningful for DB dumps; filesystem archives are already compressed.
+    compressDumps: isFilesystem ? true : values.compressDumps,
     databaseSettings: isFilesystem
       ? null
       : {
@@ -771,6 +776,24 @@ export function PolicyFormDialog({
                 </Field>
               </>
             ) : null}
+
+            <Controller
+              name="compressDumps"
+              control={form.control}
+              render={({ field }) => (
+                <label
+                  htmlFor="policy-compress-dumps"
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground md:col-span-2"
+                >
+                  <span>{t('Compress database dumps (zstd)')}</span>
+                  <Switch
+                    id="policy-compress-dumps"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </label>
+              )}
+            />
           </>
         )}
       </div>

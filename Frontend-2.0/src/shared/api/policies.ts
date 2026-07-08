@@ -32,6 +32,7 @@ export interface BackupPolicy {
   timeZoneId: string | null
   windowStartMinutes: number | null
   windowEndMinutes: number | null
+  compressDumps: boolean
 }
 
 export type UpsertPolicyInput = {
@@ -50,6 +51,7 @@ export type UpsertPolicyInput = {
   timeZoneId: string | null
   windowStartMinutes: number | null
   windowEndMinutes: number | null
+  compressDumps: boolean
 }
 
 export async function getPolicies(): Promise<BackupPolicy[]> {
@@ -77,6 +79,7 @@ export async function createPolicy(input: UpsertPolicyInput): Promise<BackupPoli
     timeZoneId: input.timeZoneId,
     windowStartMinutes: input.windowStartMinutes,
     windowEndMinutes: input.windowEndMinutes,
+    compressDumps: input.compressDumps,
   })
   const policyId = response.data.policyId ?? response.data.id
   if (!policyId) {
@@ -102,6 +105,7 @@ export async function updatePolicy(policyId: string, policy: UpsertPolicyInput):
     timeZoneId: policy.timeZoneId,
     windowStartMinutes: policy.windowStartMinutes,
     windowEndMinutes: policy.windowEndMinutes,
+    compressDumps: policy.compressDumps,
   })
   return response.data
 }
