@@ -40,18 +40,20 @@ public class LogicalBackupService : ILogicalBackupService
         CancellationToken cancellationToken)
     {
         var settings = policy.DatabaseSettings!;
+        var compress = policy.CompressDumps;
         var safeDatabaseName = SanitizeFileName(settings.DatabaseName);
         var dumpPath = Path.Combine(
             Path.GetTempPath(),
-            $"{safeDatabaseName}_{Guid.NewGuid():N}.sql");
+            $"{safeDatabaseName}_{Guid.NewGuid():N}{(compress ? ".sql.zst" : ".sql")}");
 
+        // No --file: pg_dump writes the plain dump to stdout, which we stream
+        // (optionally through zstd) straight to the artifact on disk.
         var arguments = new List<string>
         {
             "--no-owner",
             "--no-privileges",
             "--format=plain",
             "--no-password",
-            "--file", dumpPath,
         };
 
         if (!string.IsNullOrWhiteSpace(settings.Host))
@@ -80,16 +82,18 @@ public class LogicalBackupService : ILogicalBackupService
             environment["PGPASSWORD"] = settings.Password;
         }
 
-        await RunProcessAsync(
+        await RunDumpAsync(
             _agentOptions.PostgreSqlDumpCommand,
             arguments,
             environment,
+            dumpPath,
+            compress,
             cancellationToken);
 
         return new PreparedBackupPayload(
             dumpPath,
             Path.GetFileName(dumpPath),
-            "application/sql",
+            compress ? "application/zstd" : "application/sql",
             true);
     }
 
@@ -98,10 +102,11 @@ public class LogicalBackupService : ILogicalBackupService
         CancellationToken cancellationToken)
     {
         var settings = policy.DatabaseSettings!;
+        var compress = policy.CompressDumps;
         var safeDatabaseName = SanitizeFileName(settings.DatabaseName);
         var dumpPath = Path.Combine(
             Path.GetTempPath(),
-            $"{safeDatabaseName}_{Guid.NewGuid():N}.sql");
+            $"{safeDatabaseName}_{Guid.NewGuid():N}{(compress ? ".sql.zst" : ".sql")}");
 
         var arguments = new List<string>();
 
@@ -120,7 +125,8 @@ public class LogicalBackupService : ILogicalBackupService
             arguments.Add($"--user={settings.Username}");
         }
 
-        arguments.Add($"--result-file={dumpPath}");
+        // No --result-file: mysqldump writes to stdout, which we stream
+        // (optionally through zstd) straight to the artifact on disk.
         arguments.Add("--single-transaction");
         arguments.Add("--routines");
         arguments.Add("--events");
@@ -131,23 +137,27 @@ public class LogicalBackupService : ILogicalBackupService
             ["MYSQL_PWD"] = settings.Password
         };
 
-        await RunProcessAsync(
+        await RunDumpAsync(
             _agentOptions.MySqlDumpCommand,
             arguments,
             environment,
+            dumpPath,
+            compress,
             cancellationToken);
 
         return new PreparedBackupPayload(
             dumpPath,
             Path.GetFileName(dumpPath),
-            "application/sql",
+            compress ? "application/zstd" : "application/sql",
             true);
     }
 
-    private static async Task RunProcessAsync(
+    private static async Task RunDumpAsync(
         string command,
         IReadOnlyList<string> arguments,
         IReadOnlyDictionary<string, string?> environment,
+        string destinationPath,
+        bool compress,
         CancellationToken cancellationToken)
     {
         var executablePath = ResolveExecutablePath(command);
@@ -192,22 +202,39 @@ public class LogicalBackupService : ILogicalBackupService
                 ex);
         }
 
+        // Drain stderr concurrently while we stream stdout to disk, so a chatty
+        // dump can't fill the stderr pipe and deadlock the write.
         var standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        var standardOutputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        await DumpArtifactWriter.WriteAsync(
+            process.StandardOutput.BaseStream, destinationPath, compress, cancellationToken);
 
         await process.WaitForExitAsync(cancellationToken);
-
         var standardError = await standardErrorTask;
-        var standardOutput = await standardOutputTask;
 
         if (process.ExitCode != 0)
         {
-            // stderr/stdout may contain connection details; log them separately rather than
-            // propagating through the exception chain where they could reach structured logs.
-            System.Diagnostics.Debug.WriteLine(
-                $"[{executablePath}] stderr: {standardError} | stdout: {standardOutput}");
+            // stderr may contain connection details; log it separately rather than
+            // propagating through the exception chain where it could reach structured logs.
+            System.Diagnostics.Debug.WriteLine($"[{executablePath}] stderr: {standardError}");
+            // The failed dump may have produced a partial/empty artifact; drop it.
+            TryDeleteFile(destinationPath);
             throw new InvalidOperationException(
                 $"Dump process '{executablePath}' failed with exit code {process.ExitCode}.");
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup of a failed dump artifact.
         }
     }
 
