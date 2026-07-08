@@ -176,6 +176,11 @@ function toPayload(values: PolicyFormValues): UpsertPolicyInput {
     retentionMaxCount: values.retentionMaxCount,
     retentionMaxTotalBytes:
       values.retentionMaxSizeGb != null ? Math.round(values.retentionMaxSizeGb * BYTES_PER_GB) : null,
+    scheduleKind: 'interval',
+    cronExpression: null,
+    timeZoneId: null,
+    windowStartMinutes: null,
+    windowEndMinutes: null,
     databaseSettings: isFilesystem
       ? null
       : {

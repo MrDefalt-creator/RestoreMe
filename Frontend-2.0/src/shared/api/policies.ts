@@ -27,6 +27,11 @@ export interface BackupPolicy {
   consecutiveFailureCount: number
   lastFailureReason: string | null
   autoDisabledAt: string | null
+  scheduleKind: 'interval' | 'cron'
+  cronExpression: string | null
+  timeZoneId: string | null
+  windowStartMinutes: number | null
+  windowEndMinutes: number | null
 }
 
 export type UpsertPolicyInput = {
@@ -40,6 +45,11 @@ export type UpsertPolicyInput = {
   retentionDays: number | null
   retentionMaxCount: number | null
   retentionMaxTotalBytes: number | null
+  scheduleKind: 'interval' | 'cron'
+  cronExpression: string | null
+  timeZoneId: string | null
+  windowStartMinutes: number | null
+  windowEndMinutes: number | null
 }
 
 export async function getPolicies(): Promise<BackupPolicy[]> {
@@ -62,6 +72,11 @@ export async function createPolicy(input: UpsertPolicyInput): Promise<BackupPoli
     retentionDays: input.retentionDays,
     retentionMaxCount: input.retentionMaxCount,
     retentionMaxTotalBytes: input.retentionMaxTotalBytes,
+    scheduleKind: input.scheduleKind,
+    cronExpression: input.cronExpression,
+    timeZoneId: input.timeZoneId,
+    windowStartMinutes: input.windowStartMinutes,
+    windowEndMinutes: input.windowEndMinutes,
   })
   const policyId = response.data.policyId ?? response.data.id
   if (!policyId) {
@@ -82,6 +97,11 @@ export async function updatePolicy(policyId: string, policy: UpsertPolicyInput):
     retentionDays: policy.retentionDays,
     retentionMaxCount: policy.retentionMaxCount,
     retentionMaxTotalBytes: policy.retentionMaxTotalBytes,
+    scheduleKind: policy.scheduleKind,
+    cronExpression: policy.cronExpression,
+    timeZoneId: policy.timeZoneId,
+    windowStartMinutes: policy.windowStartMinutes,
+    windowEndMinutes: policy.windowEndMinutes,
   })
   return response.data
 }
@@ -89,4 +109,14 @@ export async function updatePolicy(policyId: string, policy: UpsertPolicyInput):
 export async function togglePolicy(policyId: string): Promise<BackupPolicy> {
   const response = await apiClient.patch(`/api/policies/${policyId}/toggle`)
   return response.data
+}
+
+export type SchedulePreviewInput = Pick<
+  UpsertPolicyInput,
+  'scheduleKind' | 'intervalSeconds' | 'cronExpression' | 'timeZoneId' | 'windowStartMinutes' | 'windowEndMinutes'
+>
+
+export async function previewSchedule(input: SchedulePreviewInput): Promise<string[]> {
+  const response = await apiClient.post<{ nextRuns: string[] }>('/api/policies/schedule-preview', input)
+  return response.data.nextRuns
 }

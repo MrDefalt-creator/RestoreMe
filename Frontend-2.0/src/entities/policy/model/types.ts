@@ -10,4 +10,9 @@ export interface BackupPolicy {
   lastRunAt: string
   createdAt: string
   updatedAt: string
+  scheduleKind: 'interval' | 'cron'
+  cronExpression: string | null
+  timeZoneId: string | null
+  windowStartMinutes: number | null
+  windowEndMinutes: number | null
 }
