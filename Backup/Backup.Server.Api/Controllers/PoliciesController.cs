@@ -60,7 +60,13 @@ public class PoliciesController : ControllerBase
                 request.Type,
                 request.Name,
                 request.SourcePath,
-                request.Interval,
+                new PolicyScheduleInput(
+                    request.ScheduleKind,
+                    request.Interval,
+                    request.CronExpression,
+                    request.TimeZoneId,
+                    request.WindowStartMinutes,
+                    request.WindowEndMinutes),
                 request.DatabaseSettings,
                 request.RetentionDays,
                 request.RetentionMaxCount,
@@ -127,7 +133,13 @@ public class PoliciesController : ControllerBase
                 request.Type,
                 request.Name,
                 request.SourcePath,
-                request.IntervalSeconds,
+                new PolicyScheduleInput(
+                    request.ScheduleKind,
+                    request.IntervalSeconds,
+                    request.CronExpression,
+                    request.TimeZoneId,
+                    request.WindowStartMinutes,
+                    request.WindowEndMinutes),
                 request.IsEnabled,
                 request.DatabaseSettings,
                 request.RetentionDays,
@@ -218,7 +230,12 @@ public class PoliciesController : ControllerBase
             policy.RetentionMaxTotalBytes,
             policy.ConsecutiveFailureCount,
             policy.LastFailureReason,
-            policy.AutoDisabledAt);
+            policy.AutoDisabledAt,
+            policy.ScheduleKind == Domain.Enums.ScheduleKind.Cron ? "cron" : "interval",
+            policy.CronExpression,
+            policy.TimeZoneId,
+            policy.WindowStartMinutes,
+            policy.WindowEndMinutes);
     }
 
     private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)

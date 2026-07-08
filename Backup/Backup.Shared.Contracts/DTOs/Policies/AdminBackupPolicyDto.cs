@@ -19,5 +19,10 @@ public record AdminBackupPolicyDto(
     long? RetentionMaxTotalBytes,
     [Required] int ConsecutiveFailureCount,
     string? LastFailureReason,
-    DateTime? AutoDisabledAt
+    DateTime? AutoDisabledAt,
+    string ScheduleKind,
+    string? CronExpression,
+    string? TimeZoneId,
+    int? WindowStartMinutes,
+    int? WindowEndMinutes
 );

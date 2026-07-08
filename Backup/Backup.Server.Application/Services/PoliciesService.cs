@@ -26,17 +26,18 @@ public class PoliciesService
         string type,
         string name,
         string? sourcePath,
-        int interval,
+        PolicyScheduleInput schedule,
         BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
         int? retentionDays,
         int? retentionMaxCount,
         long? retentionMaxTotalBytes,
         Guid actorUserId)
     {
+        var normalized = PolicyScheduleValidator.Validate(schedule);
+
         name = name.Trim();
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
-        ValidateInterval(interval);
         ValidateRetention(retentionDays, retentionMaxCount, retentionMaxTotalBytes);
 
         var policy = await _policyRepository.GetPolicyByName(agentId, name);
@@ -53,12 +54,17 @@ public class PoliciesService
             Type = policyType,
             Name = name,
             SourcePath = sourcePath,
-            IntervalSeconds =  interval,
-            NextRunAt = DateTime.UtcNow,
+            ScheduleKind = normalized.Kind,
+            IntervalSeconds = normalized.IntervalSeconds,
+            CronExpression = normalized.CronExpression,
+            TimeZoneId = normalized.TimeZoneId,
+            WindowStartMinutes = normalized.WindowStartMinutes,
+            WindowEndMinutes = normalized.WindowEndMinutes,
             RetentionDays = retentionDays,
             RetentionMaxCount = retentionMaxCount,
             RetentionMaxTotalBytes = retentionMaxTotalBytes
         };
+        policy.NextRunAt = PolicyScheduleCalculator.ComputeFirstRun(policy, DateTime.UtcNow);
 
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id);
 
@@ -67,7 +73,7 @@ public class PoliciesService
             actorUserId,
             "policy.create",
             policy.Id,
-            $"agent={agentId} name={policy.Name} type={MapPolicyTypeForAudit(policyType)} interval={interval}"));
+            $"agent={agentId} name={policy.Name} type={MapPolicyTypeForAudit(policyType)} schedule={normalized.Kind} interval={normalized.IntervalSeconds} cron={normalized.CronExpression}"));
 
         await _policyRepository.SaveChangesAsync();
 
@@ -106,7 +112,7 @@ public class PoliciesService
         string type,
         string name,
         string? sourcePath,
-        int intervalSeconds,
+        PolicyScheduleInput schedule,
         bool isEnabled,
         BackupPolicyDatabaseSettingsDto? databaseSettingsDto,
         int? retentionDays,
@@ -120,9 +126,10 @@ public class PoliciesService
             throw new KeyNotFoundException("Policy not found");
         }
 
+        var normalized = PolicyScheduleValidator.Validate(schedule);
+
         var policyType = ParsePolicyType(type);
         sourcePath = NormalizeSourcePath(policyType, sourcePath);
-        ValidateInterval(intervalSeconds);
         ValidateRetention(retentionDays, retentionMaxCount, retentionMaxTotalBytes);
 
         var reEnabling = !policy.IsEnabled && isEnabled;
@@ -131,9 +138,14 @@ public class PoliciesService
         policy.Type = policyType;
         policy.Name = name.Trim();
         policy.SourcePath = sourcePath;
-        policy.IntervalSeconds = intervalSeconds;
+        policy.ScheduleKind = normalized.Kind;
+        policy.IntervalSeconds = normalized.IntervalSeconds;
+        policy.CronExpression = normalized.CronExpression;
+        policy.TimeZoneId = normalized.TimeZoneId;
+        policy.WindowStartMinutes = normalized.WindowStartMinutes;
+        policy.WindowEndMinutes = normalized.WindowEndMinutes;
         policy.IsEnabled = isEnabled;
-        policy.NextRunAt = DateTime.UtcNow.AddSeconds(intervalSeconds);
+        policy.NextRunAt = PolicyScheduleCalculator.ComputeNextRun(policy, DateTime.UtcNow);
         policy.RetentionDays = retentionDays;
         policy.RetentionMaxCount = retentionMaxCount;
         policy.RetentionMaxTotalBytes = retentionMaxTotalBytes;
@@ -218,7 +230,7 @@ public class PoliciesService
         }
 
         policy.LastRunAt = DateTime.UtcNow;
-        policy.NextRunAt = DateTime.UtcNow.AddSeconds(policy.IntervalSeconds);
+        policy.NextRunAt = PolicyScheduleCalculator.ComputeNextRun(policy, DateTime.UtcNow);
         await _policyRepository.UpdatePolicy(policy);
         await _policyRepository.SaveChangesAsync();
     }
@@ -377,14 +389,6 @@ public class PoliciesService
         if (policyType == BackupPolicyType.MySqlDump && engine != DatabaseEngine.MySql)
         {
             throw new InvalidOperationException("MySQL policy type requires MySQL database settings.");
-        }
-    }
-
-    private static void ValidateInterval(int intervalSeconds)
-    {
-        if (intervalSeconds <= 0)
-        {
-            throw new InvalidOperationException("Policy interval must be greater than zero seconds.");
         }
     }
 
