@@ -68,7 +68,7 @@ RestorMe/
 - stores backend server address and agent access token locally
 - sends heartbeat and periodically synchronizes policies
 - executes filesystem backup policies
-- executes logical PostgreSQL and MySQL dump policies
+- executes logical PostgreSQL and MySQL dump policies, optionally streaming the dump through zstd compression (per-policy, default on; restore auto-detects compressed vs plain artifacts)
 - uploads prepared payloads directly to object storage through presigned upload tickets returned by backend
 
 ### Frontend

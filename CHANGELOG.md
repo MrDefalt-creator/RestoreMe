@@ -9,6 +9,14 @@ No versions have been tagged yet — everything below is unreleased.
 
 ### Added
 
+- **Database dump compression**: logical PostgreSQL/MySQL dumps are streamed
+  through zstd on the agent (per-policy toggle, default on), so `pg_dump`/
+  `mysqldump` output is compressed straight to the artifact — a full plain-SQL
+  copy never touches the agent's temp disk. Restore auto-detects compressed
+  artifacts by their zstd magic bytes, so legacy plain-`.sql` backups keep
+  restoring unchanged. Uses the pure-managed `ZstdSharp.Port` — the agent
+  binary gains no native dependency. Filesystem policies are unaffected
+  (archives are already compressed).
 - **Cron schedules + backup windows**: policies can now run on a cron
   schedule (5-field expression, IANA timezone, DST-aware) instead of a
   fixed interval, and interval policies can be confined to a daily backup
