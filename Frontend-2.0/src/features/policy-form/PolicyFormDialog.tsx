@@ -16,6 +16,7 @@ import {
   type UpsertPolicyInput,
 } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
+import { useDebouncedValue } from '@/shared/lib/useDebouncedValue'
 import {
   buildCronExpression,
   minutesToTime,
@@ -354,8 +355,13 @@ export function PolicyFormDialog({
   }, [language])
 
   const schedulePreviewInput = useMemo<SchedulePreviewInput | null>(() => {
+    const isTime = (value: string) => /^\d{2}:\d{2}$/.test(value)
+
     if (scheduleKind === 'cron') {
       if (timeZoneId.trim().length < 1) return null
+      // A half-typed time ("3", "03:") would build an expression like
+      // "NaN 3 * * *" — skip the request until it's a real HH:MM.
+      if (cronPreset !== 'custom' && !isTime(cronTime)) return null
       const expression =
         cronPreset === 'custom'
           ? cronExpression.trim()
@@ -378,6 +384,8 @@ export function PolicyFormDialog({
         windowEndMinutes: null,
       }
     }
+
+    if (windowEnabled && (!isTime(windowStart) || !isTime(windowEnd))) return null
 
     return {
       scheduleKind: 'interval',
@@ -402,10 +410,12 @@ export function PolicyFormDialog({
     windowEnd,
   ])
 
+  const debouncedPreviewInput = useDebouncedValue(schedulePreviewInput, 400)
+
   const schedulePreviewQuery = useQuery({
-    queryKey: ['policy-schedule-preview', schedulePreviewInput],
-    queryFn: () => previewSchedule(schedulePreviewInput!),
-    enabled: open && schedulePreviewInput != null,
+    queryKey: ['policy-schedule-preview', debouncedPreviewInput],
+    queryFn: () => previewSchedule(debouncedPreviewInput!),
+    enabled: open && debouncedPreviewInput != null,
     retry: false,
     staleTime: 5_000,
   })
