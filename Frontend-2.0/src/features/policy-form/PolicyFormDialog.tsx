@@ -1,18 +1,27 @@
-import { useEffect, useRef } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
+import { format } from 'date-fns'
 
 import type { Agent } from '@/shared/api/agents'
 import {
   createPolicy,
+  previewSchedule,
   updatePolicy,
   type BackupPolicy,
+  type SchedulePreviewInput,
   type UpsertPolicyInput,
 } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
+import {
+  buildCronExpression,
+  minutesToTime,
+  parseCronPreset,
+  timeToMinutes,
+} from '@/shared/lib/schedule'
 import { Button } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Input } from '@/shared/ui/Input'
@@ -37,6 +46,16 @@ const policySchema = z.object({
   retentionDays: z.number().int().min(1).max(3650).nullable(),
   retentionMaxCount: z.number().int().min(1).max(10000).nullable(),
   retentionMaxSizeGb: z.number().positive().nullable(),
+  scheduleKind: z.enum(['interval', 'cron']),
+  cronPreset: z.enum(['daily', 'weekly', 'monthly', 'custom']),
+  cronTime: z.string(),
+  cronWeekday: z.number().int().min(0).max(6),
+  cronDayOfMonth: z.number().int().min(1).max(31),
+  cronExpression: z.string(),
+  timeZoneId: z.string(),
+  windowEnabled: z.boolean(),
+  windowStart: z.string(),
+  windowEnd: z.string(),
 }).superRefine((values, context) => {
   if (values.type === 'filesystem' && values.sourcePath.trim().length < 3) {
     context.addIssue({
@@ -79,6 +98,29 @@ const policySchema = z.object({
       })
     }
   }
+
+  if (values.scheduleKind === 'cron') {
+    if (values.timeZoneId.trim().length < 1) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Timezone is required', path: ['timeZoneId'] })
+    }
+    if (values.cronPreset === 'custom' && values.cronExpression.trim().split(/\s+/).length !== 5) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Cron expression must have 5 fields', path: ['cronExpression'] })
+    }
+    if (values.cronPreset !== 'custom' && !/^\d{2}:\d{2}$/.test(values.cronTime)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Run time is required', path: ['cronTime'] })
+    }
+  }
+
+  if (values.scheduleKind === 'interval' && values.windowEnabled) {
+    if (!/^\d{2}:\d{2}$/.test(values.windowStart) || !/^\d{2}:\d{2}$/.test(values.windowEnd)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Window start and end are required', path: ['windowStart'] })
+    } else if (values.windowStart === values.windowEnd) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Window start and end must differ', path: ['windowEnd'] })
+    }
+    if (values.timeZoneId.trim().length < 1) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Timezone is required', path: ['timeZoneId'] })
+    }
+  }
 })
 
 type PolicyFormValues = z.infer<typeof policySchema>
@@ -107,6 +149,16 @@ const defaultValues: PolicyFormValues = {
   retentionDays: null,
   retentionMaxCount: null,
   retentionMaxSizeGb: null,
+  scheduleKind: 'interval',
+  cronPreset: 'daily',
+  cronTime: '03:00',
+  cronWeekday: 1,
+  cronDayOfMonth: 1,
+  cronExpression: '',
+  timeZoneId: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Etc/UTC',
+  windowEnabled: false,
+  windowStart: '22:00',
+  windowEnd: '06:00',
 }
 
 const BYTES_PER_GB = 1024 ** 3
@@ -159,6 +211,27 @@ function toFormValues(policy: BackupPolicy | null, agents: Agent[]): PolicyFormV
     retentionMaxCount: policy.retentionMaxCount ?? null,
     retentionMaxSizeGb:
       policy.retentionMaxTotalBytes != null ? policy.retentionMaxTotalBytes / BYTES_PER_GB : null,
+    scheduleKind: policy.scheduleKind,
+    ...(() => {
+      if (policy.scheduleKind !== 'cron' || !policy.cronExpression) {
+        return { cronPreset: 'daily' as const, cronTime: '03:00', cronWeekday: 1, cronDayOfMonth: 1, cronExpression: '' }
+      }
+      const parsed = parseCronPreset(policy.cronExpression)
+      if (!parsed) {
+        return { cronPreset: 'custom' as const, cronTime: '03:00', cronWeekday: 1, cronDayOfMonth: 1, cronExpression: policy.cronExpression }
+      }
+      return {
+        cronPreset: parsed.preset,
+        cronTime: parsed.time,
+        cronWeekday: parsed.weekday ?? 1,
+        cronDayOfMonth: parsed.dayOfMonth ?? 1,
+        cronExpression: policy.cronExpression,
+      }
+    })(),
+    timeZoneId: policy.timeZoneId ?? (Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Etc/UTC'),
+    windowEnabled: policy.windowStartMinutes != null,
+    windowStart: policy.windowStartMinutes != null ? minutesToTime(policy.windowStartMinutes) : '22:00',
+    windowEnd: policy.windowEndMinutes != null ? minutesToTime(policy.windowEndMinutes) : '06:00',
   }
 }
 
@@ -170,17 +243,34 @@ function toPayload(values: PolicyFormValues): UpsertPolicyInput {
     type: values.type,
     name: values.name.trim(),
     sourcePath: isFilesystem ? values.sourcePath.trim() : '',
-    intervalSeconds: intervalToSeconds(values),
     isEnabled: values.isEnabled,
     retentionDays: values.retentionDays,
     retentionMaxCount: values.retentionMaxCount,
     retentionMaxTotalBytes:
       values.retentionMaxSizeGb != null ? Math.round(values.retentionMaxSizeGb * BYTES_PER_GB) : null,
-    scheduleKind: 'interval',
-    cronExpression: null,
-    timeZoneId: null,
-    windowStartMinutes: null,
-    windowEndMinutes: null,
+    scheduleKind: values.scheduleKind,
+    intervalSeconds: values.scheduleKind === 'interval' ? intervalToSeconds(values) : 0,
+    cronExpression:
+      values.scheduleKind === 'cron'
+        ? values.cronPreset === 'custom'
+          ? values.cronExpression.trim()
+          : buildCronExpression(
+              values.cronPreset === 'weekly'
+                ? { kind: 'weekly', weekday: values.cronWeekday }
+                : values.cronPreset === 'monthly'
+                  ? { kind: 'monthly', dayOfMonth: values.cronDayOfMonth }
+                  : { kind: 'daily' },
+              values.cronTime,
+            )
+        : null,
+    timeZoneId:
+      values.scheduleKind === 'cron' || (values.scheduleKind === 'interval' && values.windowEnabled)
+        ? values.timeZoneId
+        : null,
+    windowStartMinutes:
+      values.scheduleKind === 'interval' && values.windowEnabled ? timeToMinutes(values.windowStart) : null,
+    windowEndMinutes:
+      values.scheduleKind === 'interval' && values.windowEnabled ? timeToMinutes(values.windowEnd) : null,
     databaseSettings: isFilesystem
       ? null
       : {
@@ -201,7 +291,7 @@ export function PolicyFormDialog({
   policy,
   onClose,
 }: PolicyFormDialogProps) {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const formError = (message?: string) => (message ? t(message) : undefined)
   const queryClient = useQueryClient()
   const previousOpenRef = useRef(false)
@@ -213,6 +303,112 @@ export function PolicyFormDialog({
   })
   const policyType = useWatch({ control: form.control, name: 'type' })
   const authMode = useWatch({ control: form.control, name: 'authMode' })
+  const [
+    scheduleKind,
+    intervalValue,
+    intervalUnit,
+    cronPreset,
+    cronTime,
+    cronWeekday,
+    cronDayOfMonth,
+    cronExpression,
+    timeZoneId,
+    windowEnabled,
+    windowStart,
+    windowEnd,
+  ] = useWatch({
+    control: form.control,
+    name: [
+      'scheduleKind',
+      'intervalValue',
+      'intervalUnit',
+      'cronPreset',
+      'cronTime',
+      'cronWeekday',
+      'cronDayOfMonth',
+      'cronExpression',
+      'timeZoneId',
+      'windowEnabled',
+      'windowStart',
+      'windowEnd',
+    ],
+  })
+
+  const timeZoneOptions = useMemo<string[]>(() => {
+    const intlWithSupportedValues = Intl as typeof Intl & {
+      supportedValuesOf?: (key: string) => string[]
+    }
+    return (
+      intlWithSupportedValues.supportedValuesOf?.('timeZone') ?? [
+        Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Etc/UTC',
+      ]
+    )
+  }, [])
+
+  const weekdayOptions = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(language === 'ru' ? 'ru' : 'en-US', { weekday: 'long' })
+    return Array.from({ length: 7 }, (_, index) => ({
+      value: index,
+      label: formatter.format(new Date(Date.UTC(2023, 0, 1 + index))),
+    }))
+  }, [language])
+
+  const schedulePreviewInput = useMemo<SchedulePreviewInput | null>(() => {
+    if (scheduleKind === 'cron') {
+      if (timeZoneId.trim().length < 1) return null
+      const expression =
+        cronPreset === 'custom'
+          ? cronExpression.trim()
+          : buildCronExpression(
+              cronPreset === 'weekly'
+                ? { kind: 'weekly', weekday: cronWeekday }
+                : cronPreset === 'monthly'
+                  ? { kind: 'monthly', dayOfMonth: cronDayOfMonth }
+                  : { kind: 'daily' },
+              cronTime,
+            )
+      if (expression.split(/\s+/).length !== 5) return null
+
+      return {
+        scheduleKind: 'cron',
+        intervalSeconds: 0,
+        cronExpression: expression,
+        timeZoneId,
+        windowStartMinutes: null,
+        windowEndMinutes: null,
+      }
+    }
+
+    return {
+      scheduleKind: 'interval',
+      intervalSeconds: intervalToSeconds({ intervalValue, intervalUnit }),
+      cronExpression: null,
+      timeZoneId: windowEnabled ? timeZoneId : null,
+      windowStartMinutes: windowEnabled ? timeToMinutes(windowStart) : null,
+      windowEndMinutes: windowEnabled ? timeToMinutes(windowEnd) : null,
+    }
+  }, [
+    scheduleKind,
+    intervalValue,
+    intervalUnit,
+    cronPreset,
+    cronTime,
+    cronWeekday,
+    cronDayOfMonth,
+    cronExpression,
+    timeZoneId,
+    windowEnabled,
+    windowStart,
+    windowEnd,
+  ])
+
+  const schedulePreviewQuery = useQuery({
+    queryKey: ['policy-schedule-preview', schedulePreviewInput],
+    queryFn: () => previewSchedule(schedulePreviewInput!),
+    enabled: open && schedulePreviewInput != null,
+    retry: false,
+    staleTime: 5_000,
+  })
 
   useEffect(() => {
     if (!open) {
@@ -324,26 +520,150 @@ export function PolicyFormDialog({
           <Input placeholder={t('Documents every 15 minutes')} {...form.register('name')} />
         </Field>
 
-        <Field
-          label={t('Run every')}
-          error={formError(form.formState.errors.intervalValue?.message ?? form.formState.errors.intervalUnit?.message)}
-        >
-          <div className="grid grid-cols-[1fr_150px] gap-3">
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              {...form.register('intervalValue', {
-                setValueAs: (value) => Number(value || 0),
-              })}
-            />
-            <Select {...form.register('intervalUnit')}>
-              <option value="minutes">{t('Minutes')}</option>
-              <option value="hours">{t('Hours')}</option>
-              <option value="days">{t('Days')}</option>
+        <div className="space-y-4 rounded-lg border border-border bg-background/70 p-4 md:col-span-2">
+          <Field label={t('Schedule')}>
+            <Select {...form.register('scheduleKind')}>
+              <option value="interval">{t('Fixed interval')}</option>
+              <option value="cron">{t('Cron schedule')}</option>
             </Select>
-          </div>
-        </Field>
+          </Field>
+
+          {scheduleKind === 'interval' ? (
+            <>
+              <Field
+                label={t('Run every')}
+                error={formError(form.formState.errors.intervalValue?.message ?? form.formState.errors.intervalUnit?.message)}
+              >
+                <div className="grid grid-cols-[1fr_150px] gap-3">
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    {...form.register('intervalValue', {
+                      setValueAs: (value) => Number(value || 0),
+                    })}
+                  />
+                  <Select {...form.register('intervalUnit')}>
+                    <option value="minutes">{t('Minutes')}</option>
+                    <option value="hours">{t('Hours')}</option>
+                    <option value="days">{t('Days')}</option>
+                  </Select>
+                </div>
+              </Field>
+
+              <Controller
+                name="windowEnabled"
+                control={form.control}
+                render={({ field }) => (
+                  <label
+                    htmlFor="policy-window-enabled"
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-4 py-3 text-sm text-muted-foreground"
+                  >
+                    <span>{t('Only run within a time window')}</span>
+                    <Switch
+                      id="policy-window-enabled"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </label>
+                )}
+              />
+
+              {windowEnabled ? (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label={t('Window start')} error={formError(form.formState.errors.windowStart?.message)}>
+                    <Input type="time" {...form.register('windowStart')} />
+                  </Field>
+                  <Field label={t('Window end')} error={formError(form.formState.errors.windowEnd?.message)}>
+                    <Input type="time" {...form.register('windowEnd')} />
+                  </Field>
+                  <Field label={t('Timezone')} error={formError(form.formState.errors.timeZoneId?.message)}>
+                    <Select {...form.register('timeZoneId')}>
+                      {timeZoneOptions.map((tz) => (
+                        <option key={tz} value={tz}>
+                          {tz}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('Cron schedule')}>
+                <Select {...form.register('cronPreset')}>
+                  <option value="daily">{t('Daily')}</option>
+                  <option value="weekly">{t('Weekly')}</option>
+                  <option value="monthly">{t('Monthly')}</option>
+                  <option value="custom">{t('Custom cron')}</option>
+                </Select>
+              </Field>
+
+              {cronPreset !== 'custom' ? (
+                <Field label={t('Run at')} error={formError(form.formState.errors.cronTime?.message)}>
+                  <Input type="time" {...form.register('cronTime')} />
+                </Field>
+              ) : null}
+
+              {cronPreset === 'weekly' ? (
+                <Field label={t('Day of week')}>
+                  <Select
+                    {...form.register('cronWeekday', {
+                      setValueAs: (value) => Number(value || 0),
+                    })}
+                  >
+                    {weekdayOptions.map((weekday) => (
+                      <option key={weekday.value} value={weekday.value}>
+                        {weekday.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+
+              {cronPreset === 'monthly' ? (
+                <Field label={t('Day of month')}>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    step={1}
+                    {...form.register('cronDayOfMonth', {
+                      setValueAs: (value) => Number(value || 1),
+                    })}
+                  />
+                </Field>
+              ) : null}
+
+              {cronPreset === 'custom' ? (
+                <Field
+                  label={t('Cron expression')}
+                  error={formError(form.formState.errors.cronExpression?.message)}
+                  className="sm:col-span-2"
+                >
+                  <Input placeholder="0 3 * * *" {...form.register('cronExpression')} />
+                </Field>
+              ) : null}
+
+              <Field label={t('Timezone')} error={formError(form.formState.errors.timeZoneId?.message)}>
+                <Select {...form.register('timeZoneId')}>
+                  {timeZoneOptions.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          )}
+
+          {schedulePreviewQuery.data && schedulePreviewQuery.data.length > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t('Next:')} {schedulePreviewQuery.data.map((iso) => format(new Date(iso), 'dd MMM HH:mm')).join(' · ')}
+            </p>
+          ) : null}
+        </div>
 
         <Field label={t('Keep backups for (days)')}>
           <Input
