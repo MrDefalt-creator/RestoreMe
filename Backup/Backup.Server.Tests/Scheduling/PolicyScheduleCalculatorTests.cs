@@ -162,4 +162,21 @@ public sealed class PolicyScheduleCalculatorTests
         var next = PolicyScheduleCalculator.ComputeNextRun(policy, now);
         Assert.Equal(new DateTime(2027, 3, 28, 1, 30, 0, DateTimeKind.Utc), next);
     }
+
+    // --- preview chaining ---
+
+    [Fact]
+    public void Preview_ChainsThreeOccurrences()
+    {
+        var now = new DateTime(2026, 7, 8, 10, 0, 0, DateTimeKind.Utc);
+        var policy = CronPolicy("0 3 * * *", "Etc/UTC");
+
+        var first = PolicyScheduleCalculator.ComputeNextRun(policy, now);
+        var second = PolicyScheduleCalculator.ComputeNextRun(policy, first);
+        var third = PolicyScheduleCalculator.ComputeNextRun(policy, second);
+
+        Assert.Equal(new DateTime(2026, 7, 9, 3, 0, 0, DateTimeKind.Utc), first);
+        Assert.Equal(new DateTime(2026, 7, 10, 3, 0, 0, DateTimeKind.Utc), second);
+        Assert.Equal(new DateTime(2026, 7, 11, 3, 0, 0, DateTimeKind.Utc), third);
+    }
 }

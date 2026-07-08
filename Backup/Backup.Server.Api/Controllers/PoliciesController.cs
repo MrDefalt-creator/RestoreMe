@@ -191,6 +191,27 @@ public class PoliciesController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
+    [HttpPost("schedule-preview")]
+    public IActionResult PreviewSchedule([FromBody] SchedulePreviewRequest request)
+    {
+        try
+        {
+            var runs = _policiesService.PreviewSchedule(new PolicyScheduleInput(
+                request.ScheduleKind,
+                request.IntervalSeconds,
+                request.CronExpression,
+                request.TimeZoneId,
+                request.WindowStartMinutes,
+                request.WindowEndMinutes));
+            return Ok(new { nextRuns = runs });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     [Authorize(Policy = AuthConstants.AgentPolicy)]
     [HttpPost("mark_policy_executed/{policyId:guid}")]
     public async Task<IActionResult> MarkPolicyExecuted([FromRoute] Guid policyId)

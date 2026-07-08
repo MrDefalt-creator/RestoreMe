@@ -235,6 +235,32 @@ public class PoliciesService
         await _policyRepository.SaveChangesAsync();
     }
 
+    public List<DateTime> PreviewSchedule(PolicyScheduleInput schedule)
+    {
+        var normalized = PolicyScheduleValidator.Validate(schedule);
+        var probe = new BackupPolicy
+        {
+            Name = "preview",
+            SourcePath = string.Empty,
+            ScheduleKind = normalized.Kind,
+            IntervalSeconds = normalized.IntervalSeconds,
+            CronExpression = normalized.CronExpression,
+            TimeZoneId = normalized.TimeZoneId,
+            WindowStartMinutes = normalized.WindowStartMinutes,
+            WindowEndMinutes = normalized.WindowEndMinutes,
+        };
+
+        var runs = new List<DateTime>(3);
+        var cursor = DateTime.UtcNow;
+        for (var i = 0; i < 3; i++)
+        {
+            cursor = PolicyScheduleCalculator.ComputeNextRun(probe, cursor);
+            runs.Add(cursor);
+        }
+
+        return runs;
+    }
+
     internal static string NormalizeSourcePath(BackupPolicyType policyType, string? path)
     {
         if (policyType != BackupPolicyType.FileSystem)
