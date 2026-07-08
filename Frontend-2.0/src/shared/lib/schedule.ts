@@ -42,7 +42,7 @@ export function parseCronPreset(
   const time = minutesToTime(Number(hour) * 60 + Number(minute))
 
   if (dayOfMonth === '*' && weekday === '*') return { preset: 'daily', time }
-  if (dayOfMonth === '*' && isPlainNumber(weekday)) return { preset: 'weekly', time, weekday: Number(weekday) }
+  if (dayOfMonth === '*' && isPlainNumber(weekday)) return { preset: 'weekly', time, weekday: Number(weekday) % 7 }
   if (isPlainNumber(dayOfMonth) && weekday === '*') return { preset: 'monthly', time, dayOfMonth: Number(dayOfMonth) }
   return null
 }

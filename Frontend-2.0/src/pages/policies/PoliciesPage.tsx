@@ -161,7 +161,7 @@ export function PoliciesPage() {
                       <Th>{t('Policy')}</Th>
                       <Th>{t('Type')}</Th>
                       <Th>{t('Path')}</Th>
-                      <Th>{t('Interval')}</Th>
+                      <Th>{t('Schedule')}</Th>
                       <Th>{t('Next Run')}</Th>
                       <Th>{t('State')}</Th>
                       {canWrite ? <Th>{t('Actions')}</Th> : null}
@@ -281,7 +281,7 @@ export function PoliciesPage() {
                       <dd className="truncate text-foreground">
                         {formatPolicyTarget(policy) || t('N/A')}
                       </dd>
-                      <dt className="text-muted-foreground">{t('Interval')}</dt>
+                      <dt className="text-muted-foreground">{t('Schedule')}</dt>
                       <dd className="text-foreground">
                         {describeSchedule(policy)}
                       </dd>

@@ -25,6 +25,8 @@ describe('parseCronPreset', () => {
     expect(parseCronPreset('0 3 * * 1-5')).toBeNull()
     expect(parseCronPreset('garbage')).toBeNull()
   })
+  it('normalizes weekday 7 (Cronos Sunday) to 0', () =>
+    expect(parseCronPreset('0 4 * * 7')).toEqual({ preset: 'weekly', time: '04:00', weekday: 0 }))
 })
 
 describe('time/minutes conversion', () => {
@@ -56,4 +58,9 @@ describe('describeSchedule', () => {
     expect(describeSchedule({
       ...base, scheduleKind: 'cron', cronExpression: '*/15 22-5 * * *', timeZoneId: 'Etc/UTC',
     })).toBe('Cron: */15 22-5 * * * (Etc/UTC)'))
+
+  it('describes weekly cron with weekday 7 as Sunday (no "undefined")', () =>
+    expect(describeSchedule({
+      ...base, scheduleKind: 'cron', cronExpression: '0 4 * * 7', timeZoneId: 'Etc/UTC',
+    })).toBe('Weekly on Sun at 04:00 (Etc/UTC)'))
 })
