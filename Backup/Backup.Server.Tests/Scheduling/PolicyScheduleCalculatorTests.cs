@@ -147,4 +147,19 @@ public sealed class PolicyScheduleCalculatorTests
         var next = PolicyScheduleCalculator.ComputeFirstRun(CronPolicy("0 3 * * *", "Etc/UTC"), now);
         Assert.Equal(new DateTime(2026, 7, 9, 3, 0, 0, DateTimeKind.Utc), next);
     }
+
+    // --- DST edge cases ---
+
+    [Fact]
+    public void Interval_WindowStartInDstGap_ShiftsForward()
+    {
+        // Europe/Berlin 2027-03-28: 02:00–03:00 local does not exist (spring forward).
+        // Window 02:30–05:00; candidate lands outside the window, and the next
+        // window start (02:30 local) is invalid — the calculator shifts it +1h
+        // to 03:30 local = 01:30 UTC.
+        var now = new DateTime(2027, 3, 27, 22, 0, 0, DateTimeKind.Utc);
+        var policy = IntervalPolicy(3600, "Europe/Berlin", winStart: 2 * 60 + 30, winEnd: 5 * 60);
+        var next = PolicyScheduleCalculator.ComputeNextRun(policy, now);
+        Assert.Equal(new DateTime(2027, 3, 28, 1, 30, 0, DateTimeKind.Utc), next);
+    }
 }

@@ -66,6 +66,7 @@ public static class PolicyScheduleCalculator
         // A DST spring-forward can make the window start a nonexistent local time.
         if (timeZone.IsInvalidTime(windowStart))
         {
+            // Assumes a 1-hour DST shift (true for the overwhelming majority of IANA zones).
             windowStart = windowStart.AddHours(1);
         }
 
