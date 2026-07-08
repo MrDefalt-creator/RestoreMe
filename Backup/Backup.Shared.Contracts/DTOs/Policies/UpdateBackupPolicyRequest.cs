@@ -17,5 +17,6 @@ public record UpdateBackupPolicyRequest(
     [StringLength(100)] string? CronExpression = null,
     [StringLength(64)] string? TimeZoneId = null,
     [Range(0, 1439)] int? WindowStartMinutes = null,
-    [Range(0, 1439)] int? WindowEndMinutes = null
+    [Range(0, 1439)] int? WindowEndMinutes = null,
+    bool CompressDumps = true
 );

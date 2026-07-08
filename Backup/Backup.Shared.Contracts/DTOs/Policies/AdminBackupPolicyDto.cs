@@ -24,5 +24,6 @@ public record AdminBackupPolicyDto(
     string? CronExpression,
     string? TimeZoneId,
     int? WindowStartMinutes,
-    int? WindowEndMinutes
+    int? WindowEndMinutes,
+    bool CompressDumps = true
 );

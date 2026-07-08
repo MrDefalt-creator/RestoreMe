@@ -12,5 +12,8 @@ public record BackupPolicyDto(
     // Deployed agents deserialize the historical "nexRunAt" field name;
     // the alias keeps the wire format stable across the C# rename.
     [property: JsonPropertyName("nexRunAt")] [Required] DateTime NextRunAt,
-    BackupPolicyDatabaseSettingsDto? DatabaseSettings
+    BackupPolicyDatabaseSettingsDto? DatabaseSettings,
+    // Appended at the END so deployed agents (positional deserialization)
+    // stay wire-compatible; older agents simply won't compress.
+    bool CompressDumps = true
     );

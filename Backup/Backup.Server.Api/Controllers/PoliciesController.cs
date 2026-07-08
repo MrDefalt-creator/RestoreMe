@@ -71,7 +71,8 @@ public class PoliciesController : ControllerBase
                 request.RetentionDays,
                 request.RetentionMaxCount,
                 request.RetentionMaxTotalBytes,
-                actorUserId.Value);
+                actorUserId.Value,
+                request.CompressDumps);
 
             var response = new CreatePolicyResponse(policy.Id, policy.Name, policy.AgentId);
             return Ok(response);
@@ -145,7 +146,8 @@ public class PoliciesController : ControllerBase
                 request.RetentionDays,
                 request.RetentionMaxCount,
                 request.RetentionMaxTotalBytes,
-                actorUserId.Value);
+                actorUserId.Value,
+                request.CompressDumps);
         }
         catch (InvalidOperationException ex)
         {
@@ -256,7 +258,8 @@ public class PoliciesController : ControllerBase
             policy.CronExpression,
             policy.TimeZoneId,
             policy.WindowStartMinutes,
-            policy.WindowEndMinutes);
+            policy.WindowEndMinutes,
+            policy.CompressDumps);
     }
 
     private static BackupPolicyDto MapAgentPolicy(BackupPolicy policy)
@@ -268,7 +271,8 @@ public class PoliciesController : ControllerBase
             policy.SourcePath,
             policy.IsEnabled,
             policy.NextRunAt,
-            MapDatabaseSettings(policy.DatabaseSettings, includePassword: true));
+            MapDatabaseSettings(policy.DatabaseSettings, includePassword: true),
+            policy.CompressDumps);
     }
 
     private static string MapPolicyType(BackupPolicyType type)

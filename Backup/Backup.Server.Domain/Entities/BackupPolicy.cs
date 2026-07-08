@@ -49,5 +49,9 @@ public class BackupPolicy
     public string? LastFailureReason { get; set; }
     public DateTime? AutoDisabledAt { get; set; }
 
+    // Compress logical DB dumps (postgres/mysql) with zstd on the agent.
+    // Ignored for filesystem policies (already ZIP-compressed). Default on.
+    public bool CompressDumps { get; set; } = true;
+
     public ICollection<BackupJob> Jobs { get; set; } = new List<BackupJob>();
 }

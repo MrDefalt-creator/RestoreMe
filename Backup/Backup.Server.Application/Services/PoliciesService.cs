@@ -34,7 +34,8 @@ public class PoliciesService
         int? retentionDays,
         int? retentionMaxCount,
         long? retentionMaxTotalBytes,
-        Guid actorUserId)
+        Guid actorUserId,
+        bool compressDumps = true)
     {
         await EnsureAgentExists(agentId);
 
@@ -67,7 +68,8 @@ public class PoliciesService
             WindowEndMinutes = normalized.WindowEndMinutes,
             RetentionDays = retentionDays,
             RetentionMaxCount = retentionMaxCount,
-            RetentionMaxTotalBytes = retentionMaxTotalBytes
+            RetentionMaxTotalBytes = retentionMaxTotalBytes,
+            CompressDumps = compressDumps
         };
         policy.NextRunAt = PolicyScheduleCalculator.ComputeFirstRun(policy, DateTime.UtcNow);
 
@@ -123,7 +125,8 @@ public class PoliciesService
         int? retentionDays,
         int? retentionMaxCount,
         long? retentionMaxTotalBytes,
-        Guid actorUserId)
+        Guid actorUserId,
+        bool compressDumps = true)
     {
         var policy = await _policyRepository.GetPolicyById(policyId);
         if (policy == null)
@@ -156,6 +159,7 @@ public class PoliciesService
         policy.RetentionDays = retentionDays;
         policy.RetentionMaxCount = retentionMaxCount;
         policy.RetentionMaxTotalBytes = retentionMaxTotalBytes;
+        policy.CompressDumps = compressDumps;
         policy.DatabaseSettings = BuildDatabaseSettings(policyType, databaseSettingsDto, policy.Id, policy.DatabaseSettings);
 
         if (reEnabling)
