@@ -13,7 +13,8 @@ import { Input } from '@/shared/ui/Input'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
 import { queryKeys } from '@/shared/lib/query'
-import { formatDurationSeconds, formatDateTime } from '@/shared/lib/format'
+import { formatDateTime } from '@/shared/lib/format'
+import { describeSchedule } from '@/shared/lib/schedule'
 import { toast } from 'sonner'
 import { useI18n } from '@/shared/i18n'
 import { useDeepLinkHighlight } from '@/shared/lib/useDeepLinkHighlight'
@@ -184,7 +185,7 @@ export function PoliciesPage() {
                         <Td className="max-w-[220px] truncate">
                           {formatPolicyTarget(policy) || t('N/A')}
                         </Td>
-                        <Td>{formatDurationSeconds(policy.intervalSeconds)}</Td>
+                        <Td>{describeSchedule(policy)}</Td>
                         <Td className="text-muted-foreground">
                           {formatDateTime(policy.nextRunAt)}
                         </Td>
@@ -282,7 +283,7 @@ export function PoliciesPage() {
                       </dd>
                       <dt className="text-muted-foreground">{t('Interval')}</dt>
                       <dd className="text-foreground">
-                        {formatDurationSeconds(policy.intervalSeconds)}
+                        {describeSchedule(policy)}
                       </dd>
                       <dt className="text-muted-foreground">{t('Next Run')}</dt>
                       <dd className="text-foreground">

@@ -34,7 +34,8 @@ import {
 } from '@/shared/api/agents'
 import { getPolicies, type BackupPolicy } from '@/shared/api/policies'
 import { queryKeys } from '@/shared/lib/query'
-import { formatDateTime, formatDurationSeconds, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
+import { formatDateTime, formatPolicyType, formatRelativeTime } from '@/shared/lib/format'
+import { describeSchedule } from '@/shared/lib/schedule'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
@@ -674,7 +675,7 @@ function AgentDetailsDialog({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{policy.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {formatPolicyType(policy.type)} · every {formatDurationSeconds(policy.intervalSeconds)}
+                    {formatPolicyType(policy.type)} · {describeSchedule(policy)}
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
@@ -698,7 +699,7 @@ function AgentDetailsDialog({
   )
 }
 
-type AgentPolicy = Pick<BackupPolicy, 'id' | 'name' | 'type' | 'isEnabled' | 'intervalSeconds' | 'nextRunAt'>
+type AgentPolicy = Pick<BackupPolicy, 'id' | 'name' | 'type' | 'isEnabled' | 'intervalSeconds' | 'nextRunAt' | 'scheduleKind' | 'cronExpression' | 'timeZoneId' | 'windowStartMinutes' | 'windowEndMinutes'>
 
 function groupPoliciesByAgent(policies: BackupPolicy[]) {
   return policies.reduce((map, policy) => {
