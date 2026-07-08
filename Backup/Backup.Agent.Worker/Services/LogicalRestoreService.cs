@@ -116,8 +116,10 @@ public class LogicalRestoreService
 
         var stdinTask = Task.Run(async () =>
         {
-            await using var file = File.OpenRead(inputFilePath);
-            await file.CopyToAsync(process.StandardInput.BaseStream, cancellationToken);
+            // Auto-detects and transparently decompresses zstd artifacts; plain
+            // .sql dumps pass through unchanged.
+            await using var source = DumpArtifactReader.OpenForRestore(inputFilePath);
+            await source.CopyToAsync(process.StandardInput.BaseStream, cancellationToken);
             process.StandardInput.Close();
         }, cancellationToken);
 
