@@ -1,6 +1,19 @@
+import { interpolate } from '@/shared/i18n'
+
 import { formatDurationSeconds } from './format'
 
-const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+type Translate = (key: string, params?: Record<string, string | number>) => string
+
+// Default translator for callers without an i18n context (unit tests): fall
+// back to the English key and interpolate, matching the previous output.
+const identity: Translate = (key, params) => interpolate(key, params)
+
+// 2023-01-01 was a Sunday, so day 1+weekday lands on the target weekday.
+function weekdayName(weekday: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(
+    new Date(Date.UTC(2023, 0, 1 + weekday)),
+  )
+}
 
 export type CronPresetSpec =
   | { kind: 'daily' }
@@ -47,27 +60,42 @@ export function parseCronPreset(
   return null
 }
 
-export function describeSchedule(p: {
-  scheduleKind: 'interval' | 'cron'
-  intervalSeconds: number
-  cronExpression: string | null
-  timeZoneId: string | null
-  windowStartMinutes: number | null
-  windowEndMinutes: number | null
-}): string {
+export function describeSchedule(
+  p: {
+    scheduleKind: 'interval' | 'cron'
+    intervalSeconds: number
+    cronExpression: string | null
+    timeZoneId: string | null
+    windowStartMinutes: number | null
+    windowEndMinutes: number | null
+  },
+  t: Translate = identity,
+  locale = 'en-US',
+): string {
   if (p.scheduleKind === 'cron' && p.cronExpression) {
     const tz = p.timeZoneId ? ` (${p.timeZoneId})` : ''
     const preset = parseCronPreset(p.cronExpression)
-    if (preset?.preset === 'daily') return `Daily at ${preset.time}${tz}`
-    if (preset?.preset === 'weekly') return `Weekly on ${WEEKDAY_NAMES[preset.weekday!]} at ${preset.time}${tz}`
-    if (preset?.preset === 'monthly') return `Monthly on day ${preset.dayOfMonth} at ${preset.time}${tz}`
-    return `Cron: ${p.cronExpression}${tz}`
+    if (preset?.preset === 'daily') return t('Daily at {time}{tz}', { time: preset.time, tz })
+    if (preset?.preset === 'weekly')
+      return t('Weekly on {weekday} at {time}{tz}', {
+        weekday: weekdayName(preset.weekday!, locale),
+        time: preset.time,
+        tz,
+      })
+    if (preset?.preset === 'monthly')
+      return t('Monthly on day {day} at {time}{tz}', { day: preset.dayOfMonth!, time: preset.time, tz })
+    return t('Cron: {expression}{tz}', { expression: p.cronExpression, tz })
   }
 
-  const every = `Every ${formatDurationSeconds(p.intervalSeconds)}`
+  const duration = formatDurationSeconds(p.intervalSeconds)
   if (p.windowStartMinutes != null && p.windowEndMinutes != null) {
     const tz = p.timeZoneId ? ` (${p.timeZoneId})` : ''
-    return `${every}, ${minutesToTime(p.windowStartMinutes)}–${minutesToTime(p.windowEndMinutes)}${tz}`
+    return t('Every {duration}, {start}–{end}{tz}', {
+      duration,
+      start: minutesToTime(p.windowStartMinutes),
+      end: minutesToTime(p.windowEndMinutes),
+      tz,
+    })
   }
-  return every
+  return t('Every {duration}', { duration })
 }

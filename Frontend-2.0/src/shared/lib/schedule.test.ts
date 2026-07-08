@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { interpolate } from '@/shared/i18n'
 import {
   buildCronExpression,
   describeSchedule,
@@ -63,4 +64,18 @@ describe('describeSchedule', () => {
     expect(describeSchedule({
       ...base, scheduleKind: 'cron', cronExpression: '0 4 * * 7', timeZoneId: 'Etc/UTC',
     })).toBe('Weekly on Sun at 04:00 (Etc/UTC)'))
+
+  it('routes text through the provided translator and localizes weekdays', () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      interpolate({ 'Daily at {time}{tz}': 'Ежедневно в {time}{tz}' }[key] ?? key, params)
+
+    expect(describeSchedule({
+      ...base, scheduleKind: 'cron', cronExpression: '0 3 * * *', timeZoneId: 'Europe/Moscow',
+    }, t, 'ru')).toBe('Ежедневно в 03:00 (Europe/Moscow)')
+
+    // Weekday short name comes from the locale, not a hardcoded English table.
+    expect(describeSchedule({
+      ...base, scheduleKind: 'cron', cronExpression: '0 4 * * 1', timeZoneId: 'Etc/UTC',
+    }, t, 'ru')).toBe('Weekly on пн at 04:00 (Etc/UTC)')
+  })
 })

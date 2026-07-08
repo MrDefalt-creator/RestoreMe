@@ -630,7 +630,8 @@ function AgentDetailsDialog({
   open: boolean
   onClose: () => void
 }) {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+  const scheduleLocale = language === 'ru' ? 'ru' : 'en-US'
   return (
     <Dialog
       open={open}
@@ -675,7 +676,7 @@ function AgentDetailsDialog({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{policy.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {formatPolicyType(policy.type)} · {describeSchedule(policy)}
+                    {formatPolicyType(policy.type)} · {describeSchedule(policy, t, scheduleLocale)}
                   </p>
                 </div>
                 <div className="text-left sm:text-right">

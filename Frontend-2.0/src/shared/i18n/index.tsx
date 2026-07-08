@@ -377,6 +377,13 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Window start': 'Начало окна',
     'Window end': 'Конец окна',
     'Next:': 'Следующие запуски:',
+    // Human-readable schedule summaries (shared/lib/schedule.ts)
+    'Daily at {time}{tz}': 'Ежедневно в {time}{tz}',
+    'Weekly on {weekday} at {time}{tz}': 'Еженедельно, {weekday} в {time}{tz}',
+    'Monthly on day {day} at {time}{tz}': 'Ежемесячно, {day}-го в {time}{tz}',
+    'Cron: {expression}{tz}': 'Cron: {expression}{tz}',
+    'Every {duration}': 'Каждые {duration}',
+    'Every {duration}, {start}–{end}{tz}': 'Каждые {duration}, {start}–{end}{tz}',
     'Timezone is required': 'Укажите часовой пояс',
     'Cron expression must have 5 fields': 'Cron-выражение должно содержать 5 полей',
     'Run time is required': 'Укажите время запуска',

@@ -27,7 +27,8 @@ type PolicyStateFilter = 'all' | 'enabled' | 'disabled'
 const POLICY_STATE_FILTERS: readonly PolicyStateFilter[] = ['all', 'enabled', 'disabled']
 
 export function PoliciesPage() {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+  const scheduleLocale = language === 'ru' ? 'ru' : 'en-US'
   const liveQueryOptions = useLiveQueryOptions()
   const role = useAuthStore((state) => state.user?.role)
   const canWrite = role === 'admin' || role === 'operator'
@@ -185,7 +186,7 @@ export function PoliciesPage() {
                         <Td className="max-w-[220px] truncate">
                           {formatPolicyTarget(policy) || t('N/A')}
                         </Td>
-                        <Td>{describeSchedule(policy)}</Td>
+                        <Td>{describeSchedule(policy, t, scheduleLocale)}</Td>
                         <Td className="text-muted-foreground">
                           {formatDateTime(policy.nextRunAt)}
                         </Td>
@@ -283,7 +284,7 @@ export function PoliciesPage() {
                       </dd>
                       <dt className="text-muted-foreground">{t('Schedule')}</dt>
                       <dd className="text-foreground">
-                        {describeSchedule(policy)}
+                        {describeSchedule(policy, t, scheduleLocale)}
                       </dd>
                       <dt className="text-muted-foreground">{t('Next Run')}</dt>
                       <dd className="text-foreground">
