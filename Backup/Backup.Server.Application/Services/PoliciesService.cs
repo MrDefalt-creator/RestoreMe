@@ -10,15 +10,18 @@ public class PoliciesService
     private readonly IPolicyRepository _policyRepository;
     private readonly IAuditLogRepository _auditLogRepository;
     private readonly IAdminEventBroadcaster _eventBroadcaster;
+    private readonly IAgentRepository _agentRepository;
 
     public PoliciesService(
         IPolicyRepository policyRepository,
         IAuditLogRepository auditLogRepository,
-        IAdminEventBroadcaster eventBroadcaster)
+        IAdminEventBroadcaster eventBroadcaster,
+        IAgentRepository agentRepository)
     {
         _policyRepository = policyRepository;
         _auditLogRepository = auditLogRepository;
         _eventBroadcaster = eventBroadcaster;
+        _agentRepository = agentRepository;
     }
 
     public async Task<BackupPolicy> CreatePolicy(
@@ -33,6 +36,8 @@ public class PoliciesService
         long? retentionMaxTotalBytes,
         Guid actorUserId)
     {
+        await EnsureAgentExists(agentId);
+
         var normalized = PolicyScheduleValidator.Validate(schedule);
 
         name = name.Trim();
@@ -125,6 +130,8 @@ public class PoliciesService
         {
             throw new KeyNotFoundException("Policy not found");
         }
+
+        await EnsureAgentExists(agentId);
 
         var normalized = PolicyScheduleValidator.Validate(schedule);
 
@@ -259,6 +266,16 @@ public class PoliciesService
         }
 
         return runs;
+    }
+
+    // A request body that omits agentId binds to Guid.Empty, which — like any
+    // unknown id — would otherwise surface as a 500 FK violation on save.
+    private async Task EnsureAgentExists(Guid agentId)
+    {
+        if (await _agentRepository.GetAgentByIdAsync(agentId) is null)
+        {
+            throw new KeyNotFoundException("Agent not found.");
+        }
     }
 
     internal static string NormalizeSourcePath(BackupPolicyType policyType, string? path)
