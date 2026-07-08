@@ -14,7 +14,20 @@ public class BackupPolicy
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public int IntervalSeconds { get; set; }
-    
+
+    public ScheduleKind ScheduleKind { get; set; } = ScheduleKind.Interval;
+
+    // Standard 5-field cron; required when ScheduleKind == Cron.
+    public string? CronExpression { get; set; }
+
+    // IANA timezone id; required for Cron and when a window is set.
+    public string? TimeZoneId { get; set; }
+
+    // Interval-only backup window, minutes-of-day in TimeZoneId.
+    // Both-or-neither; Start > End means the window spans midnight.
+    public int? WindowStartMinutes { get; set; }
+    public int? WindowEndMinutes { get; set; }
+
     public DateTime NextRunAt { get; set; }
     
     public DateTime? LastRunAt { get; set; }
