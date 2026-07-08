@@ -259,5 +259,5 @@ Additional flags/env: `--reset-state` / `RESTOREME_RESET_STATE=1` wipes `state/a
 - `preview` is the active branch — all current work lands there.
 - `main` is frozen — coordinate before pushing.
 - Legacy `Frontend/` was removed; the only UI is `Frontend-2.0/`.
-- `docs/ROADMAP.md` is the prioritized backlog (Tier 2/3 of a July 2026 full-project audit); shipped items are struck through. `CHANGELOG.md` tracks delivered batches.
-- On Windows hosts, port 8080 may fall into the OS reserved-port range (`netsh interface ipv4 show excludedportrange protocol=tcp`); set `API_PORT` in `docker-compose/.env` (e.g. `8200`) to remap — the frontend bundle bakes the API URL from it at build time.
+- `CHANGELOG.md` tracks delivered batches. The prioritized backlog is NOT kept in the repo.
+- **No working/planning markdown in the repo** (Ivan's rule): specs, plans, roadmaps, codegraph exports and similar working artifacts stay outside git (scratchpad / Claude memory). The repo carries only user-facing docs: the EN+RU README pairs, `CHANGELOG.md`, `docs/DR-RUNBOOK.md`, and the community files (`CONTRIBUTING.md`, `SECURITY.md`, PR template).
