@@ -235,7 +235,7 @@ public class Worker : BackgroundService
                 foreach (var policy in policies.Where(x => x.IsEnabled))
                 {
 
-                    if (DateTime.UtcNow < policy.NexRunAt)
+                    if (DateTime.UtcNow < policy.NextRunAt)
                     {
                         continue;
                     }
