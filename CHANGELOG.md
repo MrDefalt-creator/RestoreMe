@@ -9,6 +9,14 @@ No versions have been tagged yet — everything below is unreleased.
 
 ### Added
 
+- **Explicit UTC offset on timestamps + real Russian plural forms**:
+  timestamps now show their UTC offset (with UTC on hover) instead of an
+  ambiguous local time, and visible count strings (agents online/offline,
+  pending requests, policies, subscribed events, auto-disable failure
+  counts, onboarding step progress, etc.) go through a `tp()` plural
+  translator with proper `one`/`few`/`many` Russian forms and `one`/`other`
+  English forms — replacing the old fake `{plural}` suffix hack and
+  reworded-to-dodge-declension Russian strings.
 - **Database dump compression**: logical PostgreSQL/MySQL dumps are streamed
   through zstd on the agent (per-policy toggle, default on), so `pg_dump`/
   `mysqldump` output is compressed straight to the artifact — a full plain-SQL
