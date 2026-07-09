@@ -15,7 +15,7 @@ import { useLiveQueryOptions } from '@/shared/lib/useLiveQueryOptions'
 import { useAuthStore } from '@/app/store/auth-store'
 
 export function PendingAgentsPage() {
-  const { t } = useI18n()
+  const { t, tp } = useI18n()
   const liveQueryOptions = useLiveQueryOptions()
   const role = useAuthStore((state) => state.user?.role)
   const canApprove = role === 'admin' || role === 'operator'
@@ -40,7 +40,7 @@ export function PendingAgentsPage() {
           {t('Review and approve new agent registration requests')}
         </p>
         <Badge variant="accent">
-          {t('{count} waiting', { count: pendingAgents.length })}
+          {tp('{count} waiting', pendingAgents.length, { count: pendingAgents.length })}
         </Badge>
       </div>
 

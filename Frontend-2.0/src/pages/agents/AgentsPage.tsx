@@ -68,7 +68,7 @@ const STATUS_FILTERS: readonly StatusFilter[] = ['all', 'online', 'stale', 'offl
 const COVERAGE_FILTERS: readonly PolicyCoverageFilter[] = ['all', 'with-policies', 'without-policies']
 
 export function AgentsPage() {
-  const { t } = useI18n()
+  const { t, tp } = useI18n()
   const role = useAuthStore((state) => state.user?.role)
   const canInstall = role === 'admin' || role === 'operator'
   const liveQueryOptions = useLiveQueryOptions()
@@ -173,7 +173,7 @@ export function AgentsPage() {
         description={t('A live map of registered machines, their heartbeat health, and the protection policy coverage behind each one.')}
         action={
           <div className="flex items-center gap-3">
-            <Badge variant="success">{t('{count} online', { count: stats.online })}</Badge>
+            <Badge variant="success">{tp('{count} online', stats.online, { count: stats.online })}</Badge>
             {canInstall ? (
               <Button variant="primary" size="sm" className="gap-2" onClick={() => setInstallOpen(true)}>
                 <Download className="h-4 w-4" />
@@ -263,7 +263,7 @@ export function AgentsPage() {
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>
-              {t('Showing {shown} of {total} agents', { shown: filteredAgents.length, total: agents.length })}
+              {tp('Showing {shown} of {total} agents', agents.length, { shown: filteredAgents.length, total: agents.length })}
             </span>
             {hasActiveFilters ? (
               <Badge variant="neutral">{t('Filtered')}</Badge>
@@ -507,7 +507,7 @@ interface DeleteAgentDialogProps {
 }
 
 function DeleteAgentDialog({ agent, open, onClose, onConfirm, isLoading }: DeleteAgentDialogProps) {
-  const { t } = useI18n()
+  const { t, tp } = useI18n()
   const impactQuery = useQuery<AgentDeletionImpact>({
     queryKey: ['agent-deletion-impact', agent.id],
     queryFn: () => getAgentDeletionImpact(agent.id),
@@ -577,8 +577,9 @@ function DeleteAgentDialog({ agent, open, onClose, onConfirm, isLoading }: Delet
           <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <span>
-              {t(
+              {tp(
                 '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.',
+                impact?.pendingRestoreJobCount ?? 0,
                 { count: impact?.pendingRestoreJobCount ?? 0 },
               )}
             </span>

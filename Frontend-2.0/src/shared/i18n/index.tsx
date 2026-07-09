@@ -189,16 +189,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Job outcomes': 'Результаты заданий',
     '{count} total': 'Всего: {count}',
     '{count} recorded': 'Записано: {count}',
-    '{count} offline': 'Офлайн: {count}',
-    '{count} artifacts': 'Артефактов: {count}',
-    '{count} policies': 'Политик: {count}',
-    '{count} waiting': 'В ожидании: {count}',
-    '{count} online': 'Онлайн: {count}',
     '{enabled}/{total} enabled': '{enabled}/{total} включено',
     '{offline} offline / {stale} stale': '{offline} офлайн / {stale} без свежего heartbeat',
-    '{count} agent request{plural} waiting': 'Заявок агентов на проверке: {count}',
-    '{count} agent{plural} not fully healthy': 'Агентов требуют внимания: {count}',
-    '{count} active backup issue{plural}': 'Активных проблем с резервным копированием: {count}',
     'API connection needs attention': 'Подключение к API требует внимания',
     'Some live data could not be loaded. Check backend availability.': 'Часть live-данных не загрузилась. Проверьте доступность backend.',
     'Review pending machines before they can run backup policies.': 'Проверьте новые машины, прежде чем разрешить им запуск политик.',
@@ -299,7 +291,6 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Without policies': 'Без политик',
     'Reset filters': 'Сбросить фильтры',
     Reset: 'Сбросить',
-    'Showing {shown} of {total} agents': 'Показано {shown} из {total} агентов',
     Filtered: 'Отфильтровано',
     'Loading agents...': 'Загрузка агентов...',
     'Agents could not be loaded': 'Не удалось загрузить агентов',
@@ -433,8 +424,6 @@ const dictionaries: Record<Language, Record<string, string>> = {
       'Удаляет записи о восстановлениях. Обязательно, если есть незавершённые восстановления.',
     'Audit history for this agent is always preserved.':
       'История аудита по этому агенту сохраняется в любом случае.',
-    '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.':
-      'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
     deleted: 'удалено',
     'Agent (deleted)': 'Агент (удалён)',
     'Policy (deleted)': 'Политика (удалена)',
@@ -614,7 +603,6 @@ const dictionaries: Record<Language, Record<string, string>> = {
       'Добавьте канал, чтобы RestoreMe сообщал, когда что-то требует внимания.',
     'Subscribed events': 'Подписки на события',
     'Subscribed to every event': 'Подписан на все события',
-    '{count} event(s) subscribed': 'Подписан на {count} событ.',
     'Created {date}': 'Создан {date}',
     'Enabled (delivers notifications)': 'Включен (отправляет уведомления)',
     'Fill out the channel-specific fields': 'Заполните поля, специфичные для канала',
@@ -665,7 +653,6 @@ const dictionaries: Record<Language, Record<string, string>> = {
     'Product tour': 'Тур по продукту',
     'Setup': 'Настройка',
     'All set': 'Готово',
-    '{done} of {total} steps': '{done} из {total} шагов',
     'Step {current} of {total}': 'Шаг {current} из {total}',
     'Setup complete': 'Настройка завершена',
     'Show setup checklist': 'Показать чек-лист настройки',
@@ -708,19 +695,102 @@ const dictionaries: Record<Language, Record<string, string>> = {
 
     // Policies — auto-disable after repeated failures
     'Auto-disabled': 'Отключена автоматически',
-    'Disabled after {count} failures': 'Отключена после {count} ошибок подряд',
     'Last error': 'Последняя ошибка',
     'Re-enable': 'Включить снова',
   },
 }
 
 const pluralDictionaries: Record<Language, Record<string, Partial<Record<PluralCategory, string>>>> = {
-  en: {},
+  en: {
+    '{count} artifacts': { one: '{count} artifact', other: '{count} artifacts' },
+    '{count} policies': { one: '{count} policy', other: '{count} policies' },
+    '{count} waiting': { one: '{count} waiting', other: '{count} waiting' },
+    '{count} online': { one: '{count} online', other: '{count} online' },
+    '{count} offline': { one: '{count} offline', other: '{count} offline' },
+    '{count} agent requests waiting': {
+      one: '{count} agent request waiting',
+      other: '{count} agent requests waiting',
+    },
+    '{count} agents not fully healthy': {
+      one: '{count} agent not fully healthy',
+      other: '{count} agents not fully healthy',
+    },
+    '{count} active backup issues': {
+      one: '{count} active backup issue',
+      other: '{count} active backup issues',
+    },
+    '{count} event(s) subscribed': {
+      one: '{count} event subscribed',
+      other: '{count} events subscribed',
+    },
+    '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.': {
+      one: '{count} pending or running restore job references this agent. Enable "Delete restore history" to continue.',
+      other: '{count} pending or running restore jobs reference this agent. Enable "Delete restore history" to continue.',
+    },
+    'Disabled after {count} failures': {
+      one: 'Disabled after {count} failure',
+      other: 'Disabled after {count} failures',
+    },
+    '{done} of {total} steps': { one: '{done} of {total} step', other: '{done} of {total} steps' },
+    'Showing {shown} of {total} agents': {
+      one: 'Showing {shown} of {total} agent',
+      other: 'Showing {shown} of {total} agents',
+    },
+  },
   ru: {
-    '{count} artifacts': { one: '{count} копия', few: '{count} копии', many: '{count} копий' },
-    '{count} policies': { one: '{count} политика', few: '{count} политики', many: '{count} политик' },
-    '{count} waiting': { one: 'В ожидании: {count}', few: 'В ожидании: {count}', many: 'В ожидании: {count}' },
-    // ... remaining count strings added in Task A4
+    '{count} artifacts': { one: '{count} копия', few: '{count} копии', many: '{count} копий', other: '{count} копий' },
+    '{count} policies': { one: '{count} политика', few: '{count} политики', many: '{count} политик', other: '{count} политик' },
+    '{count} waiting': { one: 'В ожидании: {count}', few: 'В ожидании: {count}', many: 'В ожидании: {count}', other: 'В ожидании: {count}' },
+    '{count} online': { one: 'Онлайн: {count}', few: 'Онлайн: {count}', many: 'Онлайн: {count}', other: 'Онлайн: {count}' },
+    '{count} offline': { one: 'Офлайн: {count}', few: 'Офлайн: {count}', many: 'Офлайн: {count}', other: 'Офлайн: {count}' },
+    '{count} agent requests waiting': {
+      one: 'Заявка агента на проверке: {count}',
+      few: 'Заявки агентов на проверке: {count}',
+      many: 'Заявок агентов на проверке: {count}',
+      other: 'Заявок агентов на проверке: {count}',
+    },
+    '{count} agents not fully healthy': {
+      one: '{count} агент не в порядке',
+      few: '{count} агента не в порядке',
+      many: '{count} агентов не в порядке',
+      other: '{count} агентов не в порядке',
+    },
+    '{count} active backup issues': {
+      one: '{count} активная проблема с резервным копированием',
+      few: '{count} активные проблемы с резервным копированием',
+      many: '{count} активных проблем с резервным копированием',
+      other: '{count} активных проблем с резервным копированием',
+    },
+    '{count} event(s) subscribed': {
+      one: 'Подписан на {count} событие',
+      few: 'Подписан на {count} события',
+      many: 'Подписан на {count} событий',
+      other: 'Подписан на {count} событий',
+    },
+    '{count} pending or running restore job(s) reference this agent. Enable "Delete restore history" to continue.': {
+      one: 'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
+      few: 'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
+      many: 'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
+      other: 'Незавершённых/выполняющихся восстановлений: {count}. Включите «Удалить историю восстановлений», чтобы продолжить.',
+    },
+    'Disabled after {count} failures': {
+      one: 'Отключена после {count} ошибки подряд',
+      few: 'Отключена после {count} ошибок подряд',
+      many: 'Отключена после {count} ошибок подряд',
+      other: 'Отключена после {count} ошибок подряд',
+    },
+    '{done} of {total} steps': {
+      one: '{done} из {total} шага',
+      few: '{done} из {total} шагов',
+      many: '{done} из {total} шагов',
+      other: '{done} из {total} шагов',
+    },
+    'Showing {shown} of {total} agents': {
+      one: 'Показано {shown} из {total} агента',
+      few: 'Показано {shown} из {total} агентов',
+      many: 'Показано {shown} из {total} агентов',
+      other: 'Показано {shown} из {total} агентов',
+    },
   },
 }
 

@@ -154,7 +154,7 @@ function ChannelCard({
   onTest: () => void
   testing: boolean
 }) {
-  const { t } = useI18n()
+  const { t, tp } = useI18n()
 
   return (
     <Card>
@@ -177,7 +177,7 @@ function ChannelCard({
         <div className="rounded-lg border border-border bg-background/60 p-3 text-xs text-muted-foreground">
           {channel.subscribedEvents.length === 0
             ? t('Subscribed to every event')
-            : t('{count} event(s) subscribed', { count: channel.subscribedEvents.length })}
+            : tp('{count} event(s) subscribed', channel.subscribedEvents.length, { count: channel.subscribedEvents.length })}
         </div>
 
         <p className="text-xs text-muted-foreground">

@@ -67,7 +67,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 }
 
 export function DashboardPage() {
-  const { language, t } = useI18n()
+  const { language, t, tp } = useI18n()
   const modKey = getModKeyLabel()
   const summaryOptions = useLiveQueryOptionsWithFloor(DASHBOARD_SUMMARY_MIN_INTERVAL_MS)
   const metricsOptions = useLiveQueryOptionsWithFloor(DASHBOARD_METRICS_MIN_INTERVAL_MS)
@@ -99,7 +99,7 @@ export function DashboardPage() {
       : []),
     ...(pendingAgentsCount
       ? [{
-          title: t('{count} agent request{plural} waiting', { count: pendingAgentsCount, plural: pendingAgentsCount === 1 ? '' : 's' }),
+          title: tp('{count} agent requests waiting', pendingAgentsCount, { count: pendingAgentsCount }),
           detail: t('Review pending machines before they can run backup policies.'),
           tone: 'warning' as const,
           href: '/pending-agents',
@@ -108,7 +108,7 @@ export function DashboardPage() {
       : []),
     ...(agents.offline || agents.stale
       ? [{
-          title: t('{count} agent{plural} not fully healthy', { count: agents.offline + agents.stale, plural: agents.offline + agents.stale === 1 ? '' : 's' }),
+          title: tp('{count} agents not fully healthy', agents.offline + agents.stale, { count: agents.offline + agents.stale }),
           detail: t('{offline} offline / {stale} stale', { offline: agents.offline, stale: agents.stale }),
           tone: 'warning' as const,
           href: '/agents',
@@ -117,7 +117,7 @@ export function DashboardPage() {
       : []),
     ...(jobs.unresolvedFailures.length
       ? [{
-          title: t('{count} active backup issue{plural}', { count: jobs.unresolvedFailures.length, plural: jobs.unresolvedFailures.length === 1 ? '' : 's' }),
+          title: tp('{count} active backup issues', jobs.unresolvedFailures.length, { count: jobs.unresolvedFailures.length }),
           detail: jobs.unresolvedFailures[0]?.errorMessage ?? t('Open Jobs to inspect the latest unresolved failure.'),
           tone: 'destructive' as const,
           href: '/jobs?status=failed',
@@ -235,7 +235,7 @@ export function DashboardPage() {
 
           {/* Stat tile grid */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={t('{count} offline', { count: agents.offline })} tone="success" />
+            <StatTile icon={<Server className="h-4 w-4" />} label={t('Agents online')} value={`${agents.online}/${agents.total}`} detail={tp('{count} offline', agents.offline, { count: agents.offline })} tone="success" />
             <StatTile icon={<ShieldCheck className="h-4 w-4" />} label={t('Active policies')} value={policies.active} detail={t('{count} total', { count: policies.total })} tone="primary" />
             <StatTile icon={<Clock3 className="h-4 w-4" />} label={t('Running jobs')} value={jobs.running} detail={t('{count} recorded', { count: jobs.total })} tone="accent" />
             <StatTile icon={<Archive className="h-4 w-4" />} label={t('Artifacts')} value={artifacts.total} detail={artifacts.total ? formatFileSize(artifacts.totalSize) : t('None yet')} />
@@ -327,7 +327,7 @@ export function DashboardPage() {
               <div className="grid gap-3">
                 <StatTile icon={<Activity className="h-4 w-4" />} label={t('Recorded runs')} value={jobs.total} detail={t('Across all known policies')} />
                 <StatTile icon={<CheckCircle2 className="h-4 w-4" />} label={t('Success ratio')} value={formatPercent(jobs.completed, jobs.total)} detail={t('Completed jobs')} tone="success" />
-                <StatTile icon={<Database className="h-4 w-4" />} label={t('Stored data')} value={formatFileSize(artifacts.totalSize)} detail={t('{count} artifacts', { count: artifacts.total })} tone="accent" />
+                <StatTile icon={<Database className="h-4 w-4" />} label={t('Stored data')} value={formatFileSize(artifacts.totalSize)} detail={tp('{count} artifacts', artifacts.total, { count: artifacts.total })} tone="accent" />
               </div>
             </div>
           </CardContent>

@@ -27,7 +27,7 @@ type PolicyStateFilter = 'all' | 'enabled' | 'disabled'
 const POLICY_STATE_FILTERS: readonly PolicyStateFilter[] = ['all', 'enabled', 'disabled']
 
 export function PoliciesPage() {
-  const { t, language } = useI18n()
+  const { t, tp, language } = useI18n()
   const scheduleLocale = language === 'ru' ? 'ru' : 'en-US'
   const liveQueryOptions = useLiveQueryOptions()
   const role = useAuthStore((state) => state.user?.role)
@@ -107,7 +107,7 @@ export function PoliciesPage() {
         description={t('Backup schedules and what each one protects.')}
         action={
           <div className="flex items-center gap-3">
-            <Badge variant="success">{t('{count} policies', { count: filteredPolicies.length })}</Badge>
+            <Badge variant="success">{tp('{count} policies', filteredPolicies.length, { count: filteredPolicies.length })}</Badge>
             {canWrite ? (
               <Button
                 onClick={() => {
@@ -195,7 +195,7 @@ export function PoliciesPage() {
                             <Badge
                               variant="warning"
                               className="gap-1"
-                              title={formatAutoDisabledTooltip(policy, t)}
+                              title={formatAutoDisabledTooltip(policy, t, tp)}
                             >
                               <AlertTriangle className="h-3 w-3" aria-hidden />
                               {t('Auto-disabled')}
@@ -294,7 +294,7 @@ export function PoliciesPage() {
                         <>
                           <dt className="text-muted-foreground">{t('Last error')}</dt>
                           <dd className="break-words text-foreground">
-                            {t('Disabled after {count} failures', { count: policy.consecutiveFailureCount })}
+                            {tp('Disabled after {count} failures', policy.consecutiveFailureCount, { count: policy.consecutiveFailureCount })}
                             {policy.lastFailureReason ? ` — ${policy.lastFailureReason}` : ''}
                           </dd>
                         </>
@@ -393,8 +393,9 @@ function formatPolicyTarget(policy: BackupPolicy): string {
 function formatAutoDisabledTooltip(
   policy: BackupPolicy,
   t: (key: string, vars?: Record<string, string | number>) => string,
+  tp: (key: string, count: number, vars?: Record<string, string | number>) => string,
 ): string {
-  const head = t('Disabled after {count} failures', { count: policy.consecutiveFailureCount })
+  const head = tp('Disabled after {count} failures', policy.consecutiveFailureCount, { count: policy.consecutiveFailureCount })
   if (!policy.lastFailureReason) return head
   return `${head} — ${t('Last error')}: ${policy.lastFailureReason}`
 }

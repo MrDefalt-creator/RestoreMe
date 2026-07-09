@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/cn'
 import { useOnboardingSteps, type OnboardingStep } from './useOnboardingSteps'
 
 export function OnboardingWidget() {
-  const { t } = useI18n()
+  const { t, tp } = useI18n()
   const navigate = useNavigate()
   const expanded = useUiStore((s) => s.onboardingWidgetExpanded)
   const setExpanded = useUiStore((s) => s.setOnboardingWidgetExpanded)
@@ -55,7 +55,7 @@ export function OnboardingWidget() {
                 {allDone ? `${t('Setup complete')} 🎉` : t('Setup')}
               </p>
               <p className="text-xs text-muted-foreground">
-                {t('{done} of {total} steps', { done, total })}
+                {tp('{done} of {total} steps', total, { done, total })}
                 {' · '}
                 {percent}%
               </p>
