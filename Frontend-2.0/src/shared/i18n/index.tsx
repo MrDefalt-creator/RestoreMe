@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import { selectPlural, type PluralCategory } from '@/shared/lib/plural'
 
 export type Language = 'en' | 'ru'
 export type DateStyle = 'regional' | 'compact'
@@ -713,6 +714,16 @@ const dictionaries: Record<Language, Record<string, string>> = {
   },
 }
 
+const pluralDictionaries: Record<Language, Record<string, Partial<Record<PluralCategory, string>>>> = {
+  en: {},
+  ru: {
+    '{count} artifacts': { one: '{count} копия', few: '{count} копии', many: '{count} копий' },
+    '{count} policies': { one: '{count} политика', few: '{count} политики', many: '{count} политик' },
+    '{count} waiting': { one: 'В ожидании: {count}', few: 'В ожидании: {count}', many: 'В ожидании: {count}' },
+    // ... remaining count strings added in Task A4
+  },
+}
+
 const languageLabels: Record<Language, string> = {
   en: 'English',
   ru: 'Русский',
@@ -783,6 +794,7 @@ type I18nContextValue = {
   setLanguage: (language: Language) => void
   setRefreshInterval: (refreshInterval: RefreshInterval) => void
   t: (key: string, params?: Record<string, string | number>) => string
+  tp: (key: string, count: number, params?: Record<string, string | number>) => string
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
@@ -826,6 +838,12 @@ export function I18nProvider({ children }: PropsWithChildren) {
     setLanguage: setLanguageState,
     setRefreshInterval: setRefreshIntervalState,
     t: (key, params) => interpolate(dictionaries[language][key] ?? key, params),
+    tp: (key, count, params) => {
+      const category = selectPlural(language === 'ru' ? 'ru' : 'en', count)
+      const forms = pluralDictionaries[language][key]
+      const template = forms?.[category] ?? forms?.other ?? key
+      return interpolate(template, params)
+    },
   }), [dateStyle, language, refreshInterval])
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
