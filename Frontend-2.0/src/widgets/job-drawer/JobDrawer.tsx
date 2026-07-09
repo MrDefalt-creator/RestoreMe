@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { ExternalLink, X } from 'lucide-react'
 
 import { getJobById, type Job } from '@/shared/api/jobs'
-import { formatDateTime, formatDurationSeconds, formatRelativeTime } from '@/shared/lib/format'
+import { formatDateTime, formatDurationSeconds, formatRelativeTime, formatUtcIso } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { useI18n } from '@/shared/i18n'
@@ -128,7 +128,7 @@ export function JobDrawer() {
                       <span className={`relative z-10 mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-card ${statusDot[event.status]}`} />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground">{event.label}</p>
-                        <p className="text-xs text-muted-foreground">{formatDateTime(event.time)}</p>
+                        <p className="text-xs text-muted-foreground" title={formatUtcIso(event.time)}>{formatDateTime(event.time)}</p>
                         <p className="text-xs text-muted-foreground">{formatRelativeTime(event.time)}</p>
                       </div>
                     </div>

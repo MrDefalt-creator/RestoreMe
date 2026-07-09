@@ -21,7 +21,7 @@ import { getDashboardSummary } from '@/shared/api/dashboard'
 import type { SortDir } from '@/shared/api/pagination'
 import { RestoreWizardDialog } from '@/features/restore-artifact'
 import { queryKeys } from '@/shared/lib/query'
-import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType } from '@/shared/lib/format'
+import { formatDateTime, formatFileSize, formatRelativeTime, formatPolicyType, formatUtcIso } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent } from '@/shared/ui/Card'
@@ -401,7 +401,7 @@ function ArtifactRow({
             </Badge>
             <IntegrityBadge status={artifact.integrityStatus} t={t} />
           </div>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
+          <p className="mt-1 truncate text-sm text-muted-foreground" title={formatUtcIso(artifact.createdAt)}>
             {t('Created')} {formatRelativeTime(artifact.createdAt)} | {formatDateTime(artifact.createdAt)}
           </p>
         </div>

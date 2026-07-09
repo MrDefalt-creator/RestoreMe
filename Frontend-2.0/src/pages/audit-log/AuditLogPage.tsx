@@ -7,7 +7,7 @@ import { getAuditLogs } from '@/entities/audit-log'
 import type { AuditLogEntry } from '@/entities/audit-log'
 import { useI18n } from '@/shared/i18n'
 import { cn } from '@/shared/lib/cn'
-import { formatDateTime, formatRelativeTime } from '@/shared/lib/format'
+import { formatDateTime, formatRelativeTime, formatUtcIso } from '@/shared/lib/format'
 import { queryKeys } from '@/shared/lib/query'
 import { useUrlFilterState } from '@/shared/lib/useUrlFilterState'
 import {
@@ -214,7 +214,7 @@ function AuditRow({ entry }: { entry: AuditLogEntry }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-foreground">{renderAuditMessage(entry)}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <p className="mt-0.5 text-xs text-muted-foreground" title={formatUtcIso(entry.occurredAtUtc)}>
           {formatDateTime(entry.occurredAtUtc)} · {formatRelativeTime(entry.occurredAtUtc)}
           {entry.targetId ? ` · ${entry.targetId.slice(0, 8)}` : ''}
         </p>

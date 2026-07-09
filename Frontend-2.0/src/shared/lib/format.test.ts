@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDurationSeconds, formatFileSize, formatPolicyType, formatTarget } from './format'
+import { formatDurationSeconds, formatFileSize, formatPolicyType, formatTarget, formatUtcOffset } from './format'
 
 describe('formatDurationSeconds', () => {
   it('renders sub-minute durations as minutes and seconds', () => {
@@ -59,5 +59,25 @@ describe('formatPolicyType', () => {
   it('defaults to filesystem', () => {
     expect(formatPolicyType('filesystem')).toBe('Filesystem')
     expect(formatPolicyType('anything-else')).toBe('Filesystem')
+  })
+})
+
+describe('formatUtcOffset', () => {
+  it('formats a whole positive offset', () => {
+    // getTimezoneOffset returns minutes WEST of UTC (negative for east)
+    const d = { getTimezoneOffset: () => -180 } as Date // UTC+3
+    expect(formatUtcOffset(d)).toBe('UTC+3')
+  })
+  it('formats a whole negative offset', () => {
+    const d = { getTimezoneOffset: () => 300 } as Date // UTC-5
+    expect(formatUtcOffset(d)).toBe('UTC-5')
+  })
+  it('formats a half-hour offset', () => {
+    const d = { getTimezoneOffset: () => -330 } as Date // UTC+5:30
+    expect(formatUtcOffset(d)).toBe('UTC+5:30')
+  })
+  it('labels zero offset as UTC', () => {
+    const d = { getTimezoneOffset: () => 0 } as Date
+    expect(formatUtcOffset(d)).toBe('UTC')
   })
 })

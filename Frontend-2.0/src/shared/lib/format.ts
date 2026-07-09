@@ -7,15 +7,30 @@ function getDateLocale() {
   return getStoredLanguage() === 'ru' ? ru : enUS
 }
 
+export function formatUtcOffset(date: Date): string {
+  const totalMinutes = -date.getTimezoneOffset() // minutes EAST of UTC
+  if (totalMinutes === 0) return 'UTC'
+  const sign = totalMinutes > 0 ? '+' : '-'
+  const abs = Math.abs(totalMinutes)
+  const hours = Math.floor(abs / 60)
+  const mins = abs % 60
+  return mins === 0 ? `UTC${sign}${hours}` : `UTC${sign}${hours}:${String(mins).padStart(2, '0')}`
+}
+
+export function formatUtcIso(dateString: string): string {
+  return parseISO(dateString).toISOString()
+}
+
 export function formatDateTime(dateString: string): string {
   const date = parseISO(dateString)
   const pattern = getStoredDateStyle() === 'compact'
     ? 'yyyy-MM-dd HH:mm'
     : getStoredLanguage() === 'ru' ? 'd MMM yyyy, HH:mm' : 'MMM d, yyyy \'at\' HH:mm'
 
-  return format(date, pattern, {
+  const formatted = format(date, pattern, {
     locale: getDateLocale(),
   })
+  return `${formatted} (${formatUtcOffset(date)})`
 }
 
 export function formatDurationSeconds(seconds: number): string {
