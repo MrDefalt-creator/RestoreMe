@@ -103,4 +103,38 @@ public sealed class RefreshTokenServiceTests : IAsyncLifetime
         var active = await repo.GetActiveForUserAsync(userId);
         Assert.Empty(active);
     }
+
+    [Fact]
+    public async Task Rotating_a_token_yields_exactly_one_active_child_and_replay_burns_the_family()
+    {
+        // Deterministic proxy for the rotation race invariant: a token can be
+        // rotated at most once. After T1 -> T2, exactly one active token exists
+        // (T2). Replaying T1 again must be rejected and burn the family, leaving
+        // zero active tokens - never two forked children from one parent.
+        await using var ctx = CreateContext();
+        var service = CreateService(ctx);
+        var userId = await SeedUser(ctx);
+        var familyId = Guid.NewGuid();
+
+        var t1 = await service.IssueAsync(userId, familyId, "agent-a", "127.0.0.1", CancellationToken.None);
+        await ctx.SaveChangesAsync();
+
+        var rotation1 = await service.RotateAsync(t1.RawToken, "agent-a", "127.0.0.1", CancellationToken.None);
+        Assert.True(rotation1.Ok);
+        Assert.False(rotation1.ReuseDetected);
+        Assert.NotNull(rotation1.RawToken);
+
+        var repo = new RefreshTokenRepository(ctx);
+        var activeAfterFirstRotation = await repo.GetActiveForUserAsync(userId);
+        Assert.Single(activeAfterFirstRotation);
+        Assert.Equal(RefreshTokenService.Hash(rotation1.RawToken!), activeAfterFirstRotation[0].TokenHash);
+
+        // Replaying the already-rotated T1 must fail and burn the whole family.
+        var replay = await service.RotateAsync(t1.RawToken, "attacker", "10.0.0.1", CancellationToken.None);
+        Assert.False(replay.Ok);
+        Assert.True(replay.ReuseDetected);
+
+        var activeAfterReplay = await repo.GetActiveForUserAsync(userId);
+        Assert.Empty(activeAfterReplay);
+    }
 }

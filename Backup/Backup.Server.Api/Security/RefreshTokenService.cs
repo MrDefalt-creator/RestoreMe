@@ -37,25 +37,43 @@ public class RefreshTokenService
 
     public async Task<RotationResult> RotateAsync(string rawToken, string? ua, string? ip, CancellationToken ct)
     {
-        var now = DateTime.UtcNow;
-        var current = await _repo.FindByHashAsync(Hash(rawToken), ct);
-        if (current is null)
+        if (string.IsNullOrEmpty(rawToken))
             return new RotationResult(false, null, default, Guid.Empty, false);
 
-        // Reuse detection: a token presented after it was already rotated/revoked
-        // means someone replayed a stolen copy -> burn the whole family.
-        if (!current.IsActive(now))
+        var now = DateTime.UtcNow;
+        var hash = Hash(rawToken);
+
+        // Generate the replacement up front so we have its hash to stamp atomically.
+        var newRaw = NewRawToken();
+        var newHash = Hash(newRaw);
+        var expires = now.AddDays(_jwt.RefreshLifetimeDays);
+
+        // Single atomic UPDATE: only succeeds if the token is currently active.
+        // Concurrent callers racing on the same token can't both win -> no forked family.
+        var affected = await _repo.TryMarkRotatedAsync(hash, now, newHash, ct);
+        if (affected == 1)
         {
-            await _repo.RevokeFamilyAsync(current.FamilyId, now, ct);
+            // We won the race; the old row is already revoked+stamped. Re-fetch just
+            // to read FamilyId/UserId for the new child row.
+            var current = await _repo.FindByHashAsync(hash, ct);
+            await _repo.AddAsync(new RefreshToken
+            {
+                Id = Guid.NewGuid(), UserId = current!.UserId, TokenHash = newHash,
+                FamilyId = current.FamilyId, ExpiresAtUtc = expires, UserAgent = ua, CreatedByIp = ip,
+            }, ct);
             await _repo.SaveChangesAsync(ct);
-            return new RotationResult(false, null, default, current.UserId, true);
+            return new RotationResult(true, newRaw, expires, current.UserId, false);
         }
 
-        current.RevokedAtUtc = now;
-        current.LastUsedAtUtc = now;
-        var issued = await IssueAsync(current.UserId, current.FamilyId, ua, ip, ct);
-        current.ReplacedByTokenHash = Hash(issued.RawToken);
+        // affected == 0: token was not active (never existed, or already
+        // rotated/revoked/expired). If it exists at all, this is a replay of a
+        // dead token -> burn the whole family.
+        var existing = await _repo.FindByHashAsync(hash, ct);
+        if (existing is null)
+            return new RotationResult(false, null, default, Guid.Empty, false);
+
+        await _repo.RevokeFamilyAsync(existing.FamilyId, now, ct);
         await _repo.SaveChangesAsync(ct);
-        return new RotationResult(true, issued.RawToken, issued.ExpiresAtUtc, current.UserId, false);
+        return new RotationResult(false, null, default, existing.UserId, true);
     }
 }

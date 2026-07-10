@@ -42,5 +42,13 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         foreach (var r in rows) r.RevokedAtUtc = nowUtc;
     }
 
+    public Task<int> TryMarkRotatedAsync(string tokenHash, DateTime nowUtc, string replacedByTokenHash, CancellationToken ct = default)
+        => _db.RefreshTokens
+            .Where(x => x.TokenHash == tokenHash && x.RevokedAtUtc == null && x.ExpiresAtUtc > nowUtc)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.RevokedAtUtc, nowUtc)
+                .SetProperty(x => x.LastUsedAtUtc, nowUtc)
+                .SetProperty(x => x.ReplacedByTokenHash, replacedByTokenHash), ct);
+
     public Task SaveChangesAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
 }
