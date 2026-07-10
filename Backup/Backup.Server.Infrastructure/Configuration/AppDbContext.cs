@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<AgentInstallToken> AgentInstallTokens { get; set; }
     public DbSet<NotificationChannel> NotificationChannels { get; set; }
     public DbSet<IntegrityScrubSettings> IntegrityScrubSettings { get; set; }
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options, IDataProtectionProvider dataProtection)
         : base(options)
