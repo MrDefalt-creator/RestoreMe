@@ -144,6 +144,7 @@ builder.Services.AddScoped<IAgentInstallTokenRepository, AgentInstallTokenReposi
 builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
 builder.Services.AddScoped<IIntegrityScrubSettingsRepository, IntegrityScrubSettingsRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<AgentInstallTokenService>();
 builder.Services.AddHostedService<AgentInstallTokenCleanupService>();
 builder.Services.AddScoped<RestoreJobsService>();
