@@ -16,4 +16,7 @@ public class JwtOptions
 
     public int UserTokenLifetimeMinutes { get; init; } = 480;
     public int AgentTokenLifetimeDays { get; init; } = 30;
+
+    public int UserAccessTokenLifetimeMinutes { get; init; } = 15;
+    public int RefreshLifetimeDays { get; init; } = 30;
 }
