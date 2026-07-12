@@ -1,6 +1,7 @@
 using Backup.Server.Api.Security;
 using Backup.Server.Api.Services;
 using Backup.Server.Application.Interfaces;
+using Backup.Server.Domain.Entities;
 using Backup.Shared.Contracts.DTOs.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,17 +16,26 @@ public class AuthController : ControllerBase
     private readonly AuthService _authService;
     private readonly RefreshTokenService _refreshTokens;
     private readonly IRefreshTokenRepository _refreshRepo;
+    private readonly IAppUserRepository _users;
+    private readonly TokenService _tokenService;
+    private readonly IAuditLogRepository _audit;
     private readonly IWebHostEnvironment _env;
 
     public AuthController(
         AuthService authService,
         RefreshTokenService refreshTokens,
         IRefreshTokenRepository refreshRepo,
+        IAppUserRepository users,
+        TokenService tokenService,
+        IAuditLogRepository audit,
         IWebHostEnvironment env)
     {
         _authService = authService;
         _refreshTokens = refreshTokens;
         _refreshRepo = refreshRepo;
+        _users = users;
+        _tokenService = tokenService;
+        _audit = audit;
         _env = env;
     }
 
@@ -68,6 +78,63 @@ public class AuthController : ControllerBase
     {
         DeleteAuthCookies();
         return NoContent();
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-refresh")]
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh()
+    {
+        var ct = HttpContext.RequestAborted;
+
+        if (!Request.Cookies.TryGetValue("refresh_token", out var raw) || string.IsNullOrEmpty(raw))
+        {
+            DeleteAuthCookies();
+            return Unauthorized();
+        }
+
+        var ua = Request.Headers.UserAgent.ToString();
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var rotation = await _refreshTokens.RotateAsync(raw, ua, ip, ct);
+
+        if (!rotation.Ok)
+        {
+            // A presented-but-dead token that maps to a known family is a replay:
+            // RotateAsync has already burned the whole family. Record it.
+            if (rotation.ReuseDetected)
+            {
+                await _audit.AddAsync(new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    ActorId = rotation.UserId,
+                    Action = "auth.refresh_reuse_detected",
+                    TargetId = rotation.UserId,
+                    OccurredAt = DateTime.UtcNow,
+                });
+                await _audit.SaveChangesAsync();
+            }
+            DeleteAuthCookies();
+            return Unauthorized();
+        }
+
+        var user = await _users.GetByIdAsync(rotation.UserId);
+        if (user is null || !user.IsActive)
+        {
+            // User vanished or was disabled between issuing and refreshing —
+            // don't hand back a fresh access token. The rotated refresh row is
+            // orphaned but harmless (it can never mint a token now).
+            DeleteAuthCookies();
+            return Unauthorized();
+        }
+
+        var access = _tokenService.CreateUserAuthResponse(user);
+        AppendAccessCookie(access.AccessToken);
+        // Persist the rotated refresh cookie unconditionally: the server row
+        // carries the absolute lifetime cap, so always stamping Expires keeps a
+        // remembered session alive across rotations without threading the
+        // original remember-me flag through every hop.
+        AppendRefreshCookie(rotation.RawToken!, rememberMe: true, rotation.ExpiresAtUtc);
+        return Ok(new { user = access.User });
     }
 
     [Authorize(Policy = AuthConstants.AdminReadPolicy)]
