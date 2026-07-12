@@ -21,7 +21,10 @@ public class TokenService
 
     public AuthResponse CreateUserAuthResponse(AppUser user)
     {
-        var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.UserTokenLifetimeMinutes);
+        // Access tokens are now short-lived (paired with a rotating refresh token).
+        // The legacy UserTokenLifetimeMinutes option is retained for config
+        // back-compat but no longer drives the access-token expiry.
+        var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.UserAccessTokenLifetimeMinutes);
         var token = CreateToken(
             user.Id,
             user.Username,
