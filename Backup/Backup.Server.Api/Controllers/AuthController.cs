@@ -74,9 +74,93 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("logout")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout()
     {
+        // Revoke exactly this session (its whole rotation family) so the
+        // presented refresh token can never be rotated again — logging out is
+        // server-side, not just a cookie wipe.
+        if (Request.Cookies.TryGetValue("refresh_token", out var raw) && !string.IsNullOrEmpty(raw))
+        {
+            var token = await _refreshRepo.FindByHashAsync(RefreshTokenService.Hash(raw), HttpContext.RequestAborted);
+            if (token is not null)
+            {
+                await _refreshRepo.RevokeFamilyAsync(token.FamilyId, DateTime.UtcNow, HttpContext.RequestAborted);
+                await _refreshRepo.SaveChangesAsync(HttpContext.RequestAborted);
+            }
+        }
         DeleteAuthCookies();
+        return NoContent();
+    }
+
+    // Any authenticated user may drop all of their own sessions everywhere.
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
+    [HttpPost("logout-all")]
+    public async Task<IActionResult> LogoutAll()
+    {
+        var userId = User.TryGetUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        await _refreshRepo.RevokeAllForUserAsync(userId.Value, DateTime.UtcNow, HttpContext.RequestAborted);
+        await _refreshRepo.SaveChangesAsync(HttpContext.RequestAborted);
+        DeleteAuthCookies();
+        return NoContent();
+    }
+
+    // Lists the caller's own active sessions; flags the one whose refresh
+    // cookie was presented (available because the cookie is scoped to /api/auth).
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
+    [HttpGet("sessions")]
+    public async Task<IActionResult> Sessions()
+    {
+        var userId = User.TryGetUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        string? currentHash = null;
+        if (Request.Cookies.TryGetValue("refresh_token", out var raw) && !string.IsNullOrEmpty(raw))
+        {
+            currentHash = RefreshTokenService.Hash(raw);
+        }
+
+        var active = await _refreshRepo.GetActiveForUserAsync(userId.Value, HttpContext.RequestAborted);
+        var sessions = active.Select(t => new SessionDto(
+            t.Id,
+            t.CreatedAtUtc,
+            t.LastUsedAtUtc,
+            t.UserAgent,
+            t.CreatedByIp,
+            currentHash is not null && t.TokenHash == currentHash)).ToList();
+
+        return Ok(sessions);
+    }
+
+    // Revokes one of the caller's own sessions by id. A session that isn't the
+    // caller's (or doesn't exist) is indistinguishable → 404, so this endpoint
+    // can't be used to probe or revoke other users' sessions.
+    [Authorize(Policy = AuthConstants.AdminReadPolicy)]
+    [HttpDelete("sessions/{id:guid}")]
+    public async Task<IActionResult> RevokeSession(Guid id)
+    {
+        var userId = User.TryGetUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var active = await _refreshRepo.GetActiveForUserAsync(userId.Value, HttpContext.RequestAborted);
+        var target = active.FirstOrDefault(t => t.Id == id);
+        if (target is null)
+        {
+            return NotFound();
+        }
+
+        await _refreshRepo.RevokeFamilyAsync(target.FamilyId, DateTime.UtcNow, HttpContext.RequestAborted);
+        await _refreshRepo.SaveChangesAsync(HttpContext.RequestAborted);
         return NoContent();
     }
 
@@ -196,9 +280,14 @@ public class AuthController : ControllerBase
         });
     }
 
-    // Refresh cookie: scoped to the refresh endpoint so it never rides along
-    // with ordinary API calls. Remember-me controls only whether it persists
-    // (explicit Expires) or dies with the browser session.
+    // Refresh cookie is scoped to the /api/auth subtree so it never rides along
+    // with ordinary API calls (jobs, agents, artifacts…), yet is still presented
+    // to the session-management endpoints under /api/auth (refresh, logout,
+    // logout-all, sessions) that need to identify the current session.
+    private const string RefreshCookiePath = "/api/auth";
+
+    // Remember-me controls only whether the refresh cookie persists (explicit
+    // Expires) or dies with the browser session.
     private void AppendRefreshCookie(string raw, bool rememberMe, DateTime expiresAtUtc)
     {
         var opts = new CookieOptions
@@ -206,7 +295,7 @@ public class AuthController : ControllerBase
             HttpOnly = true,
             Secure = !_env.IsDevelopment(),
             SameSite = SameSiteMode.Strict,
-            Path = "/api/auth/refresh",
+            Path = RefreshCookiePath,
         };
         if (rememberMe)
         {
@@ -231,7 +320,7 @@ public class AuthController : ControllerBase
             HttpOnly = true,
             Secure = !_env.IsDevelopment(),
             SameSite = SameSiteMode.Strict,
-            Path = "/api/auth/refresh",
+            Path = RefreshCookiePath,
         });
     }
 }
