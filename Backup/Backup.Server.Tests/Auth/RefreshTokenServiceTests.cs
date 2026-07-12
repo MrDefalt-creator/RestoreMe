@@ -137,4 +137,31 @@ public sealed class RefreshTokenServiceTests : IAsyncLifetime
         var activeAfterReplay = await repo.GetActiveForUserAsync(userId);
         Assert.Empty(activeAfterReplay);
     }
+
+    [Fact]
+    public async Task TryMarkRotated_twice_on_same_active_token_wins_exactly_once()
+    {
+        // Directly exercises the atomicity guarantee at the repository level: the
+        // conditional UPDATE - not an in-memory IsActive() check - is what gates
+        // rotation. Two callers who both read the token as active (no re-fetch
+        // between calls) must NOT both win: the first claim returns 1, the second
+        // returns 0. This test would fail against a read-modify-write implementation.
+        await using var ctx = CreateContext();
+        var service = CreateService(ctx);
+        var userId = await SeedUser(ctx);
+        var familyId = Guid.NewGuid();
+
+        var t1 = await service.IssueAsync(userId, familyId, "agent-a", "127.0.0.1", CancellationToken.None);
+        await ctx.SaveChangesAsync();
+
+        var repo = new RefreshTokenRepository(ctx);
+        var now = DateTime.UtcNow;
+        var hash = RefreshTokenService.Hash(t1.RawToken);
+
+        var first = await repo.TryMarkRotatedAsync(hash, now, RefreshTokenService.Hash("child-a"), CancellationToken.None);
+        var second = await repo.TryMarkRotatedAsync(hash, now, RefreshTokenService.Hash("child-b"), CancellationToken.None);
+
+        Assert.Equal(1, first);
+        Assert.Equal(0, second);
+    }
 }

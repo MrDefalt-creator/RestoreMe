@@ -48,6 +48,11 @@ public class RefreshTokenService
         var newHash = Hash(newRaw);
         var expires = now.AddDays(_jwt.RefreshLifetimeDays);
 
+        // The atomic claim and the child-token insert must land together: a crash
+        // between them would leave the parent revoked with no replacement, forcing
+        // a re-login. Wrap them in one transaction (rolls back on any exception).
+        await using var tx = await _repo.BeginTransactionAsync(ct);
+
         // Single atomic UPDATE: only succeeds if the token is currently active.
         // Concurrent callers racing on the same token can't both win -> no forked family.
         var affected = await _repo.TryMarkRotatedAsync(hash, now, newHash, ct);
@@ -62,6 +67,7 @@ public class RefreshTokenService
                 FamilyId = current.FamilyId, ExpiresAtUtc = expires, UserAgent = ua, CreatedByIp = ip,
             }, ct);
             await _repo.SaveChangesAsync(ct);
+            await _repo.CommitTransactionAsync(ct);
             return new RotationResult(true, newRaw, expires, current.UserId, false);
         }
 
@@ -74,6 +80,7 @@ public class RefreshTokenService
 
         await _repo.RevokeFamilyAsync(existing.FamilyId, now, ct);
         await _repo.SaveChangesAsync(ct);
+        await _repo.CommitTransactionAsync(ct);
         return new RotationResult(false, null, default, existing.UserId, true);
     }
 }

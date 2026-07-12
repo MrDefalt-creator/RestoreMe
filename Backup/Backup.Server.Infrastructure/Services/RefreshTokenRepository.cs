@@ -50,5 +50,11 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 .SetProperty(x => x.LastUsedAtUtc, nowUtc)
                 .SetProperty(x => x.ReplacedByTokenHash, replacedByTokenHash), ct);
 
+    public async Task<IAsyncDisposable> BeginTransactionAsync(CancellationToken ct = default)
+        => await _db.Database.BeginTransactionAsync(ct);
+
+    public Task CommitTransactionAsync(CancellationToken ct = default)
+        => _db.Database.CurrentTransaction!.CommitAsync(ct);
+
     public Task SaveChangesAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
 }

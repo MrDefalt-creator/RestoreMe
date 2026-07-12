@@ -26,5 +26,12 @@ public interface IRefreshTokenRepository
     // This is a single DB UPDATE so concurrent callers cannot both win.
     Task<int> TryMarkRotatedAsync(string tokenHash, DateTime nowUtc, string replacedByTokenHash, CancellationToken ct = default);
 
+    // Opens a DB transaction so the atomic rotation UPDATE and the child-token
+    // insert commit as a unit — without it a crash between them would leave a
+    // token permanently revoked with no replacement, forcing a re-login.
+    Task<IAsyncDisposable> BeginTransactionAsync(CancellationToken ct = default);
+
+    Task CommitTransactionAsync(CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }
