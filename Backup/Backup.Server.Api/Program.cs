@@ -321,6 +321,21 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // Token-refresh endpoint (anonymous — bound only by the refresh cookie).
+    // Per-IP partition. A legitimate client refreshes at most a few times an
+    // hour; a burst signals credential-stuffing or a rotation storm.
+    options.AddPolicy("auth-refresh", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 30,
+                SegmentsPerWindow = 6,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+            }));
+
     // Authenticated agent endpoints (heartbeat, job completion, upload
     // tickets, etc.). Per-agent partition keyed off the JWT subject so a
     // compromised agent token can't DoS the backend for the whole fleet.
