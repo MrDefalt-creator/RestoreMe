@@ -65,3 +65,8 @@ export async function setUserPassword(userId: string, newPassword: string): Prom
 export async function deleteUser(userId: string): Promise<void> {
   await apiClient.delete(`/api/users/${userId}`)
 }
+
+// Admin action: sign a user out of every device without touching credentials.
+export async function revokeUserSessions(userId: string): Promise<void> {
+  await apiClient.post(`/api/users/${userId}/revoke-sessions`)
+}

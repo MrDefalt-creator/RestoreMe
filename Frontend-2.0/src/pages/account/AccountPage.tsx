@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
 import { useTheme, type ThemeMode } from '@/app/providers/ThemeProvider'
+import { ActiveSessionsCard } from '@/features/active-sessions/ActiveSessionsCard'
 import { changeOwnPassword } from '@/shared/api/auth'
 import { env } from '@/shared/config/env'
 import {
@@ -134,6 +135,8 @@ export function AccountPage() {
             </CardContent>
           </Card>
         </div>
+
+        <ActiveSessionsCard />
       </section>
 
       <section className="space-y-5">

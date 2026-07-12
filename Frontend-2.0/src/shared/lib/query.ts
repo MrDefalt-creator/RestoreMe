@@ -12,6 +12,7 @@ export const queryKeys = {
   artifactsPage: (page: number, sort: string) =>
     ['artifacts', 'page', page, sort] as const,
   users: ['users'] as const,
+  sessions: ['sessions'] as const,
   notificationChannels: ['notification-channels'] as const,
   auditLogs: (page: number, pageSize: number, action?: string) =>
     ['audit-logs', page, pageSize, action ?? null] as const,

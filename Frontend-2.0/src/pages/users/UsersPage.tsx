@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Shield, Trash2, UserCog } from 'lucide-react'
+import { KeyRound, LogOut, Shield, Trash2, UserCog } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/app/store/auth-store'
@@ -9,6 +9,7 @@ import { DeleteUserDialog } from '@/features/user-management/DeleteUserDialog'
 import { SetUserPasswordDialog } from '@/features/user-management/SetUserPasswordDialog'
 import {
   getUsers,
+  revokeUserSessions,
   updateUserRole,
   updateUserStatus,
   type User,
@@ -19,6 +20,7 @@ import { queryKeys } from '@/shared/lib/query'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardContent } from '@/shared/ui/Card'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Select } from '@/shared/ui/Select'
@@ -38,6 +40,7 @@ export function UsersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [passwordUser, setPasswordUser] = useState<User | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
+  const [revokeSessionsUser, setRevokeSessionsUser] = useState<User | null>(null)
   const currentUser = useAuthStore((state) => state.user)
   const isAdmin = currentUser?.role === 'admin'
   const queryClient = useQueryClient()
@@ -69,6 +72,17 @@ export function UsersPage() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t('Unable to update status'))
+    },
+  })
+
+  const revokeSessionsMutation = useMutation({
+    mutationFn: (userId: string) => revokeUserSessions(userId),
+    onSuccess: () => {
+      toast.success(t('Sessions ended'))
+      setRevokeSessionsUser(null)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Unable to end sessions'))
     },
   })
 
@@ -188,6 +202,10 @@ export function UsersPage() {
                               <KeyRound className="h-4 w-4" />
                               {t('Password')}
                             </Button>
+                            <Button size="sm" variant="secondary" onClick={() => setRevokeSessionsUser(user)}>
+                              <LogOut className="h-4 w-4" />
+                              {t('End sessions')}
+                            </Button>
                             <Button
                               size="sm"
                               variant="secondary"
@@ -236,6 +254,27 @@ export function UsersPage() {
         onSuccess={() => {
           setDeletingUser(null)
           void queryClient.invalidateQueries({ queryKey: queryKeys.users })
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(revokeSessionsUser)}
+        title={t('End all sessions?')}
+        description={
+          revokeSessionsUser
+            ? t('This signs {username} out of every device. They keep their password and can sign in again.', {
+                username: revokeSessionsUser.username,
+              })
+            : ''
+        }
+        confirmLabel={t('End sessions')}
+        cancelLabel={t('Cancel')}
+        variant="danger"
+        isLoading={revokeSessionsMutation.isPending}
+        onClose={() => setRevokeSessionsUser(null)}
+        onConfirm={() => {
+          if (revokeSessionsUser) {
+            revokeSessionsMutation.mutate(revokeSessionsUser.id)
+          }
         }}
       />
     </div>
