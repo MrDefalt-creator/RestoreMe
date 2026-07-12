@@ -12,17 +12,20 @@ public class UsersService
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IAdminEventBroadcaster _eventBroadcaster;
 
     public UsersService(
         IAppUserRepository appUserRepository,
         IPasswordHasher<AppUser> passwordHasher,
         IAuditLogRepository auditLogRepository,
+        IRefreshTokenRepository refreshTokenRepository,
         IAdminEventBroadcaster eventBroadcaster)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
         _auditLogRepository = auditLogRepository;
+        _refreshTokenRepository = refreshTokenRepository;
         _eventBroadcaster = eventBroadcaster;
     }
 
@@ -86,6 +89,16 @@ public class UsersService
         await _appUserRepository.UpdateAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorUserId, "user.status_change", userId, $"is_active={isActive}"));
         await _appUserRepository.SaveChangesAsync();
+
+        // Disabling an account must terminate its live sessions immediately, not
+        // wait for the access token to expire — a disabled user shouldn't be
+        // able to refresh into a new one.
+        if (!isActive)
+        {
+            await _refreshTokenRepository.RevokeAllForUserAsync(userId, DateTime.UtcNow);
+            await _refreshTokenRepository.SaveChangesAsync();
+        }
+
         _eventBroadcaster.Publish(AdminEventTopic.Users);
         return MapUser(user);
     }
@@ -107,6 +120,22 @@ public class UsersService
         await _appUserRepository.UpdateAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorId, "user.password_reset", userId));
         await _appUserRepository.SaveChangesAsync();
+
+        // An admin reset invalidates the target's existing sessions: they must
+        // sign in again with the new temporary password.
+        await _refreshTokenRepository.RevokeAllForUserAsync(userId, DateTime.UtcNow);
+        await _refreshTokenRepository.SaveChangesAsync();
+    }
+
+    // Admin-initiated "sign this user out everywhere" without touching their
+    // credentials.
+    public async Task RevokeSessionsAsync(Guid actorUserId, Guid userId)
+    {
+        var user = await GetUserByIdAsync(userId);
+        await _refreshTokenRepository.RevokeAllForUserAsync(user.Id, DateTime.UtcNow);
+        await _refreshTokenRepository.SaveChangesAsync();
+        await _auditLogRepository.AddAsync(Audit(actorUserId, "auth.sessions_revoked", userId));
+        await _auditLogRepository.SaveChangesAsync();
     }
 
     public async Task DeleteUserAsync(Guid actorUserId, Guid userId)
@@ -114,6 +143,9 @@ public class UsersService
         EnsureDifferentActor(actorUserId, userId, "You cannot delete the current signed-in account.");
         var user = await GetUserByIdAsync(userId);
         await EnsureAdminAvailabilityAsync(user, user.Role == AppUserRole.Admin && user.IsActive);
+        // The refresh-token FK is ON DELETE CASCADE, so deleting the user row
+        // removes all of its refresh tokens in the same transaction — no
+        // separate purge needed here.
         await _appUserRepository.DeleteAsync(user);
         await _auditLogRepository.AddAsync(Audit(actorUserId, "user.delete", userId, $"username={user.Username}"));
         await _appUserRepository.SaveChangesAsync();

@@ -249,14 +249,26 @@ public class AuthController : ControllerBase
         {
             var result = await _authService.ChangePasswordAsync(userId.Value, request);
 
-            // Rotate the auth cookie so the browser stops carrying the old
+            // ChangePasswordAsync just revoked every refresh session (including
+            // this device's). Mint a brand-new session so the current device
+            // stays signed in while all the user's other sessions are dropped.
+            var familyId = Guid.NewGuid();
+            var refresh = await _refreshTokens.IssueAsync(
+                userId.Value,
+                familyId,
+                Request.Headers.UserAgent.ToString(),
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                HttpContext.RequestAborted);
+            await _refreshRepo.SaveChangesAsync(HttpContext.RequestAborted);
+
+            // Rotate the access cookie too so the browser stops carrying the old
             // JWT (whose security stamp the service just invalidated). Without
             // this the user is involuntarily signed out 30 s later when the
             // stamp cache expires and the validator rejects the stale token.
-            // We mint a session cookie here — the previous "Remember me"
-            // preference isn't recoverable mid-session, and downgrading to a
-            // session cookie is the safer default after a password rotation.
+            // The access cookie is session-scoped; the refresh cookie is
+            // re-issued session-scoped (remember-me isn't recoverable here).
             AppendAccessCookie(result.AccessToken);
+            AppendRefreshCookie(refresh.RawToken, rememberMe: false, refresh.ExpiresAtUtc);
 
             return Ok(new { user = result.User });
         }

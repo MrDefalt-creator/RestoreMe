@@ -29,6 +29,7 @@ public class AuthService
     private readonly IPasswordHasher<AppUser> _passwordHasher;
     private readonly TokenService _tokenService;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IMemoryCache _memoryCache;
 
     public AuthService(
@@ -36,12 +37,14 @@ public class AuthService
         IPasswordHasher<AppUser> passwordHasher,
         TokenService tokenService,
         IAuditLogRepository auditLogRepository,
+        IRefreshTokenRepository refreshTokenRepository,
         IMemoryCache memoryCache)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _auditLogRepository = auditLogRepository;
+        _refreshTokenRepository = refreshTokenRepository;
         _memoryCache = memoryCache;
     }
 
@@ -140,6 +143,12 @@ public class AuthService
         user.LockedUntilUtc = null;
         await _appUserRepository.UpdateAsync(user);
         await _appUserRepository.SaveChangesAsync();
+
+        // A password change invalidates every existing refresh session for this
+        // user. The controller re-issues a fresh session for the current device
+        // afterward, so in practice this signs the user out of all OTHER devices.
+        await _refreshTokenRepository.RevokeAllForUserAsync(user.Id, DateTime.UtcNow);
+        await _refreshTokenRepository.SaveChangesAsync();
 
         // Drop the cached security stamp so the previously issued token can't
         // outlive the rotation (cache TTL is 30 s and would otherwise keep

@@ -94,6 +94,26 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{userId:guid}/revoke-sessions")]
+    public async Task<IActionResult> RevokeSessions([FromRoute] Guid userId)
+    {
+        var actorUserId = User.TryGetUserId();
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await _usersService.RevokeSessionsAsync(actorUserId.Value, userId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpDelete("{userId:guid}")]
     public async Task<IActionResult> DeleteUser([FromRoute] Guid userId)
     {
