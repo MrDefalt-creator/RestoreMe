@@ -65,6 +65,7 @@ public sealed class RefreshEndpointTests : IAsyncLifetime
             new PasswordHasher<AppUser>(),
             tokenService,
             audit,
+            refreshRepo,
             new MemoryCache(new MemoryCacheOptions()));
 
         var controller = new AuthController(
