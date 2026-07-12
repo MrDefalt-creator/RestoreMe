@@ -14,6 +14,10 @@ public class RefreshToken
     public string? ReplacedByTokenHash { get; set; }
     public string? UserAgent { get; set; }
     public string? CreatedByIp { get; set; }
+    // Whether this session's refresh cookie should persist across browser
+    // restarts (remember-me). Carried across rotation so a refresh never
+    // upgrades a session-only cookie into a persistent one.
+    public bool Persistent { get; set; }
 
     public bool IsActive(DateTime nowUtc) => RevokedAtUtc is null && ExpiresAtUtc > nowUtc;
 }

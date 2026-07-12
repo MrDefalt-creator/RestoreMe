@@ -16,11 +16,19 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
             .IsRequired()
             .HasMaxLength(64);
 
+        // Also a SHA-256 hex value; keep it sized like TokenHash rather than
+        // an unbounded text column.
+        builder.Property(x => x.ReplacedByTokenHash).HasMaxLength(64);
+
         // Refresh lookups happen by hash on every rotation, so this pays off.
         builder.HasIndex(x => x.TokenHash).IsUnique();
 
         // Session listing / bulk-revoke queries filter by user and active status.
         builder.HasIndex(x => new { x.UserId, x.RevokedAtUtc });
+
+        // Family revoke (logout, reuse-burn, single-session revoke) filters by
+        // FamilyId — index it so those aren't table scans.
+        builder.HasIndex(x => x.FamilyId);
 
         builder.Property(x => x.UserAgent).HasMaxLength(400);
         builder.Property(x => x.CreatedByIp).HasMaxLength(64);
