@@ -19,4 +19,10 @@ public class JwtOptions
 
     public int UserAccessTokenLifetimeMinutes { get; init; } = 15;
     public int RefreshLifetimeDays { get; init; } = 30;
+
+    // Grace window after a token is rotated during which re-presenting the
+    // parent token is treated as a benign duplicate (a concurrent browser tab,
+    // or a retried request whose Set-Cookie was lost) rather than token reuse.
+    // Outside this window a replayed rotated token still burns the family.
+    public int RefreshReuseGraceSeconds { get; init; } = 30;
 }

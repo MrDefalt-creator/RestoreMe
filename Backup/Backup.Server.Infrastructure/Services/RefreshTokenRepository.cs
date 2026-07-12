@@ -17,8 +17,12 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     public async Task AddAsync(RefreshToken token, CancellationToken ct = default)
         => await _db.RefreshTokens.AddAsync(token, ct);
 
+    // No-tracking so callers always see the row's current persisted state.
+    // Rotation stamps the row via ExecuteUpdate (which bypasses the change
+    // tracker), so a tracked read could return stale RevokedAtUtc/
+    // ReplacedByTokenHash and misclassify a benign race as token reuse.
     public Task<RefreshToken?> FindByHashAsync(string tokenHash, CancellationToken ct = default)
-        => _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == tokenHash, ct);
+        => _db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(x => x.TokenHash == tokenHash, ct);
 
     public async Task<IReadOnlyList<RefreshToken>> GetActiveForUserAsync(Guid userId, CancellationToken ct = default)
         => await _db.RefreshTokens

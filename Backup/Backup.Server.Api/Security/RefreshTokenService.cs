@@ -71,13 +71,41 @@ public class RefreshTokenService
             return new RotationResult(true, newRaw, expires, current.UserId, false);
         }
 
-        // affected == 0: token was not active (never existed, or already
-        // rotated/revoked/expired). If it exists at all, this is a replay of a
-        // dead token -> burn the whole family.
+        // affected == 0: token was not active. Disambiguate why before deciding
+        // whether this is an attack — burning the family on a benign event
+        // force-logs-out a legitimate user and raises a false reuse alarm.
         var existing = await _repo.FindByHashAsync(hash, ct);
         if (existing is null)
+        {
+            // Unknown token: nothing to burn, no known family. (No writes made,
+            // so the transaction rolls back on dispose.)
             return new RotationResult(false, null, default, Guid.Empty, false);
+        }
 
+        // Benign expiry: a token that simply aged out (never revoked) is not a
+        // replay. A user returning after the refresh lifetime should just be
+        // asked to sign in again — not flagged as an attacker.
+        if (existing.RevokedAtUtc is null && existing.ExpiresAtUtc <= now)
+        {
+            return new RotationResult(false, null, default, existing.UserId, false);
+        }
+
+        // Benign race / retry: the token was rotated very recently (it has a
+        // replacement and was revoked within the grace window). This is a
+        // concurrent tab or a retried request after a lost Set-Cookie, not a
+        // replay of a long-dead token. The caller's newer cookie (the child)
+        // is still valid, so don't burn the family.
+        var graceCutoff = now.AddSeconds(-_jwt.RefreshReuseGraceSeconds);
+        if (existing.ReplacedByTokenHash is not null
+            && existing.RevokedAtUtc is not null
+            && existing.RevokedAtUtc.Value > graceCutoff)
+        {
+            return new RotationResult(false, null, default, existing.UserId, false);
+        }
+
+        // Otherwise this is a genuine replay of a dead token (revoked outside
+        // the grace window, or revoked without ever being rotated — e.g. after
+        // logout). Burn the whole family.
         await _repo.RevokeFamilyAsync(existing.FamilyId, now, ct);
         await _repo.SaveChangesAsync(ct);
         await _repo.CommitTransactionAsync(ct);

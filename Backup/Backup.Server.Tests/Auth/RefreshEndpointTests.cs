@@ -148,7 +148,7 @@ public sealed class RefreshEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Refresh_replaying_a_rotated_token_returns_401_burns_family_and_audits()
+    public async Task Refresh_replaying_a_stale_rotated_token_returns_401_burns_family_and_audits()
     {
         await using var seedCtx = CreateContext();
         var userId = await SeedUser(seedCtx);
@@ -163,7 +163,11 @@ public sealed class RefreshEndpointTests : IAsyncLifetime
             Assert.IsType<OkObjectResult>(ok);
         }
 
-        // Replay the now-rotated original token: must be rejected and burn the family.
+        // Age the original token's revocation past the reuse grace window so the
+        // replay reads as a genuine reuse rather than a same-instant race.
+        await BackdateRevocation(issued.RawToken, TimeSpan.FromMinutes(5));
+
+        // Replay the now-stale original token: must be rejected and burn the family.
         await using var ctx2 = CreateContext();
         var replay = await CreateController(ctx2, issued.RawToken).Refresh();
         Assert.IsType<UnauthorizedResult>(replay);
@@ -175,6 +179,55 @@ public sealed class RefreshEndpointTests : IAsyncLifetime
         var audits = await ctx2.AuditLogs.Where(a => a.Action == "auth.refresh_reuse_detected").ToListAsync();
         Assert.Single(audits);
         Assert.Equal(userId, audits[0].ActorId);
+    }
+
+    [Fact]
+    public async Task Refresh_immediate_replay_within_grace_returns_401_without_burning_or_auditing()
+    {
+        // A concurrent tab / retried refresh presents the parent token moments
+        // after it was rotated. The endpoint rejects it (no new token) but must
+        // NOT burn the family or raise a reuse alarm — the real user keeps their
+        // freshly-rotated session.
+        await using var seedCtx = CreateContext();
+        var userId = await SeedUser(seedCtx);
+        var issueService = new RefreshTokenService(new RefreshTokenRepository(seedCtx), Options.Create(new JwtOptions()));
+        var issued = await issueService.IssueAsync(userId, Guid.NewGuid(), "agent-a", "127.0.0.1", CancellationToken.None);
+        await seedCtx.SaveChangesAsync();
+
+        string? childRaw;
+        await using (var ctx1 = CreateContext())
+        {
+            var controller = CreateController(ctx1, issued.RawToken);
+            var ok = await controller.Refresh();
+            Assert.IsType<OkObjectResult>(ok);
+            childRaw = RefreshCookieValue(controller.Response);
+        }
+
+        // Replay the original token immediately (within the grace window).
+        await using var ctx2 = CreateContext();
+        var replay = await CreateController(ctx2, issued.RawToken).Refresh();
+        Assert.IsType<UnauthorizedResult>(replay);
+
+        // The rotated child is still active — the user was NOT logged out...
+        var repo = new RefreshTokenRepository(ctx2);
+        var active = await repo.GetActiveForUserAsync(userId);
+        Assert.Single(active);
+        Assert.Equal(RefreshTokenService.Hash(childRaw!), active[0].TokenHash);
+
+        // ...and no false reuse alarm was recorded.
+        var audits = await ctx2.AuditLogs.Where(a => a.Action == "auth.refresh_reuse_detected").ToListAsync();
+        Assert.Empty(audits);
+    }
+
+    // Ages a token's revocation timestamp so a replay falls outside the reuse
+    // grace window (opens its own context against the shared in-memory DB).
+    private async Task BackdateRevocation(string rawToken, TimeSpan age)
+    {
+        await using var ctx = CreateContext();
+        var hash = RefreshTokenService.Hash(rawToken);
+        var row = await ctx.RefreshTokens.FirstAsync(x => x.TokenHash == hash);
+        row.RevokedAtUtc = DateTime.UtcNow - age;
+        await ctx.SaveChangesAsync();
     }
 
     private sealed class FakeEnv : IWebHostEnvironment
