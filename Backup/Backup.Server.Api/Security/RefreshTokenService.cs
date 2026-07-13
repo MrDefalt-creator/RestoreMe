@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Backup.Server.Api.Security;
 
 public sealed record IssuedRefreshToken(string RawToken, DateTime ExpiresAtUtc);
-public sealed record RotationResult(bool Ok, string? RawToken, DateTime ExpiresAtUtc, Guid UserId, bool ReuseDetected);
+public sealed record RotationResult(bool Ok, string? RawToken, DateTime ExpiresAtUtc, Guid UserId, bool ReuseDetected, bool Persistent = false);
 
 public class RefreshTokenService
 {
@@ -23,14 +23,14 @@ public class RefreshTokenService
         => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .Replace('+', '-').Replace('/', '_').TrimEnd('=');
 
-    public async Task<IssuedRefreshToken> IssueAsync(Guid userId, Guid familyId, string? ua, string? ip, CancellationToken ct)
+    public async Task<IssuedRefreshToken> IssueAsync(Guid userId, Guid familyId, string? ua, string? ip, CancellationToken ct, bool persistent = false)
     {
         var raw = NewRawToken();
         var expires = DateTime.UtcNow.AddDays(_jwt.RefreshLifetimeDays);
         await _repo.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(), UserId = userId, TokenHash = Hash(raw), FamilyId = familyId,
-            ExpiresAtUtc = expires, UserAgent = ua, CreatedByIp = ip,
+            ExpiresAtUtc = expires, UserAgent = ua, CreatedByIp = ip, Persistent = persistent,
         }, ct);
         return new IssuedRefreshToken(raw, expires);
     }
@@ -65,10 +65,13 @@ public class RefreshTokenService
             {
                 Id = Guid.NewGuid(), UserId = current!.UserId, TokenHash = newHash,
                 FamilyId = current.FamilyId, ExpiresAtUtc = expires, UserAgent = ua, CreatedByIp = ip,
+                // Carry the remember-me choice across rotation so a refresh never
+                // upgrades a session-only cookie into a persistent one.
+                Persistent = current.Persistent,
             }, ct);
             await _repo.SaveChangesAsync(ct);
             await _repo.CommitTransactionAsync(ct);
-            return new RotationResult(true, newRaw, expires, current.UserId, false);
+            return new RotationResult(true, newRaw, expires, current.UserId, false, current.Persistent);
         }
 
         // affected == 0: token was not active. Disambiguate why before deciding

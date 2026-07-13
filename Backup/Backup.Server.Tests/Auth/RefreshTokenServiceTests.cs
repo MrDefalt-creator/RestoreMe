@@ -79,6 +79,33 @@ public sealed class RefreshTokenServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Persistent_flag_is_carried_across_rotation()
+    {
+        // A remember-me session must stay persistent across every rotation, and a
+        // session-only one must never be silently upgraded.
+        await using var ctx = CreateContext();
+        var service = CreateService(ctx);
+        var userId = await SeedUser(ctx);
+
+        var remembered = await service.IssueAsync(userId, Guid.NewGuid(), "a", "127.0.0.1", CancellationToken.None, persistent: true);
+        var sessionOnly = await service.IssueAsync(userId, Guid.NewGuid(), "b", "127.0.0.1", CancellationToken.None, persistent: false);
+        await ctx.SaveChangesAsync();
+
+        var rememberedRotation = await service.RotateAsync(remembered.RawToken, "a", "127.0.0.1", CancellationToken.None);
+        var sessionRotation = await service.RotateAsync(sessionOnly.RawToken, "b", "127.0.0.1", CancellationToken.None);
+
+        Assert.True(rememberedRotation.Ok);
+        Assert.True(rememberedRotation.Persistent);
+        Assert.True(sessionRotation.Ok);
+        Assert.False(sessionRotation.Persistent);
+
+        // And the persisted child rows reflect the same choice.
+        var childHash = RefreshTokenService.Hash(rememberedRotation.RawToken!);
+        var child = await ctx.RefreshTokens.AsNoTracking().FirstAsync(x => x.TokenHash == childHash);
+        Assert.True(child.Persistent);
+    }
+
+    [Fact]
     public void Hash_is_deterministic_hex_64()
     {
         var h = RefreshTokenService.Hash("abc");

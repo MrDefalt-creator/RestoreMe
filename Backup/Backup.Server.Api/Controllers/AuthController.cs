@@ -58,7 +58,8 @@ public class AuthController : ControllerBase
                 familyId,
                 Request.Headers.UserAgent.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted,
+                persistent: request.RememberMe);
             await _refreshRepo.SaveChangesAsync(HttpContext.RequestAborted);
 
             AppendAccessCookie(result.AccessToken);
@@ -213,11 +214,11 @@ public class AuthController : ControllerBase
 
         var access = _tokenService.CreateUserAuthResponse(user);
         AppendAccessCookie(access.AccessToken);
-        // Persist the rotated refresh cookie unconditionally: the server row
-        // carries the absolute lifetime cap, so always stamping Expires keeps a
-        // remembered session alive across rotations without threading the
-        // original remember-me flag through every hop.
-        AppendRefreshCookie(rotation.RawToken!, rememberMe: true, rotation.ExpiresAtUtc);
+        // Honor the session's original remember-me choice (carried on the token
+        // across rotation): a session-only login stays session-only, a
+        // remembered one keeps its persistent Expires. Never silently upgrade a
+        // "don't remember me" login into a 30-day on-disk cookie.
+        AppendRefreshCookie(rotation.RawToken!, rememberMe: rotation.Persistent, rotation.ExpiresAtUtc);
         return Ok(new { user = access.User });
     }
 
@@ -245,6 +246,15 @@ public class AuthController : ControllerBase
             return Unauthorized();
         }
 
+        // Capture the current session's remember-me choice before the change
+        // revokes it, so the re-issued session below preserves it.
+        var wasPersistent = false;
+        if (Request.Cookies.TryGetValue("refresh_token", out var presented) && !string.IsNullOrEmpty(presented))
+        {
+            var presentedToken = await _refreshRepo.FindByHashAsync(RefreshTokenService.Hash(presented), HttpContext.RequestAborted);
+            wasPersistent = presentedToken?.Persistent ?? false;
+        }
+
         try
         {
             var result = await _authService.ChangePasswordAsync(userId.Value, request);
@@ -258,17 +268,18 @@ public class AuthController : ControllerBase
                 familyId,
                 Request.Headers.UserAgent.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted,
+                persistent: wasPersistent);
             await _refreshRepo.SaveChangesAsync(HttpContext.RequestAborted);
 
             // Rotate the access cookie too so the browser stops carrying the old
             // JWT (whose security stamp the service just invalidated). Without
             // this the user is involuntarily signed out 30 s later when the
             // stamp cache expires and the validator rejects the stale token.
-            // The access cookie is session-scoped; the refresh cookie is
-            // re-issued session-scoped (remember-me isn't recoverable here).
+            // The access cookie is session-scoped; the refresh cookie preserves
+            // the session's original remember-me choice.
             AppendAccessCookie(result.AccessToken);
-            AppendRefreshCookie(refresh.RawToken, rememberMe: false, refresh.ExpiresAtUtc);
+            AppendRefreshCookie(refresh.RawToken, rememberMe: wasPersistent, refresh.ExpiresAtUtc);
 
             return Ok(new { user = result.User });
         }
