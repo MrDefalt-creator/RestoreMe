@@ -41,8 +41,9 @@ dotnet build .\Backup.Server.Api\Backup.Server.Api.csproj
 ### Tests (xUnit)
 ```powershell
 cd Backup
-dotnet test BackupSystem.slnx                                       # whole solution
-dotnet test .\Backup.Server.Tests\Backup.Server.Tests.csproj        # just the test project
+dotnet test BackupSystem.slnx                                       # whole solution (both test projects)
+dotnet test .\Backup.Server.Tests\Backup.Server.Tests.csproj        # backend/server tests
+dotnet test .\Backup.Agent.Worker.Tests\Backup.Agent.Worker.Tests.csproj  # agent worker tests
 dotnet test --filter "FullyQualifiedName~AgentSelectiveDelete"      # single test or class
 ```
 CI runs `dotnet restore` → `dotnet build --configuration Release` → `dotnet test --no-build` on every push.
@@ -78,6 +79,7 @@ Backup.Server.Infrastructure EF Core (AppDbContext, repositories, migrations), M
 Backup.Server.Api            Controllers, Program.cs (DI root), JWT + AgentEnrollment auth
 Backup.Server.Tests          xUnit integration tests (SQLite + DataProtection)
 Backup.Agent.Worker          Standalone worker: heartbeat, policy sync, backup execution, upload
+Backup.Agent.Worker.Tests    xUnit tests for the agent (dump reader/writer, restore, zip-slip)
 ```
 
 `Program.cs` is the DI composition root — services, options, CORS, auth schemes, EF context all wired there.
@@ -139,6 +141,8 @@ When an agent reports a finished upload (`AddArtifact` in `BackupJobsService`), 
 
 Re-hashing is costly for huge backups: `Storage:ChecksumVerifyMaxBytes` (null = no cap) skips the re-hash for objects larger than the limit — existence + size are still checked, and the skip is audit-logged as `artifact.verify_skipped`. Verification is also skipped when the agent reports no checksum.
 
+That gate runs once, at upload time. A separate **scheduled integrity scrub** (`IntegrityScrubService`, `BackgroundService`) re-verifies already-stored artifacts on an admin-configurable cadence to catch bit-rot / drift after the fact. Each artifact carries per-artifact integrity state (see `AddArtifactIntegrityState` migration); the scrub picks a batch of the least-recently-checked, re-hashes them, updates state, and on any failure fires `NotifyIntegrityCheckFailedAsync` (the `IntegrityCheckFailed` notification event) and audit-logs as a system action (`ActorId=null`). Settings are DB-backed (`IntegrityScrubSettings`, admin-managed via `IntegritySettingsController`'s GET/PUT → the integrity-settings card on the `/notifications` page); an on-demand "verify now" is a per-artifact action on the Backups page. The pure batch-selection logic lives in `IntegrityScrubDecision` (unit-tested in `Backup.Server.Tests/Integrity`).
+
 ### Retention
 
 Policies carry three optional retention knobs (`BackupPolicy`): `RetentionDays`, `RetentionMaxCount` (keep newest N), `RetentionMaxTotalBytes` (size budget). `RetentionEvaluator.SelectForDeletion` is **pure, DB-free** decision logic (heavily unit-tested in `Backup.Server.Tests/Retention`):
@@ -154,9 +158,13 @@ Policies carry three optional retention knobs (`BackupPolicy`): `RetentionDays`,
 The old single `Notifications:FailureWebhookUrl` config has been replaced by an admin-managed, DB-backed notification system (no notification config in `appsettings.json` anymore).
 
 - **Channels** are `NotificationChannel` rows (admin-managed via `NotificationChannelsController` → `/notifications` page). Each has a `Type` (`Webhook`, `Telegram`, `Slack`, `Discord`), a per-type `Settings` JSON blob (encrypted at rest via DataProtection — every type carries a secret: bot token, webhook URL, or HMAC secret), and a comma-separated `SubscribedEvents` filter. `SubscribedEvents = NULL` means "all events" (the trivial upgrade path from the legacy single webhook).
-- **Event types** (`NotificationEventType`): `BackupFailed`, `RestoreFailed`, `BackupCompleted`, `AgentOffline`, `AgentBackOnline`, `PolicyAutoDisabled`, `RetentionCleaned`.
+- **Event types** (`NotificationEventType`): `BackupFailed`, `RestoreFailed`, `BackupCompleted`, `AgentOffline`, `AgentBackOnline`, `PolicyAutoDisabled`, `RetentionCleaned`, `IntegrityCheckFailed`.
 - **`NotificationDispatcher`** (`INotificationService`) builds a channel-neutral `NotificationEvent`, fans it out to every enabled+subscribed channel, and routes each through its `INotificationChannelAdapter` (`GenericWebhookAdapter`/`TelegramAdapter`/`SlackAdapter`/`DiscordAdapter`, registered as typed `HttpClient`s with a capped timeout). Delivery is **best-effort**: a failing adapter (or even a DB error enumerating channels) is swallowed per-channel and logged, so one broken Slack URL can't suppress Telegram or block the failing backup job that triggered it. Every attempt is audit-logged as `notification.sent` / `notification.failed` (rendered message body and secrets deliberately excluded).
 - **Test send**: `SendTestAsync` bypasses the `SubscribedEvents` filter so the admin "Test channel" button works even on channels that haven't opted into the test event.
+
+### Policy scheduling (cron + backup windows)
+
+A policy's `ScheduleKind` (`ScheduleKind` enum) is either a fixed **interval** or a **cron** schedule (5-field expression + IANA timezone, DST-aware). Interval policies may also be confined to a daily **backup window** (e.g. 22:00–06:00, may span midnight) so backups only start inside the allowed hours. **All schedule computation stays server-side** — the agent still just executes jobs the backend marks due, so agents are unchanged by this feature. `PolicyScheduleValidator` validates cron/timezone/window on create/update; `PolicyScheduleCalculator` computes next-run times and backs `POST /api/policies/schedule-preview`, which returns the next three runs for the live preview in the policy form. Both are pure and unit-tested (`Backup.Server.Tests/Scheduling`). Wire-compatibility note: the field was renamed `NexRunAt` → `NextRunAt` but keeps its old JSON name via `JsonPropertyName`.
 
 ### Policy auto-disable
 
@@ -230,6 +238,10 @@ On the Agents page, admins/operators copy a one-liner that installs and enrols a
 - Policy sync every `PolicySyncIntervalSeconds` (default 30s)
 - Executes due backup jobs: filesystem ZIP or logical DB dump (`pg_dump` / `mysqldump`)
 - Requests presigned upload ticket from backend, uploads artifact directly to MinIO
+
+### Logical dump compression (per-policy zstd)
+
+When a policy has `CompressDumps` on (default on for DB policies), the agent streams `pg_dump`/`mysqldump` output through zstd straight into the artifact (`DumpArtifactWriter`), so a full plain-SQL copy never touches the agent's temp disk. Restore is format-agnostic: `DumpArtifactReader` sniffs the zstd **magic bytes** and transparently decompresses, so legacy plain-`.sql` artifacts keep restoring unchanged (`LogicalRestoreService`). Compression is pure-managed (`ZstdSharp.Port`) — no native dependency is added to the self-contained agent binary. Filesystem policies are unaffected (ZIP archives are already compressed). Covered by `Backup.Agent.Worker.Tests` (`DumpArtifactReaderTests`/`DumpArtifactWriterTests`).
 
 ### State and key ring
 
