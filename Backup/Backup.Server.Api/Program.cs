@@ -591,6 +591,18 @@ static async Task ApplyMigrationsAsync(WebApplication app)
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
 
+    // Integration tests run on SQLite, where the Npgsql migrations don't apply.
+    // Materialize the schema directly instead (the same path the unit tests use).
+    // Keyed on the provider, not the environment, so a real Development run
+    // against Postgres still migrates normally.
+    var providerName = dbContext.Database.ProviderName;
+    if (providerName is not null && providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        await dbContext.Database.EnsureCreatedAsync();
+        logger.LogInformation("SQLite provider detected: schema created via EnsureCreated.");
+        return;
+    }
+
     logger.LogInformation("Applying database migrations...");
     await dbContext.Database.MigrateAsync();
     logger.LogInformation("Database migrations applied successfully.");
@@ -602,3 +614,6 @@ static async Task EnsureSecuritySeedAsync(WebApplication app)
     var seeder = scope.ServiceProvider.GetRequiredService<SecuritySeedService>();
     await seeder.EnsureSeedUsersAsync();
 }
+
+// Exposes the top-level Program type to WebApplicationFactory<Program> in tests.
+public partial class Program { }
